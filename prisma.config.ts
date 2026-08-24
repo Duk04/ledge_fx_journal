@@ -1,31 +1,45 @@
 // Prisma CLI configuration.
 //
-// This project's sandboxed dev environment cannot reach binaries.prisma.sh
-// (the CDN Prisma's CLI normally downloads its native schema-engine /
-// query-engine binaries from), so the CLI is pointed at the JS/Wasm schema
-// engine instead, driven over a real `pg` connection via the official
-// `@prisma/adapter-pg` driver adapter. This requires no native binary
-// download at all. See docs/DATA-MODEL.md for more context.
+// Deliberately minimal: schema location, and the seed command (which used to
+// live in package.json#prisma, deprecated since Prisma 6).
+//
+// It does NOT register a driver adapter. Doing so made the CLI talk to Postgres
+// through `@prisma/adapter-pg`, whose OID mapping is missing Postgres\'s own
+// `name`/`char` catalog types — so `migrate deploy` died with "Column type
+// \'name\' could not be deserialized from the database" while merely reading
+// pg_catalog. The native schema engine has no such problem.
+//
+// If you are on a network that blocks binaries.prisma.sh (where the native
+// engine is downloaded from), set PRISMA_JS_ENGINE=1 to fall back to the
+// pure-JS engine driven over a `pg` connection. That path needs
+// `engineType = "client"` on the generator block too — see docs/DATA-MODEL.md.
 import { defineConfig } from "prisma/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 
-// The Prisma CLI does not auto-load `.env` once a prisma.config.ts is
-// present, so load it ourselves (Node's built-in loader — no extra
-// dependency needed).
+// The Prisma CLI does not auto-load `.env` once a prisma.config.ts is present,
+// so load it ourselves (Node built-in — no extra dependency).
 try {
   process.loadEnvFile();
 } catch {
-  // no .env file present (e.g. in CI where vars are injected directly)
+  // No .env file (e.g. CI, where variables are injected directly).
 }
 
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  experimental: {
-    adapter: true,
-  },
-  migrations: {
-    seed: "tsx prisma/seed.ts",
-  },
-  engine: "js",
-  adapter: async () => new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-});
+const schema = "prisma/schema.prisma";
+const migrations = { seed: "tsx prisma/seed.ts" };
+
+// Two separate calls rather than one spread: `defineConfig`\'s parameter is a
+// union (JS engine WITH an adapter, or no engine key at all), and a spread of
+// optional keys does not narrow to either arm.
+export default process.env.PRISMA_JS_ENGINE === "1"
+  ? defineConfig({
+      schema,
+      migrations,
+      experimental: { adapter: true },
+      engine: "js",
+      adapter: async () => {
+        const { PrismaPg } = await import("@prisma/adapter-pg");
+        return new PrismaPg({
+          connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL,
+        });
+      },
+    })
+  : defineConfig({ schema, migrations });

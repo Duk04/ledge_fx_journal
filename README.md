@@ -92,7 +92,8 @@ change, in dev and in any migration plan for production data.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Run the Vitest suite once |
 | `npm run test:watch` | Vitest in watch mode |
-| `npm run db:migrate` | `prisma migrate dev` — apply schema changes |
+| `npm run db:migrate` | `prisma migrate deploy` — apply committed migrations (no shadow DB needed) |
+| `npm run db:migrate:new` | `prisma migrate dev` — author a NEW migration; needs a local Postgres |
 | `npm run db:seed` | `tsx prisma/seed.ts` — idempotent demo data |
 | `npm run db:reset` | `prisma migrate reset` — drop, re-migrate, re-seed |
 | `npm run db:studio` | Prisma Studio |

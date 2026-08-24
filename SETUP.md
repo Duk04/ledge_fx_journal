@@ -158,3 +158,82 @@ See `README.md`'s **"Before production"** section for the rest of the
 pre-launch checklist (turning off dev login, RLS, re-running the backfill,
 etc.) — this file only covers *getting it running*, not *making it
 production-ready*.
+
+
+---
+
+## Two errors you will hit with a hosted Postgres (and the fix)
+
+Both of these were hit for real while setting this project up against Supabase,
+so they are written down rather than left to be rediscovered.
+
+### `Error opening a TLS connection: self-signed certificate in certificate chain`
+### `Column type 'name' could not be deserialized from the database`
+
+These two have the same root cause, and it is worth understanding because the
+fix was to delete a workaround rather than add one.
+
+An earlier version of this project drove Prisma through the
+`@prisma/adapter-pg` driver adapter instead of Prisma's native query engine.
+That was never a design decision — it was a workaround for a build machine that
+could not reach `binaries.prisma.sh`. Routing Prisma through `node-postgres`
+brought two of its quirks along:
+
+- **TLS.** `node-postgres` does not follow libpq semantics for `sslmode`: it
+  reads `require` as `verify-full`, i.e. strict certificate-chain verification,
+  which fails against Supabase's pooler on most machines. Prisma's own engine
+  follows libpq — encrypted, chain not verified — so `sslmode=require` works.
+- **`Column type 'name'`.** `@prisma/adapter-pg` is missing OIDs 18 (`char`)
+  and 19 (`name`) from its type map, and both are types Postgres uses in its own
+  system catalogs. The migration engine failed while merely *reading*
+  `pg_catalog`, before touching a single table of yours.
+
+The project now uses the native engine by default and has neither problem. If
+you see either error, check that `prisma/schema.prisma` has **no** `engineType`
+line and that `PRISMA_JS_ENGINE` is unset.
+
+**If your network really does block `binaries.prisma.sh`**, the fallback is:
+
+1. Add `engineType = "client"` to the `generator client` block.
+2. Set `PRISMA_JS_ENGINE=1` — both `prisma.config.ts` and `src/lib/db.ts` read it.
+3. Change `sslmode=require` to `sslmode=no-verify` in both URLs.
+4. Patch the adapter's OID gap: in `node_modules/@prisma/adapter-pg/dist/index.js`
+   and `index.mjs`, add `case 18:` and `case 19:` alongside the branch mapping to
+   `Text`. This does not survive `npm install` and needs reapplying each time.
+
+Step 4 is why the fallback is a fallback.
+
+### `Timed out fetching a new connection from the connection pool`
+
+`connection_limit=1` in `DATABASE_URL`. Supabase's docs suggest that value
+because they assume serverless, where each function instance has its own pool.
+A long-running Next.js server is the opposite situation: one process, many
+concurrent queries — the trades page alone runs five in parallel. Raise it to
+`connection_limit=5`; the project's pooler allows 15 per user+db combination.
+
+### `P3006 ... type "UserRole" already exists` / shadow database errors
+
+`prisma migrate dev` is for *authoring* new migrations: it needs a shadow
+database it can create, apply and drop. Hosted Postgres (Supabase free tier,
+Neon) generally will not grant that.
+
+Setting up a fresh database is not authoring — it is applying migrations that
+are already committed. So `npm run db:migrate` runs `prisma migrate deploy`,
+which needs no shadow database. If you later change `schema.prisma` and need a
+new migration file, run `npm run db:migrate:new` against a LOCAL Postgres, then
+commit the generated SQL and `db:migrate` it everywhere else.
+
+### A harmless warning you can ignore
+
+Every Prisma CLI command prints:
+
+```
+WARNING: Your schema specifies the following datasource properties but you are
+using a Driver Adapter via prisma.config.ts: url, directUrl
+The values from your schema will NOT be used!
+```
+
+It is telling the truth — the driver adapter supplies the connection. Removing
+`url` from the datasource block, however, makes the CLI fall back to
+downloading a native query-engine binary, which then fails. So the properties
+stay and the warning is noise.

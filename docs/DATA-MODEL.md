@@ -114,3 +114,26 @@ See the top of `prisma.config.ts` and `src/lib/db.ts` for why this project's
 Prisma Client uses `engineType = "client"` with an explicit `@prisma/adapter-pg`
 driver adapter instead of the classic native query engine — a network-policy
 detail of this particular sandbox, not a schema decision.
+
+
+## Query engine: native by default, JS as a fallback
+
+This project uses Prisma's standard native query engine. The `generator client`
+block carries no `engineType`, the datasource block's `url`/`directUrl` are the
+real connection strings, and `src/lib/db.ts` constructs a plain `PrismaClient`.
+
+It did not start that way. It was originally built on a machine with no route to
+`binaries.prisma.sh`, so it ran the pure-JS engine with the `@prisma/adapter-pg`
+driver adapter. That worked on that machine and broke on a normal one, twice
+over: `node-postgres` reads `sslmode=require` as `verify-full` (TLS failure
+against Supabase), and `@prisma/adapter-pg` omits OIDs 18/`char` and 19/`name`
+from its type map, so the migration engine could not even read `pg_catalog`
+("Column type 'name' could not be deserialized").
+
+The lesson worth keeping: a workaround for one environment is a defect in every
+other one, so it belongs behind a flag rather than in the default path.
+
+The flag is `PRISMA_JS_ENGINE=1`, read by both `prisma.config.ts` and
+`src/lib/db.ts`. Enabling it fully also needs `engineType = "client"` on the
+generator, `sslmode=no-verify` in the URLs, and a hand-patch of the adapter's
+OID table — SETUP.md spells all four out.
