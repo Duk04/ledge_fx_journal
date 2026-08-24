@@ -1,26 +1,460 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   LEDGER — design system for FX Journal
+   -----------------------------------------------------------------------------
+   Read docs/DESIGN-SYSTEM.md before changing anything here.
+
+   Three rules this file exists to enforce:
+   1. Chrome is near-achromatic. Colour is reserved for money (profit/loss) and
+      for one interactive brand hue. Nothing else gets to be colourful.
+   2. Structure comes from 1px hairlines and surface steps, not from shadows.
+      Shadows are for things that float above the page (menus, dialogs) only.
+   3. Every number that can be compared vertically is monospaced and
+      tabular-aligned. This is a ledger.
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+   1. Primitive scales
+   Raw values. Never referenced by components directly — semantic tokens below
+   map these onto roles, so a repaint means editing one block, not 400 classes.
+   -------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Cool grey ramp, biased ~4° toward the cobalt brand so neutrals read as
+     chosen rather than inherited from a stylesheet default. */
+  --grey-0:   #ffffff;
+  --grey-25:  #fafbfc;
+  --grey-50:  #f4f6f9;
+  --grey-100: #eceff4;
+  --grey-150: #e2e6ec;
+  --grey-200: #d3d9e2;
+  --grey-300: #b6bec9;
+  --grey-400: #8d96a3;
+  --grey-500: #6b7480;
+  --grey-600: #525a66;
+  --grey-700: #3b424c;
+  --grey-800: #262c34;
+  --grey-850: #1b2027;
+  --grey-900: #14181e;
+  --grey-950: #0d1015;
+  --grey-1000: #090b0f;
+
+  /* Cobalt — the single interactive hue. Deliberately desaturated so it never
+     competes with the profit/loss colours for attention. */
+  --cobalt-400: #8fa2f8;
+  --cobalt-500: #6c86f5;
+  --cobalt-600: #3f57c9;
+  --cobalt-700: #2c43a8;
+  --cobalt-800: #22347f;
+
+  /* Money. Jade and clay, both pulled well off pure green/red: saturated
+     trading-terminal green on a white panel is illegible and looks cheap. */
+  --jade-400:  #35c08f;
+  --jade-500:  #17916a;
+  --jade-600:  #0b7a5a;
+  --jade-700:  #085c44;
+  --clay-400:  #f0836a;
+  --clay-500:  #d3543a;
+  --clay-600:  #c0402a;
+  --clay-700:  #97301f;
+  --amber-400: #e0a93b;
+  --amber-600: #96650a;
+
+  /* -------------------------------------------------------------------------
+     2. Shape, motion, density
+     One radius family, one duration family. Controls are tighter than panels;
+     that 2px difference is what keeps a dense UI from looking like a toy.
+     ---------------------------------------------------------------------- */
+  /* Font families. Declared here (not injected by next/font) so the app works
+     with either loading strategy — see the note at the top of layout.tsx. */
+  --font-instrument-sans: "Instrument Sans";
+  --font-jetbrains-mono: "JetBrains Mono";
+
+  --radius-control: 4px;
+  --radius-panel: 6px;
+  --radius-overlay: 10px;
+  --radius-pill: 999px;
+
+  --row-h: 2.125rem;          /* 34px — default table row */
+  --row-h-compact: 1.75rem;   /* 28px — compact table row */
+  --control-h: 2rem;          /* 32px */
+  --control-h-lg: 2.25rem;    /* 36px */
+  --rail-w: 13.5rem;
+  --rail-w-collapsed: 3.5rem;
+  --topbar-h: 3.25rem;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 110ms;
+  --dur: 160ms;
+
+  /* Type scale. 13px UI base — this is an instrument, not an article. */
+  --text-2xs: 0.6875rem;  /* 11 — table micro-labels, badges */
+  --text-xs: 0.75rem;     /* 12 — secondary meta */
+  --text-sm: 0.8125rem;   /* 13 — UI default */
+  --text-base: 0.875rem;  /* 14 — prose, notes */
+  --text-md: 1rem;        /* 16 — panel titles */
+  --text-lg: 1.25rem;     /* 20 — section headings */
+  --text-xl: 1.625rem;    /* 26 — stat figures */
+  --text-2xl: 2.125rem;   /* 34 — hero figure */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* -----------------------------------------------------------------------------
+   3. Semantic tokens — LIGHT (the default)
+   -------------------------------------------------------------------------- */
+:root {
+  --canvas: var(--grey-50);
+  --panel: var(--grey-0);
+  --panel-sunken: var(--grey-25);
+  --panel-raised: var(--grey-0);
+  --inset: var(--grey-100);
+
+  --line: var(--grey-150);
+  --line-strong: var(--grey-200);
+  --line-faint: var(--grey-100);
+
+  --ink: #0f1319;
+  --ink-2: var(--grey-600);
+  --ink-3: var(--grey-400);
+  --ink-inverse: var(--grey-0);
+
+  --brand: var(--cobalt-700);
+  --brand-hover: var(--cobalt-800);
+  --brand-ink: var(--grey-0);
+  --brand-weak: color-mix(in oklab, var(--cobalt-700) 8%, transparent);
+  --brand-line: color-mix(in oklab, var(--cobalt-700) 28%, transparent);
+
+  --profit: var(--jade-600);
+  --profit-weak: color-mix(in oklab, var(--jade-600) 10%, transparent);
+  --loss: var(--clay-600);
+  --loss-weak: color-mix(in oklab, var(--clay-600) 10%, transparent);
+  --warn: var(--amber-600);
+  --warn-weak: color-mix(in oklab, var(--amber-600) 12%, transparent);
+  --flat: var(--grey-400);
+
+  --hover: color-mix(in oklab, var(--grey-500) 6%, transparent);
+  --active: color-mix(in oklab, var(--grey-500) 11%, transparent);
+  --selected: var(--brand-weak);
+  --focus: var(--cobalt-600);
+
+  --shadow-overlay: 0 1px 2px rgb(9 11 15 / 0.06), 0 12px 32px -12px rgb(9 11 15 / 0.22);
+  --shadow-sticky: 0 1px 0 var(--line), 0 6px 12px -12px rgb(9 11 15 / 0.3);
+  --chart-grid: var(--grey-100);
+  --scrim: rgb(9 11 15 / 0.4);
+
+  color-scheme: light;
 }
 
+/* Dark, in all three of the states a viewer can be in: OS-dark with no explicit
+   choice, and an explicit [data-theme] on either side. Tokens only — no
+   component ever declares a colour inside a media query. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --canvas: var(--grey-1000);
+    --panel: var(--grey-900);
+    --panel-sunken: var(--grey-950);
+    --panel-raised: var(--grey-850);
+    --inset: var(--grey-950);
+
+    --line: var(--grey-800);
+    --line-strong: var(--grey-700);
+    --line-faint: var(--grey-850);
+
+    --ink: #e9ecf1;
+    --ink-2: var(--grey-400);
+    --ink-3: var(--grey-500);
+    --ink-inverse: var(--grey-1000);
+
+    --brand: var(--cobalt-500);
+    --brand-hover: var(--cobalt-400);
+    --brand-ink: var(--grey-1000);
+    --brand-weak: color-mix(in oklab, var(--cobalt-500) 16%, transparent);
+    --brand-line: color-mix(in oklab, var(--cobalt-500) 40%, transparent);
+
+    --profit: var(--jade-400);
+    --profit-weak: color-mix(in oklab, var(--jade-400) 14%, transparent);
+    --loss: var(--clay-400);
+    --loss-weak: color-mix(in oklab, var(--clay-400) 14%, transparent);
+    --warn: var(--amber-400);
+    --warn-weak: color-mix(in oklab, var(--amber-400) 16%, transparent);
+    --flat: var(--grey-500);
+
+    --hover: color-mix(in oklab, var(--grey-300) 9%, transparent);
+    --active: color-mix(in oklab, var(--grey-300) 14%, transparent);
+    --focus: var(--cobalt-400);
+
+    --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.5), 0 16px 40px -16px rgb(0 0 0 / 0.8);
+    --shadow-sticky: 0 1px 0 var(--line), 0 8px 16px -14px rgb(0 0 0 / 0.9);
+    --chart-grid: var(--grey-850);
+    --scrim: rgb(0 0 0 / 0.6);
+
+    color-scheme: dark;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root[data-theme="dark"] {
+  --canvas: var(--grey-1000);
+  --panel: var(--grey-900);
+  --panel-sunken: var(--grey-950);
+  --panel-raised: var(--grey-850);
+  --inset: var(--grey-950);
+
+  --line: var(--grey-800);
+  --line-strong: var(--grey-700);
+  --line-faint: var(--grey-850);
+
+  --ink: #e9ecf1;
+  --ink-2: var(--grey-400);
+  --ink-3: var(--grey-500);
+  --ink-inverse: var(--grey-1000);
+
+  --brand: var(--cobalt-500);
+  --brand-hover: var(--cobalt-400);
+  --brand-ink: var(--grey-1000);
+  --brand-weak: color-mix(in oklab, var(--cobalt-500) 16%, transparent);
+  --brand-line: color-mix(in oklab, var(--cobalt-500) 40%, transparent);
+
+  --profit: var(--jade-400);
+  --profit-weak: color-mix(in oklab, var(--jade-400) 14%, transparent);
+  --loss: var(--clay-400);
+  --loss-weak: color-mix(in oklab, var(--clay-400) 14%, transparent);
+  --warn: var(--amber-400);
+  --warn-weak: color-mix(in oklab, var(--amber-400) 16%, transparent);
+  --flat: var(--grey-500);
+
+  --hover: color-mix(in oklab, var(--grey-300) 9%, transparent);
+  --active: color-mix(in oklab, var(--grey-300) 14%, transparent);
+  --focus: var(--cobalt-400);
+
+  --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.5), 0 16px 40px -16px rgb(0 0 0 / 0.8);
+  --shadow-sticky: 0 1px 0 var(--line), 0 8px 16px -14px rgb(0 0 0 / 0.9);
+  --chart-grid: var(--grey-850);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  color-scheme: dark;
+}
+
+/* -----------------------------------------------------------------------------
+   4. Expose tokens to Tailwind utilities
+   -------------------------------------------------------------------------- */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-panel-sunken: var(--panel-sunken);
+  --color-panel-raised: var(--panel-raised);
+  --color-inset: var(--inset);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-faint: var(--line-faint);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-inverse: var(--ink-inverse);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-weak: var(--brand-weak);
+  --color-brand-line: var(--brand-line);
+
+  --color-profit: var(--profit);
+  --color-profit-weak: var(--profit-weak);
+  --color-loss: var(--loss);
+  --color-loss-weak: var(--loss-weak);
+  --color-warn: var(--warn);
+  --color-warn-weak: var(--warn-weak);
+  --color-flat: var(--flat);
+
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-selected: var(--selected);
+  --color-focus: var(--focus);
+  --color-chart-grid: var(--chart-grid);
+  --color-scrim: var(--scrim);
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-2xs: var(--text-2xs);
+  --text-2xs--line-height: 1.25;
+  --text-xs: var(--text-xs);
+  --text-xs--line-height: 1.35;
+  --text-sm: var(--text-sm);
+  --text-sm--line-height: 1.45;
+  --text-base: var(--text-base);
+  --text-base--line-height: 1.55;
+  --text-md: var(--text-md);
+  --text-md--line-height: 1.4;
+  --text-lg: var(--text-lg);
+  --text-lg--line-height: 1.25;
+  --text-xl: var(--text-xl);
+  --text-xl--line-height: 1.1;
+  --text-2xl: var(--text-2xl);
+  --text-2xl--line-height: 1.05;
+
+  --radius-control: var(--radius-control);
+  --radius-panel: var(--radius-panel);
+  --radius-overlay: var(--radius-overlay);
+
+  --spacing-rail: var(--rail-w);
+  --spacing-rail-collapsed: var(--rail-w-collapsed);
+  --spacing-topbar: var(--topbar-h);
+  --spacing-row: var(--row-h);
+  --spacing-row-compact: var(--row-h-compact);
+  --spacing-control: var(--control-h);
+  --spacing-control-lg: var(--control-h-lg);
+
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-sticky: var(--shadow-sticky);
+
+  --ease-out: var(--ease-out);
+}
+
+/* -----------------------------------------------------------------------------
+   5. Base layer
+   -------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    background: var(--canvas);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv05" 1;
+  }
+
+  /* Headings are set tight and never bigger than they need to be. A tool has
+     no use for a 60px hero. */
+  h1, h2, h3, h4 {
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+
+  /* Every digit that could line up in a column, does. */
+  table, .tnum, input[type="number"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: var(--brand-weak);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-radius: var(--radius-control);
+  }
+
+  /* Firefox/Chrome scrollbars, toned to the surface they sit on. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid transparent;
+    border-radius: var(--radius-pill);
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--ink-3); background-clip: content-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   6. The few component patterns that are easier as CSS than as class soup
+   -------------------------------------------------------------------------- */
+@layer components {
+  /* Uppercase micro-label. Used for column heads, stat captions, section
+     eyebrows — the connective tissue of the whole UI. */
+  .label {
+    font-family: var(--font-mono), monospace;
+    font-size: var(--text-2xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+
+  /* A dense data table. Rows are separated by faint lines, the header is
+     sticky and sunken, and numeric cells are mono + right-aligned. */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--text-sm);
+  }
+  .data-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--panel-sunken);
+    border-bottom: 1px solid var(--line);
+    padding: 0 0.75rem;
+    height: var(--row-h-compact);
+    text-align: left;
+    white-space: nowrap;
+    font-family: var(--font-mono), monospace;
+    font-size: var(--text-2xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .data-table tbody td {
+    height: var(--row-h);
+    padding: 0 0.75rem;
+    border-bottom: 1px solid var(--line-faint);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr { transition: background var(--dur-fast) var(--ease-out); }
+  .data-table tbody tr:hover { background: var(--hover); }
+  .data-table [data-numeric] {
+    text-align: right;
+    font-family: var(--font-mono), monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xs);
+  }
+  .data-table th[data-numeric] { text-align: right; }
+
+  /* Horizontal scroll container — the page body must never scroll sideways. */
+  .scroll-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+}
+
+@layer utilities {
+  /* Money sign colouring, applied to the number itself and nothing else. */
+  .val-pos { color: var(--profit); }
+  .val-neg { color: var(--loss); }
+  .val-flat { color: var(--flat); }
+
+  .mono { font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; }
+
+  /* Hairline divider that respects the panel it lives in. */
+  .hairline { border-color: var(--line); }
 }

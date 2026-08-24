@@ -1,0 +1,325 @@
+// Forex trading journal — database schema
+//
+// See docs/DATA-MODEL.md for the narrative reference (table purposes, the
+// row-level-security approach, and why computed trade metrics are stored
+// columns backfilled by a single function rather than being recomputed ad hoc).
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
+enum Platform {
+  MT5
+  MT4
+  CTRADER
+  OTHER
+}
+
+enum AccountType {
+  DEMO
+  LIVE
+  PROP
+}
+
+enum AssetClass {
+  FX
+  METAL
+  INDEX
+  CRYPTO
+  ENERGY
+}
+
+enum Direction {
+  LONG
+  SHORT
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum MarketSession {
+  SYDNEY
+  TOKYO
+  LONDON
+  NEW_YORK @map("NEWYORK") // Prisma-side name; the stored value stays NEWYORK
+  OVERLAP
+  OFFHOURS
+}
+
+enum TagKind {
+  SETUP
+  MISTAKE
+  SESSION
+  CUSTOM
+}
+
+enum AttachmentKind {
+  BEFORE
+  AFTER
+  OTHER
+}
+
+enum BalanceEventKind {
+  DEPOSIT
+  WITHDRAWAL
+  ADJUSTMENT
+}
+
+// ---------------------------------------------------------------------------
+// Core identity / Auth.js
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String?
+  image        String?
+  passwordHash String?  @map("password_hash")
+  role         UserRole @default(OWNER)
+  timezone     String   @default("Asia/Ulaanbaatar")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  accounts       TradingAccount[]
+  tags           Tag[]
+  journalEntries JournalEntry[]
+  sessions       Session[]
+  authAccounts   AuthAccount[]
+
+  @@map("users")
+}
+
+// Auth.js (next-auth) Prisma adapter models. Field names on these three
+// models must match what @auth/prisma-adapter expects verbatim — only the
+// table name is remapped via @@map.
+model AuthAccount {
+  id                String  @id @default(cuid())
+  userId            String  @map("userId")
+  type              String
+  provider          String
+  providerAccountId String  @map("providerAccountId")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("sessionToken")
+  userId       String   @map("userId")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Trading domain
+// ---------------------------------------------------------------------------
+
+model TradingAccount {
+  id              String      @id @default(uuid())
+  userId          String      @map("user_id")
+  label           String
+  broker          String?
+  platform        Platform
+  accountType     AccountType @map("account_type")
+  currency        String      @default("USD")
+  startingBalance Decimal     @map("starting_balance") @db.Decimal(18, 2)
+  riskPerTradePct Decimal?    @map("risk_per_trade_pct") @db.Decimal(6, 3)
+  isArchived      Boolean     @default(false) @map("is_archived")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades        Trade[]
+  balanceEvents BalanceEvent[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Instrument {
+  symbol        String     @id
+  displayName   String     @map("display_name")
+  pipSize       Decimal    @map("pip_size") @db.Decimal(18, 8)
+  contractSize  Decimal    @map("contract_size") @db.Decimal(18, 4)
+  digits        Int
+  baseCurrency  String?    @map("base_currency")
+  quoteCurrency String     @map("quote_currency")
+  assetClass    AssetClass @map("asset_class")
+  isActive      Boolean    @default(true) @map("is_active")
+
+  trades Trade[]
+
+  @@map("instruments")
+}
+
+model Trade {
+  id        String @id @default(uuid())
+  accountId String @map("account_id")
+  symbol    String
+
+  direction Direction
+  status    TradeStatus @default(OPEN)
+
+  openedAt DateTime  @map("opened_at")
+  closedAt DateTime? @map("closed_at")
+
+  entryPrice Decimal  @map("entry_price") @db.Decimal(18, 8)
+  exitPrice  Decimal? @map("exit_price") @db.Decimal(18, 8)
+  stopLoss   Decimal? @map("stop_loss") @db.Decimal(18, 8)
+  takeProfit Decimal? @map("take_profit") @db.Decimal(18, 8)
+
+  volumeLots     Decimal  @map("volume_lots") @db.Decimal(12, 4)
+  commission     Decimal  @default(0) @db.Decimal(18, 2)
+  swap           Decimal  @default(0) @db.Decimal(18, 2)
+  conversionRate Decimal? @map("conversion_rate") @db.Decimal(18, 8) // quote ccy -> account ccy, at close
+
+  // --- Computed-and-stored columns -----------------------------------
+  // Populated by a backfill step (lib/metrics), never hand-entered.
+  // See docs/DATA-MODEL.md for the rationale.
+  netPnl         Decimal?       @map("net_pnl") @db.Decimal(18, 2)
+  grossPnl       Decimal?       @map("gross_pnl") @db.Decimal(18, 2)
+  pips           Decimal?       @db.Decimal(12, 2)
+  rMultiple      Decimal?       @map("r_multiple") @db.Decimal(10, 4)
+  riskAmount     Decimal?       @map("risk_amount") @db.Decimal(18, 2)
+  holdingMinutes Int?           @map("holding_minutes")
+  marketSession  MarketSession? @map("market_session")
+
+  followedPlan   Boolean? @map("followed_plan")
+  emotion        Int?
+  confidence     Int?
+  notes          String?
+  externalTicket String?  @map("external_ticket")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account     TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument  Instrument     @relation(fields: [symbol], references: [symbol])
+  attachments Attachment[]
+  tradeTags   TradeTag[]
+
+  @@unique([accountId, externalTicket])
+  @@index([accountId, openedAt(sort: Desc)])
+  @@index([accountId, symbol])
+  @@index([accountId, status])
+  @@map("trades")
+}
+
+model Tag {
+  id        String  @id @default(uuid())
+  userId    String  @map("user_id")
+  name      String
+  kind      TagKind
+  color     String  @default("#33488F")
+  sortOrder Int     @default(0) @map("sort_order")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradeTags TradeTag[]
+
+  @@unique([userId, kind, name])
+  @@map("tags")
+}
+
+model TradeTag {
+  tradeId String @map("trade_id")
+  tagId   String @map("tag_id")
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tag   Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([tradeId, tagId])
+  @@index([tagId])
+  @@map("trade_tags")
+}
+
+model Attachment {
+  id          String         @id @default(uuid())
+  tradeId     String         @map("trade_id")
+  kind        AttachmentKind @default(OTHER)
+  storageKey  String?        @map("storage_key")
+  externalUrl String?        @map("external_url")
+  mimeType    String?        @map("mime_type")
+  width       Int?
+  height      Int?
+  sizeBytes   Int?           @map("size_bytes")
+  caption     String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId])
+  @@map("attachments")
+}
+
+model JournalEntry {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  entryDate DateTime @map("entry_date") @db.Date
+  preMarket String?  @map("pre_market")
+  review    String?
+  mood      Int?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entryDate])
+  @@map("journal_entries")
+}
+
+model BalanceEvent {
+  id         String           @id @default(uuid())
+  accountId  String           @map("account_id")
+  kind       BalanceEventKind
+  amount     Decimal          @db.Decimal(18, 2)
+  occurredAt DateTime         @map("occurred_at")
+  note       String?
+
+  account TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, occurredAt(sort: Desc)])
+  @@map("balance_events")
+}

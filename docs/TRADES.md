@@ -1,0 +1,123 @@
+# Trades feature reference
+
+Source: `src/app/(app)/trades/**`, `src/components/trades/**`,
+`src/lib/{queries,actions,schemas}/trade{,s}.ts`. This is the narrative
+reference for decisions that aren't obvious from the code alone.
+
+## URL contract for `/trades`
+
+The list page's filters, sort and pagination live entirely in the URL —
+never in component state that would vanish on reload. Every param is
+optional; an absent param means "no filter" / the stated default.
+
+| Param | Values | Default | Notes |
+|---|---|---|---|
+| `q` | free text | — | Matched against `symbol` and `notes`, case-insensitive. Debounced 250ms client-side before it hits the URL. |
+| `symbols` | comma-separated symbols, e.g. `EURUSD,XAUUSD` | — | |
+| `directions` | comma-separated `LONG,SHORT` | — | |
+| `outcome` | one of `WIN`, `LOSS`, `BREAKEVEN`, `OPEN` | — (all) | Singular, not plural — the filter bar's Segmented control is single-select even though the query layer (`TradeFilters.outcomes`) accepts an array, for a future multi-select. |
+| `tags` | comma-separated tag ids | — | |
+| `range` | `7d`, `30d`, `90d`, `ytd`, `all`, `custom` | `all` | Relative ranges (`7d`/`30d`/`90d`/`ytd`) are resolved against **the current moment on every request** — a bookmarked "last 7 days" link always means the last 7 days from whenever it's opened, not a frozen window. Only `custom` carries fixed dates. |
+| `from`, `to` | `YYYY-MM-DD` | — | Only read when `range=custom`. `to` is treated as end-of-day. |
+| `followedPlan` | `yes`, `no` | — (any) | Tri-state discipline filter. |
+| `sort` | `openedAt`, `closedAt`, `netPnl`, `rMultiple`, `pips`, `symbol`, `volumeLots` | `openedAt` | Every value here is a real Prisma field name on `Trade`, so the query layer maps it straight into `orderBy` with no translation table to keep in sync. |
+| `dir` | `asc`, `desc` | `desc` | |
+| `page` | 1-based integer | `1` | Reset to `1` whenever any filter or sort changes — a stale page number after narrowing a filter would silently show "no rows" instead of the match. |
+| `pageSize` | `25`, `50`, `100` | `50` | |
+
+Any filter change (via the filter bar) or sort change (via a column header)
+clears `page` for the reason above. Pagination itself only ever touches
+`page`/`pageSize`.
+
+This contract is why `page.tsx` is a Server Component that reads
+`searchParams` directly rather than fetching client-side: the URL is the
+single source of truth, so the same link always renders the same table for
+every viewer, and a reload never loses the view you were looking at.
+
+## The derived-columns rule
+
+`netPnl`, `grossPnl`, `pips`, `rMultiple`, `riskAmount`, `holdingMinutes` and
+`marketSession` are never computed inline in this feature. Every write path
+(`createTrade`, `updateTrade`, `closeTrade`, and — deliberately NOT —
+`duplicateTrade`, which starts a fresh OPEN trade with no derived numbers to
+carry over) calls `derivedColumns()` from `src/lib/trade-service.ts`, which
+is the one shared place that turns raw trade facts into analytics. Reads
+follow the same rule: `listTrades`/`tradeStats` use the **stored** columns
+(via `toTradeRow`), and `getTrade` additionally runs a **fresh recompute**
+purely to compare against what's stored (see "Disagreement detection"
+below) — it never substitutes the recompute for the stored value in a list
+or a stat.
+
+### A workaround this feature had to apply, not fix
+
+`src/lib/trade-service.ts` and `src/lib/metrics/session.ts` are shared
+modules outside this feature's owned paths. `metrics/session.ts` classifies
+the New York session as `'NEW_YORK'`, but the Prisma enum generated from
+`prisma/schema.prisma` spells it `NEWYORK` (no underscore) — every existing
+seeded row confirms `NEWYORK` is what the database actually expects.
+`derivedColumns()` passes the metrics value straight through into a
+Prisma-typed field, so it type-checks but would fail at the database for any
+trade opened 16:00–21:00 UTC on a weekday. `src/lib/actions/trades.ts`
+normalises `'NEW_YORK'` → `'NEWYORK'` immediately before every write as a
+narrow, well-contained workaround (see `normaliseMarketSession` there). The
+real fix belongs in `trade-service.ts` / `metrics/session.ts`.
+
+## Why geometry problems are warnings, not errors
+
+`validateTradeGeometry()` (from `src/lib/metrics`) flags things like a long
+stop above its entry, or a closed-before-opened timestamp. The trade form
+runs it live and shows whatever it finds inline, in warn tone, next to the
+relevant fields — but it never blocks `Save`, and `parseTradeForm()` never
+turns a geometry problem into a hard validation (`fieldErrors`) failure.
+
+This is deliberate: a journal's job is to hold what actually happened, and a
+real trading history is full of trades that don't look like a clean plan —
+a stop moved mid-trade, a partial fill, a broker statement imported after
+the fact with an already-invalid price relationship. Refusing to save those
+would make the tool useless for exactly the trades most worth reviewing. The
+six fields that ARE hard-required (`symbol`, `direction`, `volumeLots`,
+`entryPrice`, `openedAt`, and `exitPrice`+`closedAt` together when
+`status = CLOSED`) are the minimum needed to compute anything at all; every
+other check is advisory.
+
+## The two empty states on `/trades`
+
+The trade list distinguishes:
+
+- **No trades at all** (`total === 0` and no filter is active) — "No trades
+  logged yet", with a primary "Log your first trade" call to action. This is
+  a brand-new account.
+- **No trades match these filters** (`total === 0` and at least one filter
+  is active) — "No trades match these filters", with a "Clear filters"
+  link back to the bare `/trades` URL.
+
+Collapsing these into one generic "No trades" message is the difference
+between a tool that feels finished and one that doesn't: the first case
+needs encouragement to start, the second needs an easy way out of a filter
+combination that's too narrow. `filtersActive` is computed the same way
+(and from the same URL params) in both `page.tsx` (to choose the empty
+state) and `filter-bar.tsx` (to decide whether to show its own "Clear"
+button) — see the `FILTER_KEYS` list in `filter-bar.tsx`.
+
+## Disagreement detection (trade detail page)
+
+`getTrade()` always recomputes `computeTrade()` from the trade's raw fields
+(price, volume, commission, swap, timestamps) in addition to reading the
+stored derived columns. If the two disagree by more than a cent (money) or
+0.01 (pips/R) — `hasDisagreement` — the detail page shows a warn-tone strip
+and the facts panel shows the fresh value in parentheses next to the stored
+one. This exists to catch exactly one class of bug: a formula change in
+`src/lib/metrics` that ran a backfill against some rows but not others, or a
+direct database edit that bypassed `derivedColumns()`. The fix is always the
+same — re-run the metrics backfill (`npm run backfill`) — which is why the
+strip says so directly rather than describing the mechanism.
+
+## Tag/trade id format
+
+The trade form's `tagIds` are validated as "looks like an id"
+(`[a-zA-Z0-9_-]{1,64}`) rather than a strict UUID/CUID pattern. `prisma/seed.ts`
+gives every seeded row a fixed, human-readable id (e.g.
+`seed-tag-ob-retest`) specifically so re-seeding is reproducible — Prisma's
+`id` columns are plain `String`, not a generated-format constraint, so a
+strict format check would reject perfectly real rows from this app's own
+fixtures.

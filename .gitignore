@@ -17,6 +17,10 @@
 /.next/
 /out/
 
+# local attachment storage (see src/lib/storage.ts) — private trade
+# screenshots, never committed regardless of the storage driver in use
+/.uploads/
+
 # production
 /build
 
