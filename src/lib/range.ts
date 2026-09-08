@@ -36,7 +36,16 @@ export function resolveRange(range: string | undefined, timezone: string, now: D
   if (key === "all") return { from: null, to: null };
   if (key === "ytd") {
     const zoned = new TZDate(now, timezone);
-    return { from: TZDate.tz(timezone, zoned.getFullYear(), 0, 1), to: null };
+    const startOfYear = TZDate.tz(timezone, zoned.getFullYear(), 0, 1);
+    // Normalised back to a plain Date deliberately. `TZDate` extends Date and
+    // its `getTime()` is the correct UTC instant, but it overrides
+    // `toISOString()` to emit an offset ("2026-01-01T00:00:00.000+08:00")
+    // rather than a Z-suffixed UTC string — and so does `JSON.stringify`.
+    // Every DateTime column in this schema is `TIMESTAMP(3)`, i.e. without a
+    // time zone, so handing a subclass whose serialisation carries an offset
+    // to the driver is a silent-eight-hour-shift waiting to happen. The type
+    // here says `Date`; make it one.
+    return { from: new Date(startOfYear.getTime()), to: null };
   }
   const days = key === "7d" ? 7 : key === "90d" ? 90 : 30;
   return { from: new Date(now.getTime() - days * 86_400_000), to: null };
