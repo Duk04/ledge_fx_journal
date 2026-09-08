@@ -1,0 +1,13 @@
+# Normalise line endings: the index holds LF, checkouts get the platform's
+# native endings. Without this, every file touched on Windows shows up as a
+# whole-file diff (core.autocrlf is set locally, so the index is already LF
+# and adding this produces no diff today).
+* text=auto eol=lf
+
+# Generated / vendored: collapse in review, don't count toward language stats.
+package-lock.json -diff linguist-generated
+
+# Binary assets — never diff or normalise these.
+*.png binary
+*.ico binary
+*.zip binary
