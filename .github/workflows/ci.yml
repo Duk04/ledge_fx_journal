@@ -48,6 +48,8 @@ jobs:
 
       - run: npm run lint
 
+      - run: npm run format:check
+
       - run: npm test
 
       # Kept in CI on purpose: for a portfolio repo, "the deploy is proven
