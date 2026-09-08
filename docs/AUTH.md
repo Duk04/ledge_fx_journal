@@ -317,7 +317,8 @@ Named rather than left to be discovered:
 
 ## Verification performed
 
-`npm run verify` (typecheck, lint with `--max-warnings 0`, 431 unit tests) and
+`npm run verify` (typecheck, lint with `--max-warnings 0`, format check, and 678
+unit tests) and
 `npm run build` pass. The auth-specific tests cover the redirect sanitiser
 including the `/\evil.com` bypass, the throttle window arithmetic and its
 escalation ordering, the password byte ceiling, role resolution, environment
