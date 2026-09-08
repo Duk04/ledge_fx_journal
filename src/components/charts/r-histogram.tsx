@@ -48,7 +48,9 @@ export function RHistogram({ buckets, currency }: { buckets: RHistogramBucket[];
             return (
               <ChartTooltipShell>
                 <ChartTooltipTitle>
-                  {b.from === null ? "No stop loss recorded" : `${formatBoundary(b.from)}R to ${formatBoundary(b.to!)}R`}
+                  {b.from === null
+                    ? "No stop loss recorded"
+                    : `${formatBoundary(b.from)}R to ${formatBoundary(b.to!)}R`}
                 </ChartTooltipTitle>
                 <ChartTooltipRow label="Trades" value={b.count} />
                 <ChartTooltipRow
@@ -62,10 +64,7 @@ export function RHistogram({ buckets, currency }: { buckets: RHistogramBucket[];
         />
         <Bar dataKey="count" radius={[2, 2, 0, 0]} isAnimationActive={false} maxBarSize={36}>
           {data.map((b, i) => (
-            <Cell
-              key={i}
-              fill={b.isNoR ? "var(--ink-3)" : b.isLoss ? "var(--loss)" : "var(--profit)"}
-            />
+            <Cell key={i} fill={b.isNoR ? "var(--ink-3)" : b.isLoss ? "var(--loss)" : "var(--profit)"} />
           ))}
         </Bar>
       </BarChart>

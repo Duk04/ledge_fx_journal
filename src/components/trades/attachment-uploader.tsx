@@ -97,7 +97,10 @@ export function AttachmentUploader({
 
       setUploads((prev) => {
         const existing = prev.find((u) => u.tempId === tempId);
-        if (existing) return prev.map((u) => (u.tempId === tempId ? { ...u, status: "uploading", progress: 0, error: undefined } : u));
+        if (existing)
+          return prev.map((u) =>
+            u.tempId === tempId ? { ...u, status: "uploading", progress: 0, error: undefined } : u,
+          );
         return [...prev, { tempId, name: file.name, progress: 0, status: "uploading", file }];
       });
 
@@ -138,7 +141,9 @@ export function AttachmentUploader({
       };
       xhr.onerror = () => {
         setUploads((prev) =>
-          prev.map((u) => (u.tempId === tempId ? { ...u, status: "error", error: "Network error — check your connection." } : u)),
+          prev.map((u) =>
+            u.tempId === tempId ? { ...u, status: "error", error: "Network error — check your connection." } : u,
+          ),
         );
       };
       xhr.send(form);
@@ -269,7 +274,9 @@ export function AttachmentUploader({
         }}
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[var(--radius-panel)] border border-dashed px-4 py-6 text-center transition-colors",
-          dragOver ? "border-brand bg-brand-weak" : "border-line-strong bg-panel-sunken hover:border-line-strong hover:bg-hover",
+          dragOver
+            ? "border-brand bg-brand-weak"
+            : "border-line-strong bg-panel-sunken hover:border-line-strong hover:bg-hover",
         )}
       >
         <UploadCloud className="size-5 text-ink-3" aria-hidden />
@@ -326,7 +333,13 @@ export function AttachmentUploader({
                     <Button type="button" variant="default" size="sm" onClick={() => retry(u)}>
                       <RefreshCw /> Retry
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" aria-label="Dismiss" onClick={() => dismissFailed(u.tempId)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Dismiss"
+                      onClick={() => dismissFailed(u.tempId)}
+                    >
                       <X />
                     </Button>
                   </div>
@@ -365,7 +378,10 @@ export function AttachmentUploader({
       {/* ------------------------------------------------------- external link */}
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent size="sm">
-          <DialogHeader title="Add a screenshot link" description="For a chart already hosted somewhere (https only)." />
+          <DialogHeader
+            title="Add a screenshot link"
+            description="For a chart already hosted somewhere (https only)."
+          />
           <form action={onAddLink}>
             <div className="flex flex-col gap-3 p-4">
               <Input name="url" type="url" placeholder="https://..." required autoFocus />
@@ -406,7 +422,11 @@ function AttachmentTile({
         {src ? (
           <button type="button" className="block size-full cursor-zoom-in" onClick={() => setOpen(true)}>
             {/* eslint-disable-next-line @next/next/no-img-element -- attachment bytes come from our own authenticated route or an arbitrary https URL, neither of which next/image can optimise */}
-            <img src={src} alt={attachment.caption ?? "Trade screenshot"} className="size-full object-cover transition-transform group-hover:scale-[1.02]" />
+            <img
+              src={src}
+              alt={attachment.caption ?? "Trade screenshot"}
+              className="size-full object-cover transition-transform group-hover:scale-[1.02]"
+            />
           </button>
         ) : (
           <div className="grid size-full place-items-center text-ink-3">
@@ -427,7 +447,11 @@ function AttachmentTile({
         </button>
       </div>
 
-      <Segmented value={attachment.kind} onValueChange={(v) => v && onKindChange(v as (typeof KINDS)[number])} aria-label="Screenshot kind">
+      <Segmented
+        value={attachment.kind}
+        onValueChange={(v) => v && onKindChange(v as (typeof KINDS)[number])}
+        aria-label="Screenshot kind"
+      >
         {KINDS.map((k) => (
           <SegmentedItem key={k} value={k} className="flex-1 text-2xs">
             {KIND_LABEL[k]}
@@ -447,9 +471,15 @@ function AttachmentTile({
         <DialogContent size="lg" className="max-h-[90vh]">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element -- a full-size lightbox of an attachment whose dimensions are unknown until it loads, served from our own authenticated route or an arbitrary https URL. next/image can optimise neither.
-            <img src={src} alt={attachment.caption ?? "Trade screenshot"} className="max-h-[85vh] w-full object-contain" />
+            <img
+              src={src}
+              alt={attachment.caption ?? "Trade screenshot"}
+              className="max-h-[85vh] w-full object-contain"
+            />
           ) : null}
-          {caption ? <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{caption}</p> : null}
+          {caption ? (
+            <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{caption}</p>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

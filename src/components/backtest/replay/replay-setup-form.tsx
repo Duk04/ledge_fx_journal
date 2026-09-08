@@ -168,7 +168,11 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
         </FieldRow>
         <Field>
           <FieldLabel>Commission</FieldLabel>
-          <NumberInput value={commissionPerLot} onChange={(e) => setCommissionPerLot(e.target.value)} unit="per lot/side" />
+          <NumberInput
+            value={commissionPerLot}
+            onChange={(e) => setCommissionPerLot(e.target.value)}
+            unit="per lot/side"
+          />
         </Field>
         <Field>
           <div className="flex items-center justify-between">

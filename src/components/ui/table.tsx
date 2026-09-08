@@ -33,7 +33,9 @@ export function Th({
   return (
     <th
       data-numeric={numeric ? "" : undefined}
-      aria-sort={sortDirection === "asc" ? "ascending" : sortDirection === "desc" ? "descending" : sortable ? "none" : undefined}
+      aria-sort={
+        sortDirection === "asc" ? "ascending" : sortDirection === "desc" ? "descending" : sortable ? "none" : undefined
+      }
       className={cn(sortable && "group/th p-0", className)}
       {...props}
     >
@@ -56,11 +58,7 @@ export function ColumnHeader({
   return (
     <button
       type="button"
-      className={cn(
-        "flex h-full w-full items-center gap-1 px-3 py-0",
-        numeric && "flex-row-reverse",
-        className,
-      )}
+      className={cn("flex h-full w-full items-center gap-1 px-3 py-0", numeric && "flex-row-reverse", className)}
       {...props}
     >
       <span>{children}</span>
@@ -75,11 +73,7 @@ export function ColumnHeader({
   );
 }
 
-export function Td({
-  className,
-  numeric,
-  ...props
-}: React.ComponentProps<"td"> & { numeric?: boolean }) {
+export function Td({ className, numeric, ...props }: React.ComponentProps<"td"> & { numeric?: boolean }) {
   return <td data-numeric={numeric ? "" : undefined} className={className} {...props} />;
 }
 
@@ -96,12 +90,7 @@ export function Td({
  * that needs its own click target (a button, a dropdown trigger) just needs
  * `relative` on that element to lift it above the overlay explicitly.
  */
-export function TrLink({
-  href,
-  className,
-  children,
-  ...props
-}: React.ComponentProps<"tr"> & { href: string }) {
+export function TrLink({ href, className, children, ...props }: React.ComponentProps<"tr"> & { href: string }) {
   const labelId = React.useId();
   return (
     <tr className={cn("relative", className)} {...props}>
@@ -123,13 +112,7 @@ export function TrLink({
   );
 }
 
-export function TableEmpty({
-  colSpan,
-  children,
-}: {
-  colSpan: number;
-  children: React.ReactNode;
-}) {
+export function TableEmpty({ colSpan, children }: { colSpan: number; children: React.ReactNode }) {
   return (
     <tr>
       <td colSpan={colSpan} className="!h-32 text-center text-xs text-ink-3">

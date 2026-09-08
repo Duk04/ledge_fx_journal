@@ -59,8 +59,7 @@ export async function createAccount(input: AccountInput): Promise<ActionResult> 
       accountType: parsed.data.accountType,
       currency: parsed.data.currency,
       startingBalance: parsed.data.startingBalance.toFixed(2),
-      riskPerTradePct:
-        parsed.data.riskPerTradePct !== undefined ? parsed.data.riskPerTradePct.toFixed(3) : null,
+      riskPerTradePct: parsed.data.riskPerTradePct !== undefined ? parsed.data.riskPerTradePct.toFixed(3) : null,
     },
   });
 
@@ -84,8 +83,7 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
       accountType: parsed.data.accountType,
       currency: parsed.data.currency,
       startingBalance: parsed.data.startingBalance.toFixed(2),
-      riskPerTradePct:
-        parsed.data.riskPerTradePct !== undefined ? parsed.data.riskPerTradePct.toFixed(3) : null,
+      riskPerTradePct: parsed.data.riskPerTradePct !== undefined ? parsed.data.riskPerTradePct.toFixed(3) : null,
     },
   });
 
@@ -162,11 +160,7 @@ export async function addBalanceEvent(accountId: string, input: BalanceEventInpu
 
   const magnitude = Math.abs(parsed.data.amount);
   const signedAmount =
-    parsed.data.kind === "WITHDRAWAL"
-      ? -magnitude
-      : parsed.data.kind === "DEPOSIT"
-        ? magnitude
-        : parsed.data.amount;
+    parsed.data.kind === "WITHDRAWAL" ? -magnitude : parsed.data.kind === "DEPOSIT" ? magnitude : parsed.data.amount;
 
   await prisma.balanceEvent.create({
     data: {

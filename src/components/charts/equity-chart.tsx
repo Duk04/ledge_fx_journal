@@ -1,16 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Area,
-  ComposedChart,
-  Line,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
@@ -117,13 +108,7 @@ export function EquityChart({
             );
           }}
         />
-        <Area
-          type="monotone"
-          dataKey="balance"
-          stroke="none"
-          fill={`url(#${gradientId})`}
-          isAnimationActive={false}
-        />
+        <Area type="monotone" dataKey="balance" stroke="none" fill={`url(#${gradientId})`} isAnimationActive={false} />
         <Line
           type="monotone"
           dataKey="balance"
@@ -144,15 +129,5 @@ export function EquityChart({
 function CashMarker(props: unknown) {
   const { cx, cy, payload } = props as { cx: number; cy: number; payload: { kind: string } };
   if (payload.kind === "TRADE" || cx == null || cy == null) return <React.Fragment />;
-  return (
-    <line
-      x1={cx}
-      x2={cx}
-      y1={cy - 7}
-      y2={cy + 7}
-      stroke="var(--warn)"
-      strokeWidth={2}
-      strokeLinecap="round"
-    />
-  );
+  return <line x1={cx} x2={cx} y1={cy - 7} y2={cy + 7} stroke="var(--warn)" strokeWidth={2} strokeLinecap="round" />;
 }

@@ -56,8 +56,8 @@ export function DeleteAccountDialog({
             </p>
           ) : (
             <p className="text-xs text-ink-3">
-              This only works for accounts with no trades. Accounts with trading history should be archived instead,
-              so the history stays intact.
+              This only works for accounts with no trades. Accounts with trading history should be archived instead, so
+              the history stays intact.
             </p>
           )}
         </DialogBody>

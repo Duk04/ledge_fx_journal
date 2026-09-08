@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, posix, relative, sep } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, posix, relative, sep } from "node:path";
+import { describe, expect, it } from "vitest";
 
 /**
  * Structural guards over the server-action surface, asserted against source
@@ -18,19 +18,19 @@ import { describe, expect, it } from 'vitest'
  * RPC endpoint, and nothing in the type system or the linter says so.
  */
 
-const SRC = join(process.cwd(), 'src')
+const SRC = join(process.cwd(), "src");
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) return walk(full)
-    return /\.tsx?$/.test(entry) ? [full] : []
-  })
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return walk(full);
+    return /\.tsx?$/.test(entry) ? [full] : [];
+  });
 }
 
 /** Path relative to the repo root, forward slashes, for readable failures. */
 function rel(file: string): string {
-  return relative(process.cwd(), file).split(sep).join(posix.sep)
+  return relative(process.cwd(), file).split(sep).join(posix.sep);
 }
 
 /**
@@ -41,17 +41,17 @@ function rel(file: string): string {
  * Conflating the two produces false positives.
  */
 function isModuleScopeUseServer(source: string): boolean {
-  for (const raw of source.split('\n')) {
-    const line = raw.trim()
-    if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) continue
-    return line === '"use server";' || line === "'use server';"
+  for (const raw of source.split("\n")) {
+    const line = raw.trim();
+    if (line === "" || line.startsWith("//") || line.startsWith("/*") || line.startsWith("*")) continue;
+    return line === '"use server";' || line === "'use server';";
   }
-  return false
+  return false;
 }
 
 const actionModules = walk(SRC)
-  .filter((f) => isModuleScopeUseServer(readFileSync(f, 'utf8')))
-  .sort()
+  .filter((f) => isModuleScopeUseServer(readFileSync(f, "utf8")))
+  .sort();
 
 /**
  * Exports reachable without a session on purpose. Every name here is a
@@ -59,10 +59,10 @@ const actionModules = walk(SRC)
  * must authenticate.
  */
 const UNAUTHENTICATED_BY_DESIGN = new Set([
-  'signInWithPassword', // pre-session by definition
-  'registerUser', // creates the session
-  'signOutAction', // tearing a session down needs no session
-])
+  "signInWithPassword", // pre-session by definition
+  "registerUser", // creates the session
+  "signOutAction", // tearing a session down needs no session
+]);
 
 /**
  * Calling any of these counts as authenticating.
@@ -76,62 +76,62 @@ const UNAUTHENTICATED_BY_DESIGN = new Set([
  * `guard.ts` has to be named here too.
  */
 const AUTH_FNS = [
-  'requireUser',
-  'requireOwner',
-  'requireRole',
-  'requireVerifiedUser',
-  'requireAccountAccess',
-  'accountOrFailure',
-  'withOwner',
-  'guardNotFound',
-]
+  "requireUser",
+  "requireOwner",
+  "requireRole",
+  "requireVerifiedUser",
+  "requireAccountAccess",
+  "accountOrFailure",
+  "withOwner",
+  "guardNotFound",
+];
 
 /** Every top-level function in `source`, as name -> body text. */
 function topLevelFunctions(source: string): Map<string, string> {
-  const out = new Map<string, string>()
-  const decl = /^(?:export\s+)?(?:async\s+)?function\s+(\w+)/gm
-  const starts: { name: string; at: number }[] = []
+  const out = new Map<string, string>();
+  const decl = /^(?:export\s+)?(?:async\s+)?function\s+(\w+)/gm;
+  const starts: { name: string; at: number }[] = [];
   for (const m of source.matchAll(decl)) {
-    starts.push({ name: m[1], at: m.index ?? 0 })
+    starts.push({ name: m[1], at: m.index ?? 0 });
   }
   starts.forEach(({ name, at }, i) => {
-    const end = i + 1 < starts.length ? starts[i + 1].at : source.length
-    out.set(name, source.slice(at, end))
-  })
-  return out
+    const end = i + 1 < starts.length ? starts[i + 1].at : source.length;
+    out.set(name, source.slice(at, end));
+  });
+  return out;
 }
 
 function callsAny(body: string, names: string[]): boolean {
-  return names.some((n) => new RegExp(`\\b${n}\\s*\\(`).test(body))
+  return names.some((n) => new RegExp(`\\b${n}\\s*\\(`).test(body));
 }
 
-describe('server action surface', () => {
-  it('finds the action modules', () => {
+describe("server action surface", () => {
+  it("finds the action modules", () => {
     // A sanity check on the detector: if a refactor moves the actions and
     // this drops to zero, every assertion below would vacuously pass.
-    expect(actionModules.length).toBeGreaterThanOrEqual(9)
-    expect(actionModules.map(rel)).toContain('src/lib/actions/trades.ts')
-  })
+    expect(actionModules.length).toBeGreaterThanOrEqual(9);
+    expect(actionModules.map(rel)).toContain("src/lib/actions/trades.ts");
+  });
 
-  describe.each(actionModules.map((f) => [rel(f), f] as const))('%s', (name, file) => {
-    const source = readFileSync(file, 'utf8')
+  describe.each(actionModules.map((f) => [rel(f), f] as const))("%s", (name, file) => {
+    const source = readFileSync(file, "utf8");
     const exportLines = source
-      .split('\n')
+      .split("\n")
       .map((line, i) => [line, i + 1] as const)
-      .filter(([line]) => /^export\s/.test(line))
+      .filter(([line]) => /^export\s/.test(line));
 
-    it('exports only async functions and types', () => {
+    it("exports only async functions and types", () => {
       const offenders = exportLines
         .filter(([line]) => !/^export\s+(async\s+function|type|interface)\b/.test(line))
-        .map(([line, n]) => `${name}:${n}  ${line.trim()}`)
+        .map(([line, n]) => `${name}:${n}  ${line.trim()}`);
 
       // `export const`, sync `export function` and `export default` are all
       // errors here: Next can only assign an action id to an async function.
-      expect(offenders).toEqual([])
-    })
+      expect(offenders).toEqual([]);
+    });
 
-    it('authenticates in every exported action', () => {
-      const fns = topLevelFunctions(source)
+    it("authenticates in every exported action", () => {
+      const fns = topLevelFunctions(source);
 
       // Some modules funnel their ownership check through a module-local
       // helper — attachments.ts's `ownedTrade`/`ownedAttachment`,
@@ -141,23 +141,23 @@ describe('server action surface', () => {
       // per-module now lives in ./guard and is listed in AUTH_FNS above.)
       const authenticatingHelpers = [...fns.entries()]
         .filter(([, body]) => callsAny(body, AUTH_FNS))
-        .map(([fnName]) => fnName)
+        .map(([fnName]) => fnName);
 
-      const accepted = [...AUTH_FNS, ...authenticatingHelpers]
+      const accepted = [...AUTH_FNS, ...authenticatingHelpers];
 
       const exported = exportLines
         .map(([line]) => /^export\s+async\s+function\s+(\w+)/.exec(line)?.[1])
         .filter((n): n is string => Boolean(n))
-        .filter((n) => !UNAUTHENTICATED_BY_DESIGN.has(n))
+        .filter((n) => !UNAUTHENTICATED_BY_DESIGN.has(n));
 
       const unauthenticated = exported.filter((fnName) => {
-        const body = fns.get(fnName)
-        return body === undefined || !callsAny(body, accepted)
-      })
+        const body = fns.get(fnName);
+        return body === undefined || !callsAny(body, accepted);
+      });
 
-      expect(unauthenticated).toEqual([])
-    })
-  })
+      expect(unauthenticated).toEqual([]);
+    });
+  });
 
   /**
    * The regression guard for the whole server-side-RCE fix.
@@ -168,25 +168,25 @@ describe('server action surface', () => {
    * `@/lib/backtest`'s barrel, which is why the barrel no longer re-exports
    * `./sandbox` — but a barrel is a convention, and this is a test.
    */
-  it('no server action reaches the strategy compiler', () => {
+  it("no server action reaches the strategy compiler", () => {
     const offenders = actionModules
       .filter((f) => {
-        const source = readFileSync(f, 'utf8')
+        const source = readFileSync(f, "utf8");
         // An import of, or a call to, compileStrategy — not a mention of the
         // name in a comment explaining why it is deliberately absent.
-        const imported = /import\s[^;]*\bcompileStrategy\b/.test(source)
+        const imported = /import\s[^;]*\bcompileStrategy\b/.test(source);
         const called = source
-          .split('\n')
-          .some((line) => !/^\s*(\/\/|\*|\/\*)/.test(line) && /\bcompileStrategy\s*\(/.test(line))
-        return imported || called
+          .split("\n")
+          .some((line) => !/^\s*(\/\/|\*|\/\*)/.test(line) && /\bcompileStrategy\s*\(/.test(line));
+        return imported || called;
       })
-      .map(rel)
+      .map(rel);
 
-    expect(offenders).toEqual([])
-  })
+    expect(offenders).toEqual([]);
+  });
 
-  it('the backtest barrel does not re-export the sandbox', () => {
-    const barrel = readFileSync(join(SRC, 'lib/backtest/index.ts'), 'utf8')
-    expect(barrel).not.toMatch(/from\s+["']\.\/sandbox["']/)
-  })
-})
+  it("the backtest barrel does not re-export the sandbox", () => {
+    const barrel = readFileSync(join(SRC, "lib/backtest/index.ts"), "utf8");
+    expect(barrel).not.toMatch(/from\s+["']\.\/sandbox["']/);
+  });
+});

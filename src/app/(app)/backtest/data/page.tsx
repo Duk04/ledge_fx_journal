@@ -64,9 +64,9 @@ export default async function BacktestDataPage() {
             />
           </div>
           <p className="text-xs text-ink-3">
-            Supabase&rsquo;s free tier caps the whole database at 500 MB, and candles share that with every other
-            table in the app. A year of M1 bars for one symbol runs roughly {formatBytes(YEAR_OF_M1_BYTES_PER_SYMBOL)}{" "}
-            — import the ranges a backtest actually needs rather than a broker&rsquo;s entire history.
+            Supabase&rsquo;s free tier caps the whole database at 500 MB, and candles share that with every other table
+            in the app. A year of M1 bars for one symbol runs roughly {formatBytes(YEAR_OF_M1_BYTES_PER_SYMBOL)} —
+            import the ranges a backtest actually needs rather than a broker&rsquo;s entire history.
           </p>
         </PanelBody>
       </Panel>

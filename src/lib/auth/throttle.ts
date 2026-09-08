@@ -1,13 +1,7 @@
 import "server-only";
 import type { AuthAttemptKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import {
-  POLICIES,
-  type PolicyName,
-  type ThrottleDecision,
-  decide,
-  describeWait,
-} from "@/lib/auth/throttle-policy";
+import { POLICIES, type PolicyName, type ThrottleDecision, decide, describeWait } from "@/lib/auth/throttle-policy";
 
 /**
  * Storage for the rate limiter. The arithmetic is in `throttle-policy.ts`,
@@ -29,9 +23,7 @@ export interface ThrottleKey {
   ip?: string | null;
 }
 
-export type ThrottleResult =
-  | { allowed: true }
-  | { allowed: false; retryAfterMs: number; message: string };
+export type ThrottleResult = { allowed: true } | { allowed: false; retryAfterMs: number; message: string };
 
 /**
  * The client's IP, as far as it can be known.

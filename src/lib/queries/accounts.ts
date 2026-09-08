@@ -91,7 +91,10 @@ export async function listAccounts(userId: string): Promise<AccountSummary[]> {
       netPnl: toPlain(stats.netPnl)!,
       tradeCount: stats.tradeCount,
       openCount: stats.openCount,
-      spark: thin(curve.map((p) => toNum(p.balance) ?? 0), 24),
+      spark: thin(
+        curve.map((p) => toNum(p.balance) ?? 0),
+        24,
+      ),
     };
   });
 }
@@ -208,12 +211,7 @@ export async function listBalanceEvents(userId: string, limit = 50) {
  * in lib/session.ts — even though the caller has already validated the
  * account, so that this query is correct read on its own.
  */
-export async function listTradesOpenedBetween(params: {
-  userId: string;
-  accountId: string;
-  from: Date;
-  to: Date;
-}) {
+export async function listTradesOpenedBetween(params: { userId: string; accountId: string; from: Date; to: Date }) {
   return prisma.trade.findMany({
     where: {
       accountId: params.accountId,

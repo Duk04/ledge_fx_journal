@@ -93,10 +93,7 @@ const instrumentSchema = z.object({
     .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code, e.g. USD."),
 });
 
-export async function updateInstrument(
-  symbol: string,
-  input: z.input<typeof instrumentSchema>,
-): Promise<ActionResult> {
+export async function updateInstrument(symbol: string, input: z.input<typeof instrumentSchema>): Promise<ActionResult> {
   const parsed = instrumentSchema.safeParse(input);
   if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 

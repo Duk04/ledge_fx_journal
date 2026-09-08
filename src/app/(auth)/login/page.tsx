@@ -127,8 +127,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         {devLoginEnabled ? (
           <p className="text-xs text-ink-2">
-            Dev credentials login is enabled (ALLOW_DEV_LOGIN=true) — sign in with any seeded
-            user&rsquo;s email and password.
+            Dev credentials login is enabled (ALLOW_DEV_LOGIN=true) — sign in with any seeded user&rsquo;s email and
+            password.
           </p>
         ) : null}
 

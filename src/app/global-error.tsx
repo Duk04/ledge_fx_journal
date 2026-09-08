@@ -26,9 +26,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         }}
       >
         <main style={{ maxWidth: "34rem", padding: "2rem", textAlign: "center" }}>
-          <h1 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 0.5rem" }}>
-            Ledger couldn&rsquo;t start
-          </h1>
+          <h1 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 0.5rem" }}>Ledger couldn&rsquo;t start</h1>
           <p style={{ fontSize: "0.875rem", lineHeight: 1.6, color: "#9aa4b2", margin: "0 0 1.5rem" }}>
             Something failed before the page could render.
             {error.digest ? ` Reference: ${error.digest}.` : ""}

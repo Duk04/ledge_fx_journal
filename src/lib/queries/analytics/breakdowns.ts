@@ -31,9 +31,7 @@ function tagBreakdown(rows: EnrichedRow[]): BreakdownRow[] {
       else groups.set(tag.id, { label: tag.name, rows: [row] });
     }
   }
-  return [...groups.entries()]
-    .map(([id, g]) => toBreakdownRow(id, g.label, summarize(g.rows)))
-    .sort(byNetPnlDesc);
+  return [...groups.entries()].map(([id, g]) => toBreakdownRow(id, g.label, summarize(g.rows))).sort(byNetPnlDesc);
 }
 
 export async function breakdowns(ctx: AnalyticsCtx): Promise<Breakdowns> {
@@ -70,9 +68,7 @@ export async function breakdowns(ctx: AnalyticsCtx): Promise<Breakdowns> {
 export async function holdingBuckets(ctx: AnalyticsCtx): Promise<BreakdownRow[]> {
   const { trades } = await fetchAccountData(ctx.userId, ctx.accountId);
   const window: DateWindow = { from: ctx.from, to: ctx.to };
-  const rows = trades
-    .filter((t) => withinWindow(t.openedAt, window) && t.holdingMinutes !== null)
-    .map(toTradeRow);
+  const rows = trades.filter((t) => withinWindow(t.openedAt, window) && t.holdingMinutes !== null).map(toTradeRow);
 
   let floor = 0;
   return HOLDING_BUCKETS.map((bucket) => {

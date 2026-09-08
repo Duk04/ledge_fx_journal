@@ -42,26 +42,12 @@ export function Money({
   const n = num(value);
   const text = formatMoney(n, currency);
   const prefix = signed && n !== null && n > 0 ? "+" : "";
-  return (
-    <span className={cn("mono", signClass(value, colour), className)}>
-      {n === null ? text : prefix + text}
-    </span>
-  );
+  return <span className={cn("mono", signClass(value, colour), className)}>{n === null ? text : prefix + text}</span>;
 }
 
 /** R multiple. Always signed — an unsigned R is meaningless at a glance. */
-export function RValue({
-  value,
-  colour = true,
-  className,
-}: {
-  value: Num;
-  colour?: boolean;
-  className?: string;
-}) {
-  return (
-    <span className={cn("mono", signClass(value, colour), className)}>{formatR(num(value))}</span>
-  );
+export function RValue({ value, colour = true, className }: { value: Num; colour?: boolean; className?: string }) {
+  return <span className={cn("mono", signClass(value, colour), className)}>{formatR(num(value))}</span>;
 }
 
 export function Pips({ value, colour = true, className }: { value: Num; colour?: boolean; className?: string }) {
@@ -79,11 +65,7 @@ export function Percent({
   digits?: number;
   className?: string;
 }) {
-  return (
-    <span className={cn("mono", signClass(value, colour), className)}>
-      {formatPercent(num(value), digits)}
-    </span>
-  );
+  return <span className={cn("mono", signClass(value, colour), className)}>{formatPercent(num(value), digits)}</span>;
 }
 
 /** An em-dash placeholder, used everywhere a value is genuinely absent. */

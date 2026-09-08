@@ -48,8 +48,8 @@ export function DataTab() {
             </Button>
           </div>
           <p className="border-t border-line pt-3 text-2xs text-ink-3">
-            Not included: attachment image/file bytes (only their stored URL or storage key, if any), and your
-            password hash.
+            Not included: attachment image/file bytes (only their stored URL or storage key, if any), and your password
+            hash.
           </p>
         </PanelBody>
       </Panel>
@@ -61,8 +61,8 @@ export function DataTab() {
         />
         <PanelBody className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <p className="max-w-md text-xs text-ink-3">
-            If pip or P&amp;L numbers look stale after editing an instrument or importing trades, recompute them
-            here — this runs the exact same logic a backfill script would, across every trade in your accounts.
+            If pip or P&amp;L numbers look stale after editing an instrument or importing trades, recompute them here —
+            this runs the exact same logic a backfill script would, across every trade in your accounts.
           </p>
           <Button variant="default" size="sm" onClick={handleRecompute} disabled={pending} className="shrink-0">
             <RefreshCw /> Recompute

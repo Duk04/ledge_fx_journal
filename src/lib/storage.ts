@@ -23,12 +23,7 @@ import crypto from "node:crypto";
 
 export type AllowedImageType = "image/png" | "image/jpeg" | "image/webp" | "image/avif";
 
-export const ALLOWED_IMAGE_TYPES: readonly AllowedImageType[] = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/avif",
-];
+export const ALLOWED_IMAGE_TYPES: readonly AllowedImageType[] = ["image/png", "image/jpeg", "image/webp", "image/avif"];
 
 /** 8MB — a chart screenshot has no business being bigger than this. */
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -97,9 +92,7 @@ function isJpeg(buf: Buffer): boolean {
 /** Walk JPEG markers looking for a Start-Of-Frame segment (SOFn), which carries the frame's height/width. */
 function jpegDimensions(buf: Buffer): { width: number; height: number } | null {
   let offset = 2; // past the FFD8 SOI marker
-  const SOF_MARKERS = new Set([
-    0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
-  ]);
+  const SOF_MARKERS = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
   while (offset + 9 < buf.length) {
     if (buf[offset] !== 0xff) {
       offset += 1;
@@ -123,11 +116,7 @@ function jpegDimensions(buf: Buffer): { width: number; height: number } | null {
 }
 
 function isWebp(buf: Buffer): boolean {
-  return (
-    buf.length >= 12 &&
-    buf.toString("ascii", 0, 4) === "RIFF" &&
-    buf.toString("ascii", 8, 12) === "WEBP"
-  );
+  return buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP";
 }
 
 function webpDimensions(buf: Buffer): { width: number; height: number } | null {
@@ -346,11 +335,17 @@ function signingKey(secret: string, dateStamp: string, region: string): Buffer {
 
 function presignedUrl(cfg: S3Config, method: "GET" | "PUT" | "DELETE", key: string, expiresSeconds = 300): string {
   const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const amzDate = now
+    .toISOString()
+    .replace(/[:-]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
   const dateStamp = amzDate.slice(0, 8);
   const credentialScope = `${dateStamp}/${cfg.region}/s3/aws4_request`;
   const host = new URL(cfg.endpoint).host;
-  const canonicalUri = `/${awsEncode(cfg.bucket, false)}/${key.split("/").map((s) => awsEncode(s, false)).join("/")}`;
+  const canonicalUri = `/${awsEncode(cfg.bucket, false)}/${key
+    .split("/")
+    .map((s) => awsEncode(s, false))
+    .join("/")}`;
 
   const query: Record<string, string> = {
     "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
@@ -364,14 +359,9 @@ function presignedUrl(cfg: S3Config, method: "GET" | "PUT" | "DELETE", key: stri
     .map((k) => `${awsEncode(k)}=${awsEncode(query[k])}`)
     .join("&");
 
-  const canonicalRequest = [
-    method,
-    canonicalUri,
-    canonicalQuery,
-    `host:${host}\n`,
-    "host",
-    "UNSIGNED-PAYLOAD",
-  ].join("\n");
+  const canonicalRequest = [method, canonicalUri, canonicalQuery, `host:${host}\n`, "host", "UNSIGNED-PAYLOAD"].join(
+    "\n",
+  );
 
   const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
   const signature = hmac(signingKey(cfg.secretAccessKey, dateStamp, cfg.region), stringToSign).toString("hex");
@@ -385,7 +375,11 @@ function createS3Driver(): StorageDriver {
     async putObject({ key, body, contentType }: PutObjectInput) {
       const cfg = s3Config();
       const url = presignedUrl(cfg, "PUT", key);
-      const res = await fetch(url, { method: "PUT", body: new Uint8Array(body), headers: { "Content-Type": contentType } });
+      const res = await fetch(url, {
+        method: "PUT",
+        body: new Uint8Array(body),
+        headers: { "Content-Type": contentType },
+      });
       if (!res.ok) {
         throw new Error(`S3 PUT failed (${res.status} ${res.statusText}) for key "${key}".`);
       }

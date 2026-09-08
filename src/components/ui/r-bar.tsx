@@ -51,21 +51,13 @@ export function RBar({
       <div className="absolute inset-y-[-1px] left-1/2 w-px -translate-x-1/2 bg-line-strong" />
       {/* bar */}
       <div
-        className={cn(
-          "absolute inset-y-[2px] rounded-[1px]",
-          positive ? "bg-profit left-1/2" : "bg-loss right-1/2",
-        )}
+        className={cn("absolute inset-y-[2px] rounded-[1px]", positive ? "bg-profit left-1/2" : "bg-loss right-1/2")}
         style={{ width: `${pct}%` }}
       />
       {/* clipped marker: a notch at the end of the track so an outlier reads as
           "off the scale" instead of silently maxing out */}
       {clipped ? (
-        <div
-          className={cn(
-            "absolute inset-y-0 w-[3px]",
-            positive ? "right-0 bg-profit" : "left-0 bg-loss",
-          )}
-        />
+        <div className={cn("absolute inset-y-0 w-[3px]", positive ? "right-0 bg-profit" : "left-0 bg-loss")} />
       ) : null}
     </div>
   );

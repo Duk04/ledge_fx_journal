@@ -26,9 +26,7 @@ export interface SandboxRunRequest {
   config: BacktestConfig;
 }
 
-export type SandboxRunResponse =
-  | { ok: true; result: ReturnType<typeof runBacktest> }
-  | { ok: false; error: string };
+export type SandboxRunResponse = { ok: true; result: ReturnType<typeof runBacktest> } | { ok: false; error: string };
 
 type WorkerLike = {
   onmessage: ((event: MessageEvent<SandboxRunRequest>) => void) | null;

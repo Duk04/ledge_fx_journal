@@ -22,9 +22,9 @@
 :root {
   /* Cool grey ramp, biased ~4° toward the cobalt brand so neutrals read as
      chosen rather than inherited from a stylesheet default. */
-  --grey-0:   #ffffff;
-  --grey-25:  #fafbfc;
-  --grey-50:  #f4f6f9;
+  --grey-0: #ffffff;
+  --grey-25: #fafbfc;
+  --grey-50: #f4f6f9;
   --grey-100: #eceff4;
   --grey-150: #e2e6ec;
   --grey-200: #d3d9e2;
@@ -49,14 +49,14 @@
 
   /* Money. Jade and clay, both pulled well off pure green/red: saturated
      trading-terminal green on a white panel is illegible and looks cheap. */
-  --jade-400:  #35c08f;
-  --jade-500:  #17916a;
-  --jade-600:  #0b7a5a;
-  --jade-700:  #085c44;
-  --clay-400:  #f0836a;
-  --clay-500:  #d3543a;
-  --clay-600:  #c0402a;
-  --clay-700:  #97301f;
+  --jade-400: #35c08f;
+  --jade-500: #17916a;
+  --jade-600: #0b7a5a;
+  --jade-700: #085c44;
+  --clay-400: #f0836a;
+  --clay-500: #d3543a;
+  --clay-600: #c0402a;
+  --clay-700: #97301f;
   --amber-400: #e0a93b;
   --amber-600: #96650a;
 
@@ -75,10 +75,10 @@
   --radius-overlay: 10px;
   --radius-pill: 999px;
 
-  --row-h: 2.125rem;          /* 34px — default table row */
-  --row-h-compact: 1.75rem;   /* 28px — compact table row */
-  --control-h: 2rem;          /* 32px */
-  --control-h-lg: 2.25rem;    /* 36px */
+  --row-h: 2.125rem; /* 34px — default table row */
+  --row-h-compact: 1.75rem; /* 28px — compact table row */
+  --control-h: 2rem; /* 32px */
+  --control-h-lg: 2.25rem; /* 36px */
   --rail-w: 13.5rem;
   --rail-w-collapsed: 3.5rem;
   --topbar-h: 3.25rem;
@@ -88,14 +88,14 @@
   --dur: 160ms;
 
   /* Type scale. 13px UI base — this is an instrument, not an article. */
-  --text-2xs: 0.6875rem;  /* 11 — table micro-labels, badges */
-  --text-xs: 0.75rem;     /* 12 — secondary meta */
-  --text-sm: 0.8125rem;   /* 13 — UI default */
-  --text-base: 0.875rem;  /* 14 — prose, notes */
-  --text-md: 1rem;        /* 16 — panel titles */
-  --text-lg: 1.25rem;     /* 20 — section headings */
-  --text-xl: 1.625rem;    /* 26 — stat figures */
-  --text-2xl: 2.125rem;   /* 34 — hero figure */
+  --text-2xs: 0.6875rem; /* 11 — table micro-labels, badges */
+  --text-xs: 0.75rem; /* 12 — secondary meta */
+  --text-sm: 0.8125rem; /* 13 — UI default */
+  --text-base: 0.875rem; /* 14 — prose, notes */
+  --text-md: 1rem; /* 16 — panel titles */
+  --text-lg: 1.25rem; /* 20 — section headings */
+  --text-xl: 1.625rem; /* 26 — stat figures */
+  --text-2xl: 2.125rem; /* 34 — hero figure */
 }
 
 /* -----------------------------------------------------------------------------
@@ -273,8 +273,7 @@
   --color-chart-grid: var(--chart-grid);
   --color-scrim: var(--scrim);
 
-  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", sans-serif;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
 
   --text-2xs: var(--text-2xs);
@@ -338,14 +337,19 @@
 
   /* Headings are set tight and never bigger than they need to be. A tool has
      no use for a 60px hero. */
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-weight: 600;
     letter-spacing: -0.012em;
     text-wrap: balance;
   }
 
   /* Every digit that could line up in a column, does. */
-  table, .tnum, input[type="number"] {
+  table,
+  .tnum,
+  input[type="number"] {
     font-variant-numeric: tabular-nums;
   }
 
@@ -364,18 +368,28 @@
     scrollbar-width: thin;
     scrollbar-color: var(--line-strong) transparent;
   }
-  ::-webkit-scrollbar { width: 11px; height: 11px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
   ::-webkit-scrollbar-thumb {
     background: var(--line-strong);
     border: 3px solid transparent;
     border-radius: var(--radius-pill);
     background-clip: content-box;
   }
-  ::-webkit-scrollbar-thumb:hover { background-color: var(--ink-3); background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-3);
+    background-clip: content-box;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
@@ -429,16 +443,24 @@
     vertical-align: middle;
     white-space: nowrap;
   }
-  .data-table tbody tr:last-child td { border-bottom: none; }
-  .data-table tbody tr { transition: background var(--dur-fast) var(--ease-out); }
-  .data-table tbody tr:hover { background: var(--hover); }
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .data-table tbody tr {
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+  .data-table tbody tr:hover {
+    background: var(--hover);
+  }
   .data-table [data-numeric] {
     text-align: right;
     font-family: var(--font-mono), monospace;
     font-variant-numeric: tabular-nums;
     font-size: var(--text-xs);
   }
-  .data-table th[data-numeric] { text-align: right; }
+  .data-table th[data-numeric] {
+    text-align: right;
+  }
 
   /* Horizontal scroll container — the page body must never scroll sideways. */
   .scroll-x {
@@ -449,12 +471,23 @@
 
 @layer utilities {
   /* Money sign colouring, applied to the number itself and nothing else. */
-  .val-pos { color: var(--profit); }
-  .val-neg { color: var(--loss); }
-  .val-flat { color: var(--flat); }
+  .val-pos {
+    color: var(--profit);
+  }
+  .val-neg {
+    color: var(--loss);
+  }
+  .val-flat {
+    color: var(--flat);
+  }
 
-  .mono { font-family: var(--font-mono), monospace; font-variant-numeric: tabular-nums; }
+  .mono {
+    font-family: var(--font-mono), monospace;
+    font-variant-numeric: tabular-nums;
+  }
 
   /* Hairline divider that respects the panel it lives in. */
-  .hairline { border-color: var(--line); }
+  .hairline {
+    border-color: var(--line);
+  }
 }

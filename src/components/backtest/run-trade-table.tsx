@@ -13,8 +13,7 @@ const MAX_ROWS = 300;
 
 export function RunTradeTable({ trades, currency }: { trades: RunTradeRow[]; currency: string }) {
   const shown = trades.slice(0, MAX_ROWS);
-  const scale =
-    Math.max(1, ...trades.map((t) => (t.rMultiple !== null ? Math.abs(Number(t.rMultiple)) : 0))) || 3;
+  const scale = Math.max(1, ...trades.map((t) => (t.rMultiple !== null ? Math.abs(Number(t.rMultiple)) : 0))) || 3;
 
   return (
     <>
@@ -53,7 +52,11 @@ export function RunTradeTable({ trades, currency }: { trades: RunTradeRow[]; cur
                 <Td numeric>
                   {formatPrice(Number(t.entryPrice), t.digits)}
                   <span className="text-ink-3"> → </span>
-                  {t.exitPrice !== null ? formatPrice(Number(t.exitPrice), t.digits) : <span className="text-ink-3">—</span>}
+                  {t.exitPrice !== null ? (
+                    formatPrice(Number(t.exitPrice), t.digits)
+                  ) : (
+                    <span className="text-ink-3">—</span>
+                  )}
                 </Td>
                 <Td numeric>{Number(t.volumeLots).toFixed(2)}</Td>
                 <Td numeric>

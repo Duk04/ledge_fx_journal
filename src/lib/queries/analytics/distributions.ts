@@ -62,7 +62,10 @@ export async function rHistogram(ctx: AnalyticsCtx): Promise<RHistogramResult> {
     rMultiple: toNum(t.rMultiple),
   });
   const bySize = [...closed].sort((a, b) => (toNum(b.netPnl) ?? 0) - (toNum(a.netPnl) ?? 0));
-  const topWinners = bySize.slice(0, 5).filter((t) => (toNum(t.netPnl) ?? 0) > 0).map(toExtreme);
+  const topWinners = bySize
+    .slice(0, 5)
+    .filter((t) => (toNum(t.netPnl) ?? 0) > 0)
+    .map(toExtreme);
   const topLosers = bySize
     .slice(-5)
     .reverse()

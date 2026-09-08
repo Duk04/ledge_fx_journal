@@ -12,8 +12,12 @@ import { PriceLadder } from "@/components/trades/price-ladder";
 import { ScreenshotGallery } from "@/components/trades/screenshot-gallery";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
 
-function outcomeOf(status: string, netPnl: string | null): { label: string; tone: "neutral" | "profit" | "loss" | "warn" } {
-  if (status !== "CLOSED" || netPnl === null) return { label: status, tone: status === "CANCELLED" ? "warn" : "neutral" };
+function outcomeOf(
+  status: string,
+  netPnl: string | null,
+): { label: string; tone: "neutral" | "profit" | "loss" | "warn" } {
+  if (status !== "CLOSED" || netPnl === null)
+    return { label: status, tone: status === "CANCELLED" ? "warn" : "neutral" };
   const n = Number(netPnl);
   if (Math.abs(n) < 0.005) return { label: "BREAKEVEN", tone: "neutral" };
   return n > 0 ? { label: "WIN", tone: "profit" } : { label: "LOSS", tone: "loss" };
@@ -91,16 +95,27 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
               <FactRow label="Held" value={formatDuration(trade.holdingMinutes)} />
               <div className="my-1 h-px bg-line" />
               <FactRow label="Entry" value={formatPrice(Number(trade.entryPrice), trade.digits)} />
-              <FactRow label="Exit" value={trade.exitPrice !== null ? formatPrice(Number(trade.exitPrice), trade.digits) : "—"} />
-              <FactRow label="Stop loss" value={trade.stopLoss !== null ? formatPrice(Number(trade.stopLoss), trade.digits) : "—"} />
-              <FactRow label="Take profit" value={trade.takeProfit !== null ? formatPrice(Number(trade.takeProfit), trade.digits) : "—"} />
+              <FactRow
+                label="Exit"
+                value={trade.exitPrice !== null ? formatPrice(Number(trade.exitPrice), trade.digits) : "—"}
+              />
+              <FactRow
+                label="Stop loss"
+                value={trade.stopLoss !== null ? formatPrice(Number(trade.stopLoss), trade.digits) : "—"}
+              />
+              <FactRow
+                label="Take profit"
+                value={trade.takeProfit !== null ? formatPrice(Number(trade.takeProfit), trade.digits) : "—"}
+              />
               <FactRow label="Volume" value={`${Number(trade.volumeLots).toFixed(2)} lots`} />
               <div className="my-1 h-px bg-line" />
               <FactRow
                 label="Net P&L"
                 value={<Money value={trade.netPnl} currency={trade.currency} signed />}
                 recomputedValue={
-                  trade.hasDisagreement ? <Money value={trade.recomputed.netPnl} currency={trade.currency} signed /> : undefined
+                  trade.hasDisagreement ? (
+                    <Money value={trade.recomputed.netPnl} currency={trade.currency} signed />
+                  ) : undefined
                 }
               />
               <FactRow
@@ -113,10 +128,16 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
                 value={<RValue value={trade.rMultiple} />}
                 recomputedValue={trade.hasDisagreement ? <RValue value={trade.recomputed.rMultiple} /> : undefined}
               />
-              <FactRow label="Planned R:R" value={trade.recomputed.plannedRR ? `${Number(trade.recomputed.plannedRR).toFixed(2)}:1` : "—"} />
+              <FactRow
+                label="Planned R:R"
+                value={trade.recomputed.plannedRR ? `${Number(trade.recomputed.plannedRR).toFixed(2)}:1` : "—"}
+              />
               <FactRow label="Risk amount" value={<Money value={trade.riskAmount} currency={trade.currency} />} />
               <div className="my-1 h-px bg-line" />
-              <FactRow label="Commission" value={<Money value={trade.commission} currency={trade.currency} colour={false} />} />
+              <FactRow
+                label="Commission"
+                value={<Money value={trade.commission} currency={trade.currency} colour={false} />}
+              />
               <FactRow label="Swap" value={<Money value={trade.swap} currency={trade.currency} colour={false} />} />
             </PanelBody>
           </Panel>
@@ -180,7 +201,9 @@ function FactRow({
       <span className="text-ink-3">{label}</span>
       <span className="mono text-right text-ink">
         {value}
-        {recomputedValue !== undefined ? <span className="ml-1.5 text-2xs text-warn">(fresh: {recomputedValue})</span> : null}
+        {recomputedValue !== undefined ? (
+          <span className="ml-1.5 text-2xs text-warn">(fresh: {recomputedValue})</span>
+        ) : null}
       </span>
     </div>
   );

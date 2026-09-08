@@ -14,20 +14,11 @@ export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export function SkeletonText({
-  lines = 1,
-  className,
-}: {
-  lines?: number;
-  className?: string;
-}) {
+export function SkeletonText({ lines = 1, className }: { lines?: number; className?: string }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className={cn("h-3", i === lines - 1 && lines > 1 ? "w-2/3" : "w-full")}
-        />
+        <Skeleton key={i} className={cn("h-3", i === lines - 1 && lines > 1 ? "w-2/3" : "w-full")} />
       ))}
     </div>
   );
@@ -35,13 +26,7 @@ export function SkeletonText({
 
 /** Sized to `.data-table`'s own row height so a table doesn't jump once real
  * rows replace these. */
-export function SkeletonRows({
-  rows = 6,
-  cols = 4,
-}: {
-  rows?: number;
-  cols?: number;
-}) {
+export function SkeletonRows({ rows = 6, cols = 4 }: { rows?: number; cols?: number }) {
   return (
     <>
       {Array.from({ length: rows }).map((_, r) => (

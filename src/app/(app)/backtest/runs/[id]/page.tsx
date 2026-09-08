@@ -1,14 +1,6 @@
 import { notFound } from "next/navigation";
 import { Page } from "@/components/shell/page";
-import {
-  SectionHead,
-  Panel,
-  PanelHeader,
-  PanelBody,
-  Stat,
-  StatRow,
-  Badge,
-} from "@/components/ui";
+import { SectionHead, Panel, PanelHeader, PanelBody, Stat, StatRow, Badge } from "@/components/ui";
 import { Percent } from "@/components/ui/value";
 import { formatMoney, formatR } from "@/lib/metrics/formatters";
 import { requireUser } from "@/lib/session";
@@ -73,29 +65,17 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
         <PanelHeader title="Summary" />
         <PanelBody>
           <StatRow>
-            <Stat
-              label="Net P&L"
-              value={formatMoney(s.netPnl, run.currency)}
-              tone={toneOf(s.netPnl)}
-            />
+            <Stat label="Net P&L" value={formatMoney(s.netPnl, run.currency)} tone={toneOf(s.netPnl)} />
             <Stat label="Win rate" value={<Percent value={s.winRate} />} />
             <Stat label="Profit factor" value={s.profitFactor !== null ? s.profitFactor.toFixed(2) : "—"} />
-            <Stat
-              label="Expectancy"
-              value={formatR(s.expectancyR)}
-              tone={toneOf(s.expectancyR)}
-            />
+            <Stat label="Expectancy" value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
             <Stat
               label="Max drawdown"
               value={s.maxDrawdownAmount !== null ? formatMoney(-Math.abs(s.maxDrawdownAmount), run.currency) : "—"}
               hint={s.maxDrawdownPct !== null ? `${s.maxDrawdownPct.toFixed(1)}% of peak` : undefined}
               tone={s.maxDrawdownAmount ? "loss" : "neutral"}
             />
-            <Stat
-              label="Trades"
-              value={String(s.tradeCount)}
-              hint={`${s.wins}W / ${s.losses}L / ${s.breakevens} BE`}
-            />
+            <Stat label="Trades" value={String(s.tradeCount)} hint={`${s.wins}W / ${s.losses}L / ${s.breakevens} BE`} />
           </StatRow>
         </PanelBody>
       </Panel>

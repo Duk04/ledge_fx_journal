@@ -77,9 +77,7 @@ async function main() {
     }
   }
 
-  console.log(
-    `${dry ? "[dry run] " : ""}${scanned} trades scanned, ${changed} ${dry ? "would change" : "updated"}.`,
-  );
+  console.log(`${dry ? "[dry run] " : ""}${scanned} trades scanned, ${changed} ${dry ? "would change" : "updated"}.`);
   if (flagged.length) {
     console.log(`\n${flagged.length} trade(s) need a conversion rate entered by hand:`);
     for (const line of flagged.slice(0, 20)) console.log(`  ${line}`);

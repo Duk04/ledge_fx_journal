@@ -74,16 +74,10 @@ export function DropdownCheckboxItem({
   );
 }
 
-export function DropdownLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof DropdownPrimitive.Label>) {
+export function DropdownLabel({ className, ...props }: React.ComponentProps<typeof DropdownPrimitive.Label>) {
   return <DropdownPrimitive.Label className={cn("label px-2 py-1.5", className)} {...props} />;
 }
 
-export function DropdownSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof DropdownPrimitive.Separator>) {
+export function DropdownSeparator({ className, ...props }: React.ComponentProps<typeof DropdownPrimitive.Separator>) {
   return <DropdownPrimitive.Separator className={cn("my-1 h-px bg-line", className)} {...props} />;
 }

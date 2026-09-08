@@ -152,7 +152,12 @@ export function AccountCard({
         currency={account.currency}
         events={events}
       />
-      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} accountId={account.id} label={account.label} />
+      <DeleteAccountDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        accountId={account.id}
+        label={account.label}
+      />
     </Panel>
   );
 }

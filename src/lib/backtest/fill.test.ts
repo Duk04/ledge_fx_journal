@@ -68,7 +68,7 @@ describe("pointsToPrice / priceToPoints", () => {
 
 describe("pipsBetween", () => {
   it("is positive for a favourable long move", () => {
-    expect(pipsBetween(EURUSD, 1.1, 1.1050, "LONG")).toBeCloseTo(50, 6);
+    expect(pipsBetween(EURUSD, 1.1, 1.105, "LONG")).toBeCloseTo(50, 6);
   });
 
   it("is negative for an unfavourable long move", () => {
@@ -291,7 +291,14 @@ describe("exitOnBar — short positions", () => {
 describe("closeAtPrice", () => {
   it("computes pips, grossPnl, netPnl and rMultiple for a winning long", () => {
     const fill = fillModel({ commissionPerLot: 7 });
-    const position: SimPosition = { side: "LONG", lots: 2, entryTs: 0, entryPrice: 1.1, stopLoss: 1.09, takeProfit: 1.12 };
+    const position: SimPosition = {
+      side: "LONG",
+      lots: 2,
+      entryTs: 0,
+      entryPrice: 1.1,
+      stopLoss: 1.09,
+      takeProfit: 1.12,
+    };
     const trade = closeAtPrice(position, 1.11, 60_000, "TAKE_PROFIT", fill, EURUSD);
 
     expect(trade.pips).toBeCloseTo(100, 6);
@@ -390,7 +397,14 @@ describe("closeAtPrice", () => {
 describe("agreement with the live journal's computeTrade()", () => {
   it("a simulated trade handed to computeTrade() produces the same netPnl/pips/rMultiple", () => {
     const fill = fillModel({ commissionPerLot: 6, conversionRate: 1 });
-    const position: SimPosition = { side: "LONG", lots: 1.5, entryTs: 0, entryPrice: 1.085, stopLoss: 1.08, takeProfit: 1.1 };
+    const position: SimPosition = {
+      side: "LONG",
+      lots: 1.5,
+      entryTs: 0,
+      entryPrice: 1.085,
+      stopLoss: 1.08,
+      takeProfit: 1.1,
+    };
     const simTrade = closeAtPrice(position, 1.095, 45 * 60_000, "TAKE_PROFIT", fill, EURUSD);
 
     const instrumentSpec = {

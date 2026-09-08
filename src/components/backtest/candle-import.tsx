@@ -188,10 +188,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
         <Field>
           <FieldLabel>Broker server timezone</FieldLabel>
           <div className="flex flex-wrap items-center gap-2">
-            <Segmented
-              value={tzPreset}
-              onValueChange={(v) => v && setTzPreset(v)}
-            >
+            <Segmented value={tzPreset} onValueChange={(v) => v && setTzPreset(v)}>
               {TZ_PRESETS.map((p) => (
                 <SegmentedItem key={p.value} value={p.value}>
                   {p.label}
@@ -235,9 +232,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
         {result ? <ImportSummary result={result} /> : null}
       </PanelBody>
       <PanelFooter>
-        <span className="text-xs text-ink-3">
-          {file ? file.name : "No file chosen"}
-        </span>
+        <span className="text-xs text-ink-3">{file ? file.name : "No file chosen"}</span>
         <Button variant="primary" onClick={handleImport} disabled={!canImport}>
           {pending ? "Importing…" : "Import"}
         </Button>
@@ -293,7 +288,9 @@ function FileDropZone({
         <>
           <FileText className="size-5 text-ink-2" aria-hidden />
           <span className="text-sm text-ink">{file.name}</span>
-          <span className="text-xs text-ink-3">{(file.size / (1024 * 1024)).toFixed(2)} MB — click or drop to replace</span>
+          <span className="text-xs text-ink-3">
+            {(file.size / (1024 * 1024)).toFixed(2)} MB — click or drop to replace
+          </span>
         </>
       ) : (
         <>

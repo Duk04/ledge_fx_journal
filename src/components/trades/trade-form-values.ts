@@ -114,4 +114,3 @@ export function buildFormData(values: TradeFormInput): FormData {
   values.tagIds.forEach((id) => fd.append("tagIds", id));
   return fd;
 }
-

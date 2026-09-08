@@ -88,9 +88,7 @@ export function AppShell({
         <Button asChild variant="primary" size="md" className="hidden sm:inline-flex">
           <Link href="/trades/new">
             <Plus /> Log trade
-            <kbd className="ml-1 hidden rounded-[3px] bg-black/15 px-1 text-2xs font-normal md:inline">
-              N
-            </kbd>
+            <kbd className="ml-1 hidden rounded-[3px] bg-black/15 px-1 text-2xs font-normal md:inline">N</kbd>
           </Link>
         </Button>
 
@@ -208,9 +206,7 @@ export function AppShell({
         ) : null}
 
         {/* ------------------------------------------------------------ content */}
-        <main className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {children}
-        </main>
+        <main className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
       </div>
 
       {/* ------------------------------------------------------- mobile tab bar */}
@@ -277,9 +273,7 @@ function RailLink({
     >
       {/* The active marker is a 2px edge, not a filled pill: it reads at a
           glance without turning the rail into a stack of buttons. */}
-      {active ? (
-        <span className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-brand" aria-hidden />
-      ) : null}
+      {active ? <span className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-brand" aria-hidden /> : null}
       <Icon className={cn("size-4 shrink-0", active ? "text-brand" : "")} />
       {!collapsed ? <span className="truncate">{label}</span> : null}
     </Link>

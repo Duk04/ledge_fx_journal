@@ -63,14 +63,18 @@ export async function POST(request: Request) {
   const sniffed = sniffImage(buffer);
   if (!sniffed) {
     return NextResponse.json(
-      { error: `Unsupported file type. Accepted formats: ${ALLOWED_IMAGE_TYPES.map((t) => t.split("/")[1]).join(", ")}.` },
+      {
+        error: `Unsupported file type. Accepted formats: ${ALLOWED_IMAGE_TYPES.map((t) => t.split("/")[1]).join(", ")}.`,
+      },
       { status: 400 },
     );
   }
 
   const kindRaw = form.get("kind");
   const kind: AttachmentKind =
-    typeof kindRaw === "string" && VALID_KINDS.includes(kindRaw as AttachmentKind) ? (kindRaw as AttachmentKind) : "OTHER";
+    typeof kindRaw === "string" && VALID_KINDS.includes(kindRaw as AttachmentKind)
+      ? (kindRaw as AttachmentKind)
+      : "OTHER";
   const captionRaw = form.get("caption");
   const caption = typeof captionRaw === "string" && captionRaw.trim() ? captionRaw.trim().slice(0, 500) : null;
 

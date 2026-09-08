@@ -13,13 +13,7 @@ import { ErrorState } from "@/components/ui";
  * `retry`, not `reset`: Next 16.3 stabilised the `retry` prop and recommends
  * it (see node_modules/next/dist/docs/.../file-conventions/error.md).
  */
-export default function AnalyticsError({
-  error,
-  retry,
-}: {
-  error: Error & { digest?: string };
-  retry: () => void;
-}) {
+export default function AnalyticsError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
     console.error(error);
   }, [error]);

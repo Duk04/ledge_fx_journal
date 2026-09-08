@@ -10,11 +10,7 @@ import { listCoverage } from "@/lib/queries/candles";
 import { EXAMPLE_STRATEGIES } from "@/lib/backtest";
 import { StrategyWorkbench } from "@/components/backtest/strategies/strategy-workbench";
 
-export default async function StrategiesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ id?: string }>;
-}) {
+export default async function StrategiesPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const { id } = await searchParams;
   const user = await requireUser();
 
@@ -64,7 +60,9 @@ export default async function StrategiesPage({
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate font-medium">{s.name}</span>
-                        {s.lastRun ? <Badge tone={s.lastRun.status === "DONE" ? "neutral" : "warn"}>{s.lastRun.status}</Badge> : null}
+                        {s.lastRun ? (
+                          <Badge tone={s.lastRun.status === "DONE" ? "neutral" : "warn"}>{s.lastRun.status}</Badge>
+                        ) : null}
                       </span>
                       {stats ? (
                         <span className="mono text-2xs text-ink-3">

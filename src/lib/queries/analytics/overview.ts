@@ -129,9 +129,7 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
       })()
     : startingBalance;
 
-  const chronoRows = trades
-    .filter((t) => t.closedAt !== null && withinWindow(t.closedAt, window))
-    .map(toTradeRow);
+  const chronoRows = trades.filter((t) => t.closedAt !== null && withinWindow(t.closedAt, window)).map(toTradeRow);
   const chronoEvents = allEvents.filter((e) => withinWindow(e.at, window));
   const windowCurve = equityCurve(chronoRows, equityStartBalance, chronoEvents);
   const windowDrawdown = drawdownSeries(windowCurve);

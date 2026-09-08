@@ -42,7 +42,10 @@ const addExternalLinkSchema = z.object({
   // https-only: an http:// screenshot link is either a mistake or something
   // that will start throwing mixed-content errors the moment this app is
   // served over TLS (which it always is outside local dev).
-  url: z.string().url().refine((u) => u.startsWith("https://"), { message: "Must be an https:// URL." }),
+  url: z
+    .string()
+    .url()
+    .refine((u) => u.startsWith("https://"), { message: "Must be an https:// URL." }),
   kind: z.enum(["BEFORE", "AFTER", "OTHER"]).default("OTHER"),
   caption: z.string().max(500).optional(),
 });
@@ -113,7 +116,10 @@ const setKindSchema = z.object({
   kind: z.enum(["BEFORE", "AFTER", "OTHER"]),
 });
 
-export async function setAttachmentKind(attachmentId: string, kind: "BEFORE" | "AFTER" | "OTHER"): Promise<ActionResult> {
+export async function setAttachmentKind(
+  attachmentId: string,
+  kind: "BEFORE" | "AFTER" | "OTHER",
+): Promise<ActionResult> {
   const parsed = setKindSchema.safeParse({ attachmentId, kind });
   if (!parsed.success) {
     return failFields(fieldErrorsFrom(parsed.error));

@@ -25,7 +25,8 @@ export interface ExampleStrategy {
 
 export const EMA_CROSS_STRATEGY: ExampleStrategy = {
   name: "EMA Cross",
-  description: "Goes long when the fast EMA crosses above the slow EMA, short when it crosses below, with an ATR stop so every trade has an R multiple.",
+  description:
+    "Goes long when the fast EMA crosses above the slow EMA, short when it crosses below, with an ATR stop so every trade has an R multiple.",
   params: { fastPeriod: 10, slowPeriod: 30, atrPeriod: 14, atrMultiplier: 2, lots: 1 },
   code: `
 function onBar(ctx) {
@@ -83,7 +84,8 @@ function onBar(ctx) {
 
 export const RSI_MEAN_REVERSION_STRATEGY: ExampleStrategy = {
   name: "RSI Mean Reversion",
-  description: "Buys oversold / sells overbought RSI extremes with an ATR-based stop, and exits back at the RSI midline.",
+  description:
+    "Buys oversold / sells overbought RSI extremes with an ATR-based stop, and exits back at the RSI midline.",
   params: { rsiPeriod: 14, oversold: 30, overbought: 70, atrPeriod: 14, atrMultiplier: 2, lots: 1 },
   code: `
 function onBar(ctx) {
@@ -133,7 +135,8 @@ function onBar(ctx) {
 
 export const LONDON_BREAKOUT_STRATEGY: ExampleStrategy = {
   name: "London Breakout",
-  description: "Tracks the high/low of the opening minutes of the London session, then trades a breakout of that range for the rest of the session.",
+  description:
+    "Tracks the high/low of the opening minutes of the London session, then trades a breakout of that range for the rest of the session.",
   params: { rangeMinutes: 60, stopBufferPips: 5, lots: 1 },
   code: `
 var rangeHigh = null;

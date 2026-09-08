@@ -1,12 +1,4 @@
-import {
-  BookOpen,
-  ChartLine,
-  FlaskConical,
-  Gauge,
-  Settings,
-  Table2,
-  Wallet,
-} from "lucide-react";
+import { BookOpen, ChartLine, FlaskConical, Gauge, Settings, Table2, Wallet } from "lucide-react";
 
 /**
  * The navigation, in the order a trading day actually runs: check the state of

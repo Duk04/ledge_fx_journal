@@ -192,10 +192,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           value={<Percent value={stats.winRate} />}
           hint={breakevenPct !== null ? `needs ${breakevenPct}% to break even` : undefined}
         />
-        <Stat
-          label="Profit factor"
-          value={stats.profitFactor !== null ? Number(stats.profitFactor).toFixed(2) : "—"}
-        />
+        <Stat label="Profit factor" value={stats.profitFactor !== null ? Number(stats.profitFactor).toFixed(2) : "—"} />
         <Stat
           label="Expectancy"
           value={<RValue value={stats.expectancyR} />}
@@ -257,24 +254,64 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
               <thead>
                 <tr>
                   <Th sortable sortDirection={sortField === "openedAt" ? sortDirection : false}>
-                    <SortLink field="openedAt" label="Opened" currentField={sortField} currentDirection={sortDirection} buildHref={buildSortHref} />
+                    <SortLink
+                      field="openedAt"
+                      label="Opened"
+                      currentField={sortField}
+                      currentDirection={sortDirection}
+                      buildHref={buildSortHref}
+                    />
                   </Th>
                   <Th sortable sortDirection={sortField === "symbol" ? sortDirection : false}>
-                    <SortLink field="symbol" label="Symbol" currentField={sortField} currentDirection={sortDirection} buildHref={buildSortHref} />
+                    <SortLink
+                      field="symbol"
+                      label="Symbol"
+                      currentField={sortField}
+                      currentDirection={sortDirection}
+                      buildHref={buildSortHref}
+                    />
                   </Th>
                   <Th>Dir</Th>
                   <Th numeric>Entry → Exit</Th>
                   <Th numeric sortable sortDirection={sortField === "volumeLots" ? sortDirection : false}>
-                    <SortLink numeric field="volumeLots" label="Lots" currentField={sortField} currentDirection={sortDirection} buildHref={buildSortHref} />
+                    <SortLink
+                      numeric
+                      field="volumeLots"
+                      label="Lots"
+                      currentField={sortField}
+                      currentDirection={sortDirection}
+                      buildHref={buildSortHref}
+                    />
                   </Th>
                   <Th numeric sortable sortDirection={sortField === "pips" ? sortDirection : false}>
-                    <SortLink numeric field="pips" label="Pips" currentField={sortField} currentDirection={sortDirection} buildHref={buildSortHref} />
+                    <SortLink
+                      numeric
+                      field="pips"
+                      label="Pips"
+                      currentField={sortField}
+                      currentDirection={sortDirection}
+                      buildHref={buildSortHref}
+                    />
                   </Th>
                   <Th numeric sortable sortDirection={sortField === "netPnl" ? sortDirection : false}>
-                    <SortLink numeric field="netPnl" label="Net P&L" currentField={sortField} currentDirection={sortDirection} buildHref={buildSortHref} />
+                    <SortLink
+                      numeric
+                      field="netPnl"
+                      label="Net P&L"
+                      currentField={sortField}
+                      currentDirection={sortDirection}
+                      buildHref={buildSortHref}
+                    />
                   </Th>
                   <Th numeric sortable sortDirection={sortField === "rMultiple" ? sortDirection : false}>
-                    <SortLink numeric field="rMultiple" label="R" currentField={sortField} currentDirection={sortDirection} buildHref={buildSortHref} />
+                    <SortLink
+                      numeric
+                      field="rMultiple"
+                      label="R"
+                      currentField={sortField}
+                      currentDirection={sortDirection}
+                      buildHref={buildSortHref}
+                    />
                   </Th>
                   <Th aria-label="R, drawn to scale" />
                   <Th>Tags</Th>
@@ -304,11 +341,16 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                         <div className="flex items-center gap-1.5">
                           {row.followedPlan === false ? (
                             <Tip label="Didn't follow the plan on this trade">
-                              <span className="relative inline-flex size-1.5 shrink-0 rounded-full bg-warn" aria-label="Plan not followed" />
+                              <span
+                                className="relative inline-flex size-1.5 shrink-0 rounded-full bg-warn"
+                                aria-label="Plan not followed"
+                              />
                             </Tip>
                           ) : null}
                           <div className="mono flex flex-col text-xs leading-tight">
-                            <span className="text-ink">{openedAt.toLocaleDateString(undefined, { month: "short", day: "2-digit" })}</span>
+                            <span className="text-ink">
+                              {openedAt.toLocaleDateString(undefined, { month: "short", day: "2-digit" })}
+                            </span>
                             <span className="flex items-center gap-1 text-ink-3">
                               {openedAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                               <SessionBadge session={row.marketSession} />
@@ -319,7 +361,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       <Td>
                         <div className="flex flex-col">
                           <span className="font-medium text-ink">{row.symbol}</span>
-                          <span className="mono text-2xs text-ink-3">{formatPrice(Number(row.entryPrice), row.digits)}</span>
+                          <span className="mono text-2xs text-ink-3">
+                            {formatPrice(Number(row.entryPrice), row.digits)}
+                          </span>
                         </div>
                       </Td>
                       <Td>
@@ -328,7 +372,11 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       <Td numeric>
                         {formatPrice(Number(row.entryPrice), row.digits)}
                         <span className="text-ink-3"> → </span>
-                        {row.exitPrice !== null ? formatPrice(Number(row.exitPrice), row.digits) : <span className="text-ink-3">—</span>}
+                        {row.exitPrice !== null ? (
+                          formatPrice(Number(row.exitPrice), row.digits)
+                        ) : (
+                          <span className="text-ink-3">—</span>
+                        )}
                       </Td>
                       <Td numeric>{Number(row.volumeLots).toFixed(2)}</Td>
                       <Td numeric>

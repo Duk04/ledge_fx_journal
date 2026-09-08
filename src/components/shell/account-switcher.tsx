@@ -32,13 +32,7 @@ export type AccountOption = {
  * deliberate: switching account is rare, but wanting to know "where am I right
  * now" is constant, and this control is already in the corner of every page.
  */
-export function AccountSwitcher({
-  accounts,
-  activeId,
-}: {
-  accounts: AccountOption[];
-  activeId: string | null;
-}) {
+export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOption[]; activeId: string | null }) {
   const router = useRouter();
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
 
@@ -73,22 +67,11 @@ export function AccountSwitcher({
       >
         <span className="flex min-w-0 flex-col leading-none">
           <span className="truncate text-xs font-medium text-ink">{active.label}</span>
-          <span
-            className={cn(
-              "mono mt-0.5 text-2xs",
-              pnl > 0 ? "text-profit" : pnl < 0 ? "text-loss" : "text-ink-3",
-            )}
-          >
+          <span className={cn("mono mt-0.5 text-2xs", pnl > 0 ? "text-profit" : pnl < 0 ? "text-loss" : "text-ink-3")}>
             {formatMoney(Number(active.equity), active.currency)}
           </span>
         </span>
-        <Sparkline
-          values={active.spark}
-          width={44}
-          height={18}
-          area={false}
-          className="hidden sm:block"
-        />
+        <Sparkline values={active.spark} width={44} height={18} area={false} className="hidden sm:block" />
         <ChevronsUpDown className="size-3.5 shrink-0 text-ink-3 group-hover:text-ink-2" />
       </DropdownTrigger>
 
@@ -97,11 +80,7 @@ export function AccountSwitcher({
         {accounts.map((a) => {
           const p = Number(a.netPnl);
           return (
-            <DropdownItem
-              key={a.id}
-              onSelect={() => select(a.id)}
-              className="flex items-center gap-2.5 py-1.5"
-            >
+            <DropdownItem key={a.id} onSelect={() => select(a.id)} className="flex items-center gap-2.5 py-1.5">
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-center gap-1.5">
                   <span className="truncate text-sm text-ink">{a.label}</span>

@@ -249,7 +249,11 @@ export function StrategyWorkbench({
               </Field>
               <Field>
                 <FieldLabel optional>Description</FieldLabel>
-                <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What this strategy does" />
+                <Input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What this strategy does"
+                />
               </Field>
             </FieldRow>
             <Field>
@@ -328,7 +332,9 @@ export function StrategyWorkbench({
                 {isoDate(matchingCoverage.lastTs)}.
               </p>
             ) : symbol ? (
-              <p className="text-2xs text-warn">No {symbol} {timeframe} bars stored — pick a different timeframe or import data.</p>
+              <p className="text-2xs text-warn">
+                No {symbol} {timeframe} bars stored — pick a different timeframe or import data.
+              </p>
             ) : null}
 
             <FieldRow>
@@ -373,7 +379,11 @@ export function StrategyWorkbench({
             </FieldRow>
             <Field>
               <FieldLabel>Commission</FieldLabel>
-              <NumberInput value={commissionPerLot} onChange={(e) => setCommissionPerLot(e.target.value)} unit="per lot/side" />
+              <NumberInput
+                value={commissionPerLot}
+                onChange={(e) => setCommissionPerLot(e.target.value)}
+                unit="per lot/side"
+              />
             </Field>
             <Field>
               <div className="flex items-center justify-between">
@@ -387,9 +397,18 @@ export function StrategyWorkbench({
           <PanelFooter>
             <span className="text-2xs text-ink-3">
               {dirty ? "Runs the code above as written" : "Runs the saved strategy"}
-              {strategy && !dirty ? <Badge tone="neutral" className="ml-1.5">saved</Badge> : null}
+              {strategy && !dirty ? (
+                <Badge tone="neutral" className="ml-1.5">
+                  saved
+                </Badge>
+              ) : null}
             </span>
-            <Button variant="primary" size="sm" onClick={handleRun} disabled={running || !symbol || !effectiveFrom || !effectiveTo}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleRun}
+              disabled={running || !symbol || !effectiveFrom || !effectiveTo}
+            >
               <Play /> {running ? "Running…" : "Run"}
             </Button>
           </PanelFooter>

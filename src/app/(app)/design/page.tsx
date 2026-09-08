@@ -127,7 +127,10 @@ export default function DesignSystemPage() {
         </Panel>
 
         <Panel className="lg:col-span-6">
-          <PanelHeader title="R Bar" caption="divergent bars for R multiples, including the no-stop and clipped cases" />
+          <PanelHeader
+            title="R Bar"
+            caption="divergent bars for R multiples, including the no-stop and clipped cases"
+          />
           <PanelBody>
             <RBarShowcase />
           </PanelBody>
@@ -221,10 +224,22 @@ export default function DesignSystemPage() {
 
 function TheFourRules() {
   const rules = [
-    { title: "One filled button per view", body: "Everything else is a hairline. A screen with two primary buttons has no primary button." },
-    { title: "Hairlines, not shadows", body: "Structure comes from 1px lines and surface steps. Shadows are reserved for things that float above the page — menus, dialogs." },
-    { title: "Colour is reserved", body: "For money (profit/loss) and one interactive brand hue. Nothing else gets to be colourful — chrome stays near-achromatic on purpose." },
-    { title: "Comparable numbers are mono", body: "Anything that can be compared vertically — a column of P&L, a column of R — is monospaced and tabular. This is a ledger." },
+    {
+      title: "One filled button per view",
+      body: "Everything else is a hairline. A screen with two primary buttons has no primary button.",
+    },
+    {
+      title: "Hairlines, not shadows",
+      body: "Structure comes from 1px lines and surface steps. Shadows are reserved for things that float above the page — menus, dialogs.",
+    },
+    {
+      title: "Colour is reserved",
+      body: "For money (profit/loss) and one interactive brand hue. Nothing else gets to be colourful — chrome stays near-achromatic on purpose.",
+    },
+    {
+      title: "Comparable numbers are mono",
+      body: "Anything that can be compared vertically — a column of P&L, a column of R — is monospaced and tabular. This is a ledger.",
+    },
   ];
   return (
     <Panel>
@@ -570,7 +585,12 @@ function SparklineShowcase() {
 function StatShowcase() {
   return (
     <StatRow>
-      <Stat label="Net P&L" value={<Money value={2840.12} currency="USD" signed />} tone="profit" spark={[10, 12, 9, 14, 18, 22]} />
+      <Stat
+        label="Net P&L"
+        value={<Money value={2840.12} currency="USD" signed />}
+        tone="profit"
+        spark={[10, 12, 9, 14, 18, 22]}
+      />
       <Stat label="Win rate" value="58.3%" hint="needs 42% to break even" />
       <Stat label="Profit factor" value="1.94" />
       <Stat label="Expectancy R" value={<RValue value={0.31} />} tone="profit" />
@@ -682,7 +702,9 @@ function OverlayShowcase() {
         <DialogContent size="sm">
           <DialogHeader title="Delete this trade?" description="This can't be undone." />
           <DialogBody>
-            <p className="text-xs text-ink-2">A dialog is centred, sits on a scrim, and closes on Escape or an outside click.</p>
+            <p className="text-xs text-ink-2">
+              A dialog is centred, sits on a scrim, and closes on Escape or an outside click.
+            </p>
           </DialogBody>
           <DialogFooter>
             <Button variant="default" size="sm">
@@ -822,15 +844,14 @@ function ToastShowcase() {
       <Button variant="default" onClick={() => toast({ title: "Trade saved", tone: "neutral" })}>
         Neutral
       </Button>
-      <Button
-        variant="default"
-        onClick={() => toast({ title: "Trade closed at +1.8R", tone: "profit" })}
-      >
+      <Button variant="default" onClick={() => toast({ title: "Trade closed at +1.8R", tone: "profit" })}>
         Profit
       </Button>
       <Button
         variant="default"
-        onClick={() => toast({ title: "Couldn't save", description: "Check your connection and try again.", tone: "loss" })}
+        onClick={() =>
+          toast({ title: "Couldn't save", description: "Check your connection and try again.", tone: "loss" })
+        }
       >
         Loss
       </Button>

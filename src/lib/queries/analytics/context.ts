@@ -23,7 +23,6 @@ import { type DateWindow } from "@/lib/range";
  * preserves the behaviour the single file had.
  */
 
-
 export function withinWindow(at: Date, window: DateWindow): boolean {
   if (window.from && at < window.from) return false;
   if (window.to && at > window.to) return false;

@@ -26,11 +26,7 @@ function streakLabel(current: number): string {
   return current > 0 ? `${current}W` : `${Math.abs(current)}L`;
 }
 
-export default async function OverviewPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ range?: string }>;
-}) {
+export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const { range: rangeParam } = await searchParams;
   const user = await requireUser();
 
@@ -55,15 +51,15 @@ export default async function OverviewPage({
       <RiskGuard accountId={account.id} />
 
       <StatRow>
-        <Stat
-          label="Net P&L"
-          value={formatMoney(s.netPnl, data.currency)}
-          tone={toneOf(s.netPnl)}
-        />
+        <Stat label="Net P&L" value={formatMoney(s.netPnl, data.currency)} tone={toneOf(s.netPnl)} />
         <Stat
           label="Win rate"
           value={formatPercent(s.winRate)}
-          hint={s.breakevenWinRate !== null ? `needs ${formatPercent(s.breakevenWinRate, 0)} to break even` : "not enough closed trades"}
+          hint={
+            s.breakevenWinRate !== null
+              ? `needs ${formatPercent(s.breakevenWinRate, 0)} to break even`
+              : "not enough closed trades"
+          }
         />
         <Stat label="Profit factor" value={s.profitFactor === null ? "—" : s.profitFactor.toFixed(2)} />
         <Stat label="Expectancy R" value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />

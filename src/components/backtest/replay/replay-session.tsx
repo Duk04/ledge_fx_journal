@@ -227,17 +227,32 @@ export function ReplaySession({
           </PanelBody>
           <PanelFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <div className="flex items-center gap-1">
-              <Button variant="default" size="icon-sm" onClick={stepBack} disabled={Boolean(position || pendingOrder) || cursor === 0} aria-label="Step back">
+              <Button
+                variant="default"
+                size="icon-sm"
+                onClick={stepBack}
+                disabled={Boolean(position || pendingOrder) || cursor === 0}
+                aria-label="Step back"
+              >
                 <StepBack />
               </Button>
-              <Button variant="primary" size="icon-sm" onClick={togglePlaying} disabled={atEnd} aria-label={playing ? "Pause" : "Play"}>
+              <Button
+                variant="primary"
+                size="icon-sm"
+                onClick={togglePlaying}
+                disabled={atEnd}
+                aria-label={playing ? "Pause" : "Play"}
+              >
                 {playing ? <Pause /> : <Play />}
               </Button>
               <Button variant="default" size="icon-sm" onClick={stepForward} disabled={atEnd} aria-label="Step forward">
                 <StepForward />
               </Button>
             </div>
-            <Segmented value={String(speed)} onValueChange={(v) => v && setSpeed((v === "max" ? "max" : Number(v)) as ReplaySpeed)}>
+            <Segmented
+              value={String(speed)}
+              onValueChange={(v) => v && setSpeed((v === "max" ? "max" : Number(v)) as ReplaySpeed)}
+            >
               {(["0.5", "1", "2", "5", "max"] as const).map((s) => (
                 <SegmentedItem key={s} value={s}>
                   {s === "max" ? "max" : SPEED_LABEL[Number(s) as Exclude<ReplaySpeed, "max">]}
@@ -280,14 +295,29 @@ export function ReplaySession({
             </Field>
             <Field className="w-32">
               <FieldLabel optional>Stop loss</FieldLabel>
-              <NumberInput value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} disabled={!canOrder} placeholder={formatPrice(currentBar?.close, digits)} />
+              <NumberInput
+                value={stopLoss}
+                onChange={(e) => setStopLoss(e.target.value)}
+                disabled={!canOrder}
+                placeholder={formatPrice(currentBar?.close, digits)}
+              />
             </Field>
             <Field className="w-32">
               <FieldLabel optional>Take profit</FieldLabel>
-              <NumberInput value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} disabled={!canOrder} placeholder={formatPrice(currentBar?.close, digits)} />
+              <NumberInput
+                value={takeProfit}
+                onChange={(e) => setTakeProfit(e.target.value)}
+                disabled={!canOrder}
+                placeholder={formatPrice(currentBar?.close, digits)}
+              />
             </Field>
             <div className="flex gap-1.5">
-              <Button variant="primary" className="bg-profit hover:bg-profit" onClick={() => submitOrder("LONG")} disabled={!canOrder}>
+              <Button
+                variant="primary"
+                className="bg-profit hover:bg-profit"
+                onClick={() => submitOrder("LONG")}
+                disabled={!canOrder}
+              >
                 <ArrowUpCircle /> Buy
               </Button>
               <Button variant="danger" onClick={() => submitOrder("SHORT")} disabled={!canOrder}>
@@ -399,7 +429,9 @@ export function ReplaySession({
               </DataTable>
             </div>
             <p className="text-2xs text-ink-3">
-              {trades.length > 0 ? `${wins}/${trades.length} winners this session.` : "Place your first trade with Buy/Sell."}
+              {trades.length > 0
+                ? `${wins}/${trades.length} winners this session.`
+                : "Place your first trade with Buy/Sell."}
             </p>
           </PanelBody>
           <PanelFooter>

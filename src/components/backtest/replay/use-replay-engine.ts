@@ -1,13 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  closeAtPrice,
-  entryPrice,
-  exitAtMarket,
-  exitOnBar,
-  pipsBetween,
-} from "@/lib/backtest/fill";
+import { closeAtPrice, entryPrice, exitAtMarket, exitOnBar, pipsBetween } from "@/lib/backtest/fill";
 import type { Bar, FillModel, OrderRequest, SimInstrument, SimPosition, SimTrade } from "@/lib/backtest/types";
 
 /**
@@ -76,7 +70,13 @@ export function useReplayEngine({
 
   const equity = React.useMemo(() => {
     if (!position || !currentBar) return balance;
-    const markPrice = exitAtMarket(currentBar.close, position.side, fill, instrument, currentBar.spread ?? fill.spreadPoints);
+    const markPrice = exitAtMarket(
+      currentBar.close,
+      position.side,
+      fill,
+      instrument,
+      currentBar.spread ?? fill.spreadPoints,
+    );
     const pips = pipsBetween(instrument, position.entryPrice, markPrice, position.side);
     const pipValuePerLot = instrument.pipSize * instrument.contractSize * fill.conversionRate;
     return balance + pips * pipValuePerLot * position.lots;
@@ -200,7 +200,13 @@ export function useReplayEngine({
    * updater is the wrong place for a call that persists to the server). */
   const finish = React.useCallback(() => {
     if (!position || !currentBar) return;
-    const price = exitAtMarket(currentBar.close, position.side, fill, instrument, currentBar.spread ?? fill.spreadPoints);
+    const price = exitAtMarket(
+      currentBar.close,
+      position.side,
+      fill,
+      instrument,
+      currentBar.spread ?? fill.spreadPoints,
+    );
     closeTrade(price, currentBar.ts, "END_OF_DATA", position);
   }, [position, currentBar, fill, instrument, closeTrade]);
 

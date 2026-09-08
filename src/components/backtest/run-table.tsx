@@ -59,9 +59,7 @@ export function RunTable({ rows }: { rows: RunListRow[] }) {
                 <span className="mono text-2xs text-ink-3">{formatRange(r.fromTs, r.toTs)}</span>
               </Td>
               <Td numeric>{stats ? stats.tradeCount : <Empty />}</Td>
-              <Td numeric>
-                {stats ? <Money value={netPnl} currency={r.currency} signed /> : <Empty />}
-              </Td>
+              <Td numeric>{stats ? <Money value={netPnl} currency={r.currency} signed /> : <Empty />}</Td>
               <Td numeric>{stats?.profitFactor != null ? stats.profitFactor.toFixed(2) : <Empty />}</Td>
               <Td numeric>{stats ? <RValue value={stats.expectancyR} /> : <Empty />}</Td>
               <Td>

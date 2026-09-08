@@ -8,10 +8,7 @@ import { OfflineBanner } from "@/components/pwa/offline-banner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const [accounts, activeAccountId] = await Promise.all([
-    listAccounts(user.id),
-    resolveActiveAccountId(user.id),
-  ]);
+  const [accounts, activeAccountId] = await Promise.all([listAccounts(user.id), resolveActiveAccountId(user.id)]);
 
   return (
     <TooltipProvider>

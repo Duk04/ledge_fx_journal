@@ -106,7 +106,10 @@ export function BalanceEventsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
-        <DialogHeader title="Balance events" description="Deposits, withdrawals and manual adjustments for this account." />
+        <DialogHeader
+          title="Balance events"
+          description="Deposits, withdrawals and manual adjustments for this account."
+        />
         <DialogBody className="flex flex-col gap-4">
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3 border-b border-line pb-4">
             {errors.root?.message ? <p className="text-xs text-loss">{errors.root.message}</p> : null}

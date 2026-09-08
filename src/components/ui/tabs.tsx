@@ -10,12 +10,7 @@ export const TabsContent = TabsPrimitive.Content;
 /** The hairline lives here, not on the page around it, so a TabsList composes
  * cleanly inside a PanelHeader without doubling up borders. */
 export function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) {
-  return (
-    <TabsPrimitive.List
-      className={cn("flex items-end gap-4 border-b border-line", className)}
-      {...props}
-    />
-  );
+  return <TabsPrimitive.List className={cn("flex items-end gap-4 border-b border-line", className)} {...props} />;
 }
 
 /**

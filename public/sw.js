@@ -51,7 +51,11 @@ function isHashedStaticAsset(url) {
 }
 
 function isNavigationOrApi(request, url) {
-  return request.mode === "navigate" || url.pathname.startsWith("/api/") || request.headers.get("accept")?.includes("text/html");
+  return (
+    request.mode === "navigate" ||
+    url.pathname.startsWith("/api/") ||
+    request.headers.get("accept")?.includes("text/html")
+  );
 }
 
 async function networkFirst(request) {

@@ -22,12 +22,7 @@ function useFieldContext(explicitId?: string) {
   return { id: explicitId ?? ctx?.id, ctx };
 }
 
-export function Field({
-  id,
-  className,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & { id?: string }) {
+export function Field({ id, className, children, ...props }: React.ComponentProps<"div"> & { id?: string }) {
   const generatedId = React.useId();
   const autoId = id ?? generatedId;
   const [describedBy, setDescribedBy] = React.useState<string[]>([]);

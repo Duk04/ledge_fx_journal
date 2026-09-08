@@ -316,9 +316,7 @@ function simTradesToRows(trades: SimTrade[]): TradeRow[] {
  *     client could post ten million trades into one `createMany`.
  *   - Strategy ownership, as before.
  */
-export async function recordStrategyRun(
-  input: RecordStrategyRunInput,
-): Promise<ActionResult<{ runId: string }>> {
+export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<ActionResult<{ runId: string }>> {
   const parsed = recordStrategyRunSchema.safeParse(input);
   if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
   const v = parsed.data;

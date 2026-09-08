@@ -38,11 +38,7 @@ function toneOf(n: number | null): "profit" | "loss" | "neutral" {
   return n > 0 ? "profit" : "loss";
 }
 
-export default async function AnalyticsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ range?: string }>;
-}) {
+export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const { range: rangeParam } = await searchParams;
   const user = await requireUser();
 

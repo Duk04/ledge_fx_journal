@@ -42,12 +42,7 @@ export function Sparkline({
   const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
   const fill = `${line} L${pts[pts.length - 1][0].toFixed(2)},${height} L${pts[0][0].toFixed(2)},${height} Z`;
 
-  const resolved =
-    tone === "auto"
-      ? values[values.length - 1] >= values[0]
-        ? "profit"
-        : "loss"
-      : tone;
+  const resolved = tone === "auto" ? (values[values.length - 1] >= values[0] ? "profit" : "loss") : tone;
   const stroke =
     resolved === "profit"
       ? "var(--profit)"
@@ -79,14 +74,7 @@ export function Sparkline({
           <path d={fill} fill={`url(#${gid})`} />
         </>
       ) : null}
-      <path
-        d={line}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d={line} fill="none" stroke={stroke} strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="1.9" fill={stroke} />
     </svg>
   );

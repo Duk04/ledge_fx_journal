@@ -12,7 +12,7 @@ export function StrategyApiReference() {
       <PanelHeader title="Strategy API" caption="what onBar(ctx) can read and call" />
       <PanelBody className="flex flex-col gap-3 text-xs">
         <pre className="scroll-x mono rounded-[var(--radius-control)] bg-panel-sunken p-2.5 text-2xs leading-relaxed text-ink-2">
-{`function onBar(ctx) { ... }   // called on every bar, oldest first
+          {`function onBar(ctx) { ... }   // called on every bar, oldest first
 function init(ctx) { ... }    // optional, called once before bar 0`}
         </pre>
         <dl className="flex flex-col gap-1.5">

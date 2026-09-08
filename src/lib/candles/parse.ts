@@ -268,9 +268,7 @@ function parseGeneric(lines: string[], opts: ParseCandleCsvOptions): ParseCandle
   const skipped = { n: 0 };
 
   if (iTime === -1 || iOpen === -1 || iHigh === -1 || iLow === -1 || iClose === -1) {
-    warnings.push(
-      "Could not find one or more required columns (time/date, open, high, low, close) in the header row.",
-    );
+    warnings.push("Could not find one or more required columns (time/date, open, high, low, close) in the header row.");
     return { rows, format: "GENERIC", warnings, skipped: 0 };
   }
 

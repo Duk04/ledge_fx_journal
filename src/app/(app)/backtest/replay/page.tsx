@@ -9,11 +9,7 @@ import { resolveConversion } from "@/lib/conversion";
 import { ReplaySetupForm } from "@/components/backtest/replay/replay-setup-form";
 import { ReplaySession } from "@/components/backtest/replay/replay-session";
 
-export default async function ReplayPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ runId?: string }>;
-}) {
+export default async function ReplayPage({ searchParams }: { searchParams: Promise<{ runId?: string }> }) {
   const { runId } = await searchParams;
   const user = await requireUser();
 

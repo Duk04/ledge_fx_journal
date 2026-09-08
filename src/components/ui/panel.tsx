@@ -6,11 +6,7 @@ import { cn } from "@/lib/cn";
  * no shadow, because nothing on the page is floating. Shadows belong to
  * overlays only (see dialog / dropdown).
  */
-export function Panel({
-  className,
-  flush,
-  ...props
-}: React.ComponentProps<"section"> & { flush?: boolean }) {
+export function Panel({ className, flush, ...props }: React.ComponentProps<"section"> & { flush?: boolean }) {
   return (
     <section
       className={cn(
@@ -41,10 +37,7 @@ export function PanelHeader({
 }) {
   return (
     <header
-      className={cn(
-        "flex min-h-10 shrink-0 items-center justify-between gap-3 border-b border-line px-3",
-        className,
-      )}
+      className={cn("flex min-h-10 shrink-0 items-center justify-between gap-3 border-b border-line px-3", className)}
       {...props}
     >
       {children ?? (
@@ -58,11 +51,7 @@ export function PanelHeader({
   );
 }
 
-export function PanelBody({
-  className,
-  padded = true,
-  ...props
-}: React.ComponentProps<"div"> & { padded?: boolean }) {
+export function PanelBody({ className, padded = true, ...props }: React.ComponentProps<"div"> & { padded?: boolean }) {
   return <div className={cn("min-w-0 flex-1", padded && "p-3", className)} {...props} />;
 }
 

@@ -17,4 +17,4 @@
  * the resolver refuses it. Hence a stub of our own, which also does not
  * depend on the internals of a package we do not control.
  */
-export {}
+export {};

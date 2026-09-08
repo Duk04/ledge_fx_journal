@@ -12,11 +12,7 @@ const tones: Record<Tone, string> = {
   outline: "bg-transparent text-ink-2 border-line",
 };
 
-export function Badge({
-  tone = "neutral",
-  className,
-  ...props
-}: React.ComponentProps<"span"> & { tone?: Tone }) {
+export function Badge({ tone = "neutral", className, ...props }: React.ComponentProps<"span"> & { tone?: Tone }) {
   return (
     <span
       className={cn(
@@ -36,10 +32,7 @@ export function Badge({
  */
 export function DirectionBadge({ direction }: { direction: "LONG" | "SHORT" }) {
   return (
-    <Badge
-      tone={direction === "LONG" ? "profit" : "loss"}
-      className="mono w-[3.4rem] justify-center tracking-[0.06em]"
-    >
+    <Badge tone={direction === "LONG" ? "profit" : "loss"} className="mono w-[3.4rem] justify-center tracking-[0.06em]">
       {direction}
     </Badge>
   );
@@ -101,11 +94,7 @@ export function TagChip({
         className,
       )}
     >
-      <span
-        aria-hidden
-        className="size-1.5 shrink-0 rounded-full"
-        style={{ background: color || "var(--ink-3)" }}
-      />
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color || "var(--ink-3)" }} />
       <span className="max-w-[10rem] truncate">{name}</span>
       {onRemove ? (
         <button

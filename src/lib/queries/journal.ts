@@ -239,12 +239,7 @@ export async function dayView(
   };
 }
 
-async function fetchDayTrades(
-  userId: string,
-  accountId: string,
-  date: string,
-  timeZone: string,
-): Promise<DayTrade[]> {
+async function fetchDayTrades(userId: string, accountId: string, date: string, timeZone: string): Promise<DayTrade[]> {
   const target = new Date(`${date}T00:00:00.000Z`);
   const rangeStart = new Date(target.getTime() - 24 * 60 * 60 * 1000);
   const rangeEnd = new Date(target.getTime() + 2 * 24 * 60 * 60 * 1000);

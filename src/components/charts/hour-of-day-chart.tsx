@@ -15,7 +15,9 @@ import type { BreakdownRow } from "@/lib/queries/analytics";
 export function HourOfDayChart({ rows, currency }: { rows: BreakdownRow[]; currency: string }) {
   const withData = rows.filter((r) => r.count > 0);
   if (withData.length === 0) {
-    return <EmptyState title="No trades yet" description="The hour-of-day breakdown fills in once you log some trades." />;
+    return (
+      <EmptyState title="No trades yet" description="The hour-of-day breakdown fills in once you log some trades." />
+    );
   }
 
   return (

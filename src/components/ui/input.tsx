@@ -38,11 +38,7 @@ export function Input({ className, ...props }: React.ComponentProps<"input">) {
  * `unit` renders inside the field (pips, lots, %) so the suffix never wraps
  * to its own line on a narrow form.
  */
-export function NumberInput({
-  className,
-  unit,
-  ...props
-}: React.ComponentProps<"input"> & { unit?: React.ReactNode }) {
+export function NumberInput({ className, unit, ...props }: React.ComponentProps<"input"> & { unit?: React.ReactNode }) {
   return (
     <div
       className={cn(

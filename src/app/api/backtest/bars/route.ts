@@ -69,7 +69,11 @@ export async function GET(request: NextRequest) {
   // One over the cap, so a range that exceeds it is detectable rather than
   // silently truncated — a quietly shortened bar array is a wrong backtest,
   // not a slow one.
-  const { bars, timeframe: served, aggregatedFrom } = await getBars({
+  const {
+    bars,
+    timeframe: served,
+    aggregatedFrom,
+  } = await getBars({
     symbol,
     timeframe,
     from,
@@ -107,8 +111,7 @@ export async function GET(request: NextRequest) {
   }
 
   const lastClose = await lastCloseIn({ symbol, timeframe, from, to });
-  const conversionRate =
-    lastClose === null ? 1 : resolveRunConversionRate(instrument, lastClose);
+  const conversionRate = lastClose === null ? 1 : resolveRunConversionRate(instrument, lastClose);
 
   return NextResponse.json(
     {

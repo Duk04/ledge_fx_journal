@@ -101,7 +101,9 @@ function HeatCell({ cell, maxAbs, currency }: { cell: HeatmapCell; maxAbs: numbe
           <span className="font-medium">
             {WEEKDAY_SHORT[cell.weekday] ?? cell.weekday} · {cell.sessionLabel}
           </span>
-          <span>{cell.count} trade{cell.count === 1 ? "" : "s"}</span>
+          <span>
+            {cell.count} trade{cell.count === 1 ? "" : "s"}
+          </span>
           {cell.count > 0 ? (
             <>
               <span>Net {formatMoney(cell.netPnl, currency)}</span>
@@ -118,12 +120,7 @@ function HeatCell({ cell, maxAbs, currency }: { cell: HeatmapCell; maxAbs: numbe
           opacity: cell.count === 0 ? 1 : 0.12 + fraction * 0.55,
         }}
       >
-        <span
-          className={cn(
-            "mono relative text-2xs tabular-nums",
-            cell.count === 0 ? "text-ink-3" : "text-ink",
-          )}
-        >
+        <span className={cn("mono relative text-2xs tabular-nums", cell.count === 0 ? "text-ink-3" : "text-ink")}>
           {cell.count === 0 ? "–" : cell.count}
         </span>
         {/* Secondary, hue-independent encoding: a neutral bar whose EDGE

@@ -76,9 +76,15 @@ export function ScreenshotGallery({ attachments }: { attachments: AttachmentView
         <DialogContent size="lg" className="max-h-[90vh]">
           {open?.externalUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- a full-size lightbox of an attachment whose dimensions are unknown until it loads, served from our own authenticated route or an arbitrary https URL. next/image can optimise neither.
-            <img src={open.externalUrl} alt={open.caption ?? "Trade screenshot"} className="max-h-[85vh] w-full object-contain" />
+            <img
+              src={open.externalUrl}
+              alt={open.caption ?? "Trade screenshot"}
+              className="max-h-[85vh] w-full object-contain"
+            />
           ) : null}
-          {open?.caption ? <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{open.caption}</p> : null}
+          {open?.caption ? (
+            <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{open.caption}</p>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

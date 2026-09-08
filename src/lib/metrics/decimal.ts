@@ -11,24 +11,24 @@
  * Only at the presentation boundary (formatters.ts) do we call `.toNumber()`
  * or `.toFixed()` to hand a plain string/number to the UI.
  */
-import { Decimal } from 'decimal.js'
-import type { DecimalInput } from './types'
+import { Decimal } from "decimal.js";
+import type { DecimalInput } from "./types";
 
 /** Normalise a Decimal | string | number into a Decimal. The one entry point for money math. */
 export function d(value: DecimalInput): Decimal {
-  if (value instanceof Decimal) return value
-  return new Decimal(value)
+  if (value instanceof Decimal) return value;
+  return new Decimal(value);
 }
 
 /** Convenience zero constant. */
-export const ZERO = new Decimal(0)
+export const ZERO = new Decimal(0);
 
 /**
  * Money amounts within this absolute threshold of zero are treated as
  * "breakeven" rather than a true win/loss, absorbing sub-cent rounding noise
  * from broker fills, commission and swap. See classifyOutcome in trade.ts.
  */
-export const BREAKEVEN_EPSILON = new Decimal('0.005')
+export const BREAKEVEN_EPSILON = new Decimal("0.005");
 
 /**
  * The same threshold as a string, for Prisma `where` comparisons.
@@ -39,4 +39,4 @@ export const BREAKEVEN_EPSILON = new Decimal('0.005')
  * in three places (here, queries/trades.ts and trade-service.ts), each with a
  * comment promising it matched the others.
  */
-export const BREAKEVEN_EPSILON_STR = BREAKEVEN_EPSILON.toString()
+export const BREAKEVEN_EPSILON_STR = BREAKEVEN_EPSILON.toString();

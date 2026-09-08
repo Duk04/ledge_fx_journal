@@ -16,8 +16,7 @@ const variants: Record<Variant, string> = {
   // One filled button per view, at most. Everything else is a hairline.
   primary:
     "bg-brand text-brand-ink hover:bg-brand-hover active:translate-y-px shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]",
-  default:
-    "border border-line bg-panel text-ink hover:bg-hover hover:border-line-strong active:bg-active",
+  default: "border border-line bg-panel text-ink hover:bg-hover hover:border-line-strong active:bg-active",
   ghost: "text-ink-2 hover:bg-hover hover:text-ink active:bg-active",
   danger: "border border-loss/35 bg-loss-weak text-loss hover:bg-loss/15 hover:border-loss/55",
   link: "text-brand underline-offset-3 hover:underline px-0",
@@ -37,20 +36,9 @@ export interface ButtonProps extends React.ComponentProps<"button"> {
   asChild?: boolean;
 }
 
-export function Button({
-  className,
-  variant = "default",
-  size = "md",
-  asChild,
-  ...props
-}: ButtonProps) {
+export function Button({ className, variant = "default", size = "md", asChild, ...props }: ButtonProps) {
   const Comp = asChild ? Slot : "button";
-  return (
-    <Comp
-      className={cn(base, variants[variant], sizes[size], variant !== "link" && "", className)}
-      {...props}
-    />
-  );
+  return <Comp className={cn(base, variants[variant], sizes[size], variant !== "link" && "", className)} {...props} />;
 }
 
 /**

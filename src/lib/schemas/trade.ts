@@ -116,7 +116,11 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
           ctx.addIssue({ code: "custom", path: ["exitPrice"], message: "Exit price is required to close a trade." });
         }
         if (val.closedAt === undefined) {
-          ctx.addIssue({ code: "custom", path: ["closedAt"], message: "Close date/time is required to close a trade." });
+          ctx.addIssue({
+            code: "custom",
+            path: ["closedAt"],
+            message: "Close date/time is required to close a trade.",
+          });
         }
       }
     });
@@ -189,9 +193,7 @@ export function parseTradeForm(
   }
   raw.tagIds = formData.getAll("tagIds").map(String).filter(Boolean);
 
-  const validSymbols = opts.validSymbols
-    ? new Set(opts.validSymbols.map((s) => s.toUpperCase()))
-    : undefined;
+  const validSymbols = opts.validSymbols ? new Set(opts.validSymbols.map((s) => s.toUpperCase())) : undefined;
   const schema = buildTradeFormSchema(validSymbols);
   const result = schema.safeParse(raw);
 
@@ -218,7 +220,10 @@ export function parseTradeForm(
  * common case needs, validated on its own rather than dragging in every
  * optional field of the full form. */
 export const closeTradeSchema = z.object({
-  exitPrice: z.coerce.number({ error: "Exit price is required" }).finite().positive("Exit price must be greater than 0"),
+  exitPrice: z.coerce
+    .number({ error: "Exit price is required" })
+    .finite()
+    .positive("Exit price must be greater than 0"),
   closedAt: z.coerce.date({ error: "Close date/time is required" }),
 });
 

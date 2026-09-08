@@ -83,7 +83,15 @@ export function PriceLadder({
 
       {/* risk leg: entry -> stop */}
       {stopY !== null ? (
-        <line x1={AXIS_X} y1={entryY} x2={AXIS_X} y2={stopY} stroke="var(--loss)" strokeWidth={4} strokeLinecap="round" />
+        <line
+          x1={AXIS_X}
+          y1={entryY}
+          x2={AXIS_X}
+          y2={stopY}
+          stroke="var(--loss)"
+          strokeWidth={4}
+          strokeLinecap="round"
+        />
       ) : null}
 
       {/* reward leg: entry -> target */}
@@ -128,7 +136,15 @@ export function PriceLadder({
               strokeWidth={isExit ? 2 : 1.5}
             />
             <circle cx={isExit ? AXIS_X + 14 : AXIS_X} cy={py} r={isExit ? 3.5 : 3} fill={toneColor[p.tone]} />
-            <text x={AXIS_X - 12} y={py} textAnchor="end" dominantBaseline="middle" className="mono" fontSize={10} fill="var(--ink)">
+            <text
+              x={AXIS_X - 12}
+              y={py}
+              textAnchor="end"
+              dominantBaseline="middle"
+              className="mono"
+              fontSize={10}
+              fill="var(--ink)"
+            >
               {formatPrice(p.price, digits)}
             </text>
             <text

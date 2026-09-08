@@ -117,7 +117,10 @@ export async function GET() {
   const requested = jar.get(ACCOUNT_COOKIE)?.value;
   let accountId: string | null = null;
   if (requested) {
-    const owned = await prisma.tradingAccount.findFirst({ where: { id: requested, userId: user.id }, select: { id: true } });
+    const owned = await prisma.tradingAccount.findFirst({
+      where: { id: requested, userId: user.id },
+      select: { id: true },
+    });
     if (owned) accountId = owned.id;
   }
   if (!accountId) {
@@ -161,9 +164,7 @@ export async function GET() {
 
         let chunk = "";
         for (const t of rows) {
-          chunk += serializeRow(
-            toRow({ ...t, tags: t.tradeTags.map((tt) => tt.tag.name).join(";") }),
-          );
+          chunk += serializeRow(toRow({ ...t, tags: t.tradeTags.map((tt) => tt.tag.name).join(";") }));
         }
         controller.enqueue(encoder.encode(chunk));
 

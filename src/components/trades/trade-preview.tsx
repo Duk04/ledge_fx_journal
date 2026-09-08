@@ -152,7 +152,13 @@ export function PreviewStrip({ preview }: { preview: Preview | null }) {
         <Stat
           label={preview?.netPnlIsProjection ? "Net P&L (at target)" : "Net P&L"}
           value={preview ? preview.netPnl : "—"}
-          tone={preview?.netPnl && preview.netPnl.startsWith("-") ? "loss" : preview?.netPnl && preview.netPnl !== "—" ? "profit" : "neutral"}
+          tone={
+            preview?.netPnl && preview.netPnl.startsWith("-")
+              ? "loss"
+              : preview?.netPnl && preview.netPnl !== "—"
+                ? "profit"
+                : "neutral"
+          }
         />
       </PanelBody>
     </Panel>

@@ -209,7 +209,11 @@ export function exitOnBar(
 }
 
 /** Which of stop/target "wins" this bar. Both hit -> pessimisticFills decides. */
-function pickReason(stopHit: boolean, targetHit: boolean, pessimisticFills: boolean): "STOP_LOSS" | "TAKE_PROFIT" | null {
+function pickReason(
+  stopHit: boolean,
+  targetHit: boolean,
+  pessimisticFills: boolean,
+): "STOP_LOSS" | "TAKE_PROFIT" | null {
   if (stopHit && targetHit) return pessimisticFills ? "STOP_LOSS" : "TAKE_PROFIT";
   if (stopHit) return "STOP_LOSS";
   if (targetHit) return "TAKE_PROFIT";

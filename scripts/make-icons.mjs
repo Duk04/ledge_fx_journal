@@ -186,8 +186,15 @@ async function rasterise(size, variant) {
     const sharp = sharpMod.default ?? sharpMod;
     return await sharp(Buffer.from(svg)).resize(size, size).png().toBuffer();
   } catch (err) {
-    console.warn(`  sharp unavailable (${err.message}) — falling back to the hand-rolled PNG encoder for ${variant}@${size}`);
-    const px = variant === "standard" ? rasterStandard(size) : variant === "maskable" ? rasterMaskable(size) : rasterAppleTouch(size);
+    console.warn(
+      `  sharp unavailable (${err.message}) — falling back to the hand-rolled PNG encoder for ${variant}@${size}`,
+    );
+    const px =
+      variant === "standard"
+        ? rasterStandard(size)
+        : variant === "maskable"
+          ? rasterMaskable(size)
+          : rasterAppleTouch(size);
     return encodePng(size, px);
   }
 }

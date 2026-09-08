@@ -86,7 +86,11 @@ export function resolveConversion({
 }
 
 /** Human-readable explanation for the UI. */
-export function conversionNote(result: ConversionResult, instrument: { quoteCurrency: string }, accountCurrency: string) {
+export function conversionNote(
+  result: ConversionResult,
+  instrument: { quoteCurrency: string },
+  accountCurrency: string,
+) {
   switch (result.source) {
     case "IDENTITY":
       return null;

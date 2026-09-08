@@ -306,8 +306,7 @@ async function main() {
     const stopLoss = entryPrice - signForDirection * slDistance;
     const takeProfit = entryPrice + signForDirection * tpDistance;
 
-    const volumeLots =
-      account.id === ACCOUNT_FTMO_ID ? randFloat(0.5, 2.0) : randFloat(0.1, 0.6);
+    const volumeLots = account.id === ACCOUNT_FTMO_ID ? randFloat(0.5, 2.0) : randFloat(0.1, 0.6);
 
     const openedAt = openedTimestamps[i];
     const holdingHours = randFloat(0.25, 30);
@@ -479,7 +478,9 @@ async function main() {
   // -------------------------------------------------------------------
   // Journal entries — ~12, spread across the last 90 days.
   // -------------------------------------------------------------------
-  const journalDayOffsets = shuffle(Array.from({ length: 89 }, (_, i) => i + 1)).slice(0, 12).sort((a, b) => b - a);
+  const journalDayOffsets = shuffle(Array.from({ length: 89 }, (_, i) => i + 1))
+    .slice(0, 12)
+    .sort((a, b) => b - a);
   const preMarketPool = [
     "Watching for a London open sweep of the Asia range before committing.",
     "High-impact NFP today — plan is to stand aside until 30 minutes after release.",

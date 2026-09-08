@@ -211,11 +211,9 @@ describe("parseCandleCsv — validation", () => {
   });
 
   it("skips a duplicate timestamp (keeping the first occurrence)", () => {
-    const csv = [
-      header,
-      "2024-01-02T00:00:00Z,1.1,1.2,1.05,1.15",
-      "2024-01-02T00:00:00Z,1.11,1.21,1.06,1.16",
-    ].join("\n");
+    const csv = [header, "2024-01-02T00:00:00Z,1.1,1.2,1.05,1.15", "2024-01-02T00:00:00Z,1.11,1.21,1.06,1.16"].join(
+      "\n",
+    );
     const { rows, skipped, warnings } = parseCandleCsv(csv, UTC);
     expect(rows).toHaveLength(1);
     expect(rows[0].open).toBe(1.1);
@@ -224,11 +222,9 @@ describe("parseCandleCsv — validation", () => {
   });
 
   it("skips an out-of-order (non-monotonic) timestamp", () => {
-    const csv = [
-      header,
-      "2024-01-02T00:01:00Z,1.1,1.2,1.05,1.15",
-      "2024-01-02T00:00:00Z,1.11,1.21,1.06,1.16",
-    ].join("\n");
+    const csv = [header, "2024-01-02T00:01:00Z,1.1,1.2,1.05,1.15", "2024-01-02T00:00:00Z,1.11,1.21,1.06,1.16"].join(
+      "\n",
+    );
     const { rows, skipped, warnings } = parseCandleCsv(csv, UTC);
     expect(rows).toHaveLength(1);
     expect(skipped).toBe(1);

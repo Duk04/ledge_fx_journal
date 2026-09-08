@@ -52,10 +52,18 @@ export function BreakdownTable({
                   <Money value={r.netPnl} currency={currency} signed />
                 </div>
               </Td>
-              <Td numeric>{r.winRate === null ? <span className="text-ink-3">—</span> : <Percent value={r.winRate} />}</Td>
-              <Td numeric>{r.profitFactor === null ? <span className="text-ink-3">—</span> : r.profitFactor.toFixed(2)}</Td>
-              <Td numeric>{r.expectancyR === null ? <span className="text-ink-3">—</span> : <RValue value={r.expectancyR} />}</Td>
-              <Td numeric>{r.averageR === null ? <span className="text-ink-3">—</span> : <RValue value={r.averageR} />}</Td>
+              <Td numeric>
+                {r.winRate === null ? <span className="text-ink-3">—</span> : <Percent value={r.winRate} />}
+              </Td>
+              <Td numeric>
+                {r.profitFactor === null ? <span className="text-ink-3">—</span> : r.profitFactor.toFixed(2)}
+              </Td>
+              <Td numeric>
+                {r.expectancyR === null ? <span className="text-ink-3">—</span> : <RValue value={r.expectancyR} />}
+              </Td>
+              <Td numeric>
+                {r.averageR === null ? <span className="text-ink-3">—</span> : <RValue value={r.averageR} />}
+              </Td>
             </tr>
           ))
         )}

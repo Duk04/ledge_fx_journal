@@ -69,8 +69,8 @@ export function CoverageTable({ rows, canDelete }: { rows: CoverageTableRow[]; c
         title="No market data imported yet"
         description={
           <>
-            Export bars from MT5 — <strong>View → Symbols</strong>, pick a symbol, open its <strong>Bars</strong> tab and
-            export, or use <strong>Tools → History Center</strong> — then import the CSV below.
+            Export bars from MT5 — <strong>View → Symbols</strong>, pick a symbol, open its <strong>Bars</strong> tab
+            and export, or use <strong>Tools → History Center</strong> — then import the CSV below.
           </>
         }
       />

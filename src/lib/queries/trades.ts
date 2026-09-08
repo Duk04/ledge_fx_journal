@@ -254,7 +254,13 @@ export interface TradeDetail {
   notes: string | null;
   externalTicket: string | null;
   tags: { id: string; name: string; color: string }[];
-  attachments: { id: string; kind: string; externalUrl: string | null; storageKey: string | null; caption: string | null }[];
+  attachments: {
+    id: string;
+    kind: string;
+    externalUrl: string | null;
+    storageKey: string | null;
+    caption: string | null;
+  }[];
   /** A fresh recompute from the raw fields, plus planned R:R (never stored). */
   recomputed: {
     netPnl: string | null;
@@ -486,7 +492,11 @@ function serializeSummary(s: Summary): SerializedSummary {
  * view of 8 trades is a different (and more useful) answer than the
  * account's all-time numbers.
  */
-export async function tradeStats(userId: string, accountId: string, filters: TradeFilters = {}): Promise<SerializedSummary> {
+export async function tradeStats(
+  userId: string,
+  accountId: string,
+  filters: TradeFilters = {},
+): Promise<SerializedSummary> {
   const where = buildWhere(userId, accountId, filters);
   const trades = await prisma.trade.findMany({
     where,

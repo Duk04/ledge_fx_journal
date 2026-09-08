@@ -38,8 +38,8 @@ export function InstrumentsTab({
           {canEdit ? (
             <>
               These values decide every pip and P&amp;L number in the app, and brokers differ on pip size, contract
-              size, and quote precision for the same symbol. If a number looks wrong, this is the first place to
-              check &mdash; and editing a row changes it for <strong>every</strong> account on this instance.
+              size, and quote precision for the same symbol. If a number looks wrong, this is the first place to check
+              &mdash; and editing a row changes it for <strong>every</strong> account on this instance.
             </>
           ) : (
             <>

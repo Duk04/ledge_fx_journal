@@ -111,9 +111,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
       <div className="flex items-start gap-3 py-2.5 pr-2.5">
         <div className="min-w-0 flex-1 py-0.5">
           <p className="truncate text-sm font-medium text-ink">{item.title}</p>
-          {item.description ? (
-            <p className="mt-0.5 text-xs text-ink-3">{item.description}</p>
-          ) : null}
+          {item.description ? <p className="mt-0.5 text-xs text-ink-3">{item.description}</p> : null}
         </div>
         {item.action ? (
           <button

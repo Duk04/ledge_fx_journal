@@ -44,9 +44,7 @@ export function Stat({
         >
           {value}
         </span>
-        {spark && spark.length > 1 ? (
-          <Sparkline values={spark} width={72} height={22} className="mb-0.5" />
-        ) : null}
+        {spark && spark.length > 1 ? <Sparkline values={spark} width={72} height={22} className="mb-0.5" /> : null}
       </div>
       {hint ? <span className="truncate text-2xs text-ink-3">{hint}</span> : null}
     </div>

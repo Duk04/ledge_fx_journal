@@ -33,12 +33,7 @@ export function Pagination({
   const end = Math.min(total, page * pageSize);
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center justify-between gap-2",
-        className,
-      )}
-    >
+    <div className={cn("flex flex-wrap items-center justify-between gap-2", className)}>
       <span className="mono text-xs text-ink-3">
         {start}–{end} of {total}
       </span>

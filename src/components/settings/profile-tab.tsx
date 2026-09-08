@@ -82,9 +82,9 @@ export function ProfileTab({ profile }: { profile: ProfileView }) {
               )}
             />
             <FieldHint>
-              Timezone decides which calendar day a trade lands on in the journal calendar and in daily P&amp;L
-              charts. It does not change market-session tagging (London / New York / …), which is always based on
-              UTC, and it never changes any stored timestamp.
+              Timezone decides which calendar day a trade lands on in the journal calendar and in daily P&amp;L charts.
+              It does not change market-session tagging (London / New York / …), which is always based on UTC, and it
+              never changes any stored timestamp.
             </FieldHint>
           </Field>
 

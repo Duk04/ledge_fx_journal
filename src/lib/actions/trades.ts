@@ -31,7 +31,6 @@ import type { TradeInput } from "@/lib/metrics/types";
  */
 type TradeResult = ActionResult<{ id: string }>;
 
-
 /**
  * `derivedColumns()` is typed against `Prisma.TradeUncheckedUpdateInput`
  * (see trade-service.ts), whose Decimal fields additionally accept update
@@ -61,11 +60,7 @@ type PlainDerivedNumbers = {
  * account records a P&L that is wrong by two orders of magnitude. See
  * src/lib/conversion.ts for why this is never allowed to default silently.
  */
-function formTradeInput(
-  values: TradeFormValues,
-  instrument: Instrument,
-  accountCurrency: string,
-): TradeInput {
+function formTradeInput(values: TradeFormValues, instrument: Instrument, accountCurrency: string): TradeInput {
   const conversion = resolveConversion({
     instrument,
     accountCurrency,

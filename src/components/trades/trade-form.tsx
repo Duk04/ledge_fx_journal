@@ -317,9 +317,7 @@ export function TradeForm({
                         type="button"
                         key={tag.id}
                         onClick={() =>
-                          field.onChange(
-                            active ? field.value.filter((id) => id !== tag.id) : [...field.value, tag.id],
-                          )
+                          field.onChange(active ? field.value.filter((id) => id !== tag.id) : [...field.value, tag.id])
                         }
                       >
                         <TagChip
@@ -415,7 +413,11 @@ export function TradeForm({
 
             <Field>
               <FieldLabel optional>Notes</FieldLabel>
-              <Textarea rows={5} placeholder="What was the setup? What would you do differently?" {...form.register("notes")} />
+              <Textarea
+                rows={5}
+                placeholder="What was the setup? What would you do differently?"
+                {...form.register("notes")}
+              />
               <FieldError>{errors.notes?.message}</FieldError>
             </Field>
           </PanelBody>

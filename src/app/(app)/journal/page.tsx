@@ -9,11 +9,7 @@ import { requireUser } from "@/lib/session";
 import { monthView, resolveActiveTradingAccountId } from "@/lib/queries/journal";
 import { getAccountCurrency } from "@/lib/queries/accounts";
 
-export default async function JournalPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string }>;
-}) {
+export default async function JournalPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const params = await searchParams;
   const user = await requireUser();
   const { date: today, month: currentMonth } = todayIn(user.timezone);
@@ -37,7 +33,10 @@ export default async function JournalPage({
       />
 
       <Panel>
-        <PanelHeader title={monthLabel(month)} caption={`${view.entries.length} entr${view.entries.length === 1 ? "y" : "ies"} this month`} />
+        <PanelHeader
+          title={monthLabel(month)}
+          caption={`${view.entries.length} entr${view.entries.length === 1 ? "y" : "ies"} this month`}
+        />
         <CalendarGrid month={month} days={view.days} currency={currency} today={today} />
       </Panel>
 

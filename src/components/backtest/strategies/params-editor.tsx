@@ -14,13 +14,7 @@ export type ParamRecord = Record<string, ParamValue>;
  * loading a new template or a different saved strategy fully replaces the
  * set of fields shown rather than merging with whatever was there before.
  */
-export function ParamsEditor({
-  params,
-  onChange,
-}: {
-  params: ParamRecord;
-  onChange: (next: ParamRecord) => void;
-}) {
+export function ParamsEditor({ params, onChange }: { params: ParamRecord; onChange: (next: ParamRecord) => void }) {
   const keys = Object.keys(params);
   if (keys.length === 0) {
     return <p className="text-xs text-ink-3">This strategy declares no parameters.</p>;

@@ -11,11 +11,7 @@ export const SelectValue = SelectPrimitive.Value;
 
 /** Looks exactly like Input, plus a chevron — a select is a text field that
  * happens to open a menu instead of taking keystrokes. */
-export function SelectTrigger({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
+export function SelectTrigger({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
   return (
     <SelectPrimitive.Trigger
       className={cn(
@@ -63,11 +59,7 @@ export function SelectContent({
   );
 }
 
-export function SelectItem({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+export function SelectItem({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) {
   return (
     <SelectPrimitive.Item
       className={cn(
@@ -86,20 +78,10 @@ export function SelectItem({
   );
 }
 
-export function SelectLabel({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Label>) {
-  return (
-    <SelectPrimitive.Label className={cn("label px-2 py-1.5", className)} {...props} />
-  );
+export function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
+  return <SelectPrimitive.Label className={cn("label px-2 py-1.5", className)} {...props} />;
 }
 
-export function SelectSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
-  return (
-    <SelectPrimitive.Separator className={cn("my-1 h-px bg-line", className)} {...props} />
-  );
+export function SelectSeparator({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Separator>) {
+  return <SelectPrimitive.Separator className={cn("my-1 h-px bg-line", className)} {...props} />;
 }

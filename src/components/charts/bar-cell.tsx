@@ -35,10 +35,7 @@ export function BarCell({
       <div className="absolute inset-y-[-1px] left-1/2 w-px -translate-x-1/2 bg-line-strong" />
       {/* bar */}
       <div
-        className={cn(
-          "absolute inset-y-[2px] rounded-[1px]",
-          positive ? "bg-profit left-1/2" : "bg-loss right-1/2",
-        )}
+        className={cn("absolute inset-y-[2px] rounded-[1px]", positive ? "bg-profit left-1/2" : "bg-loss right-1/2")}
         style={{ width: `${pct}%` }}
       />
     </div>

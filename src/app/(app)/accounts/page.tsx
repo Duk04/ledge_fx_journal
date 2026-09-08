@@ -3,12 +3,7 @@ import { Page } from "@/components/shell/page";
 import { AccountCard, type AccountCardData } from "@/components/accounts/account-card";
 import { NewAccountButton } from "@/components/accounts/new-account-button";
 import { requireUser } from "@/lib/session";
-import {
-  cashFlow,
-  listAccountRiskSettings,
-  listAccounts,
-  listBalanceEventsFlat,
-} from "@/lib/queries/accounts";
+import { cashFlow, listAccountRiskSettings, listAccounts, listBalanceEventsFlat } from "@/lib/queries/accounts";
 import { resolveActiveTradingAccountId } from "@/lib/queries/journal";
 import { type Decimal } from "decimal.js";
 import { toDec, toPlain } from "@/lib/decimal-bridge";

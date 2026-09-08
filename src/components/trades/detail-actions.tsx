@@ -75,7 +75,10 @@ export function TradeDetailActions({
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent size="sm">
-          <DialogHeader title="Delete this trade?" description="This removes the trade and its attachments permanently." />
+          <DialogHeader
+            title="Delete this trade?"
+            description="This removes the trade and its attachments permanently."
+          />
           <DialogFooter>
             <Button variant="default" onClick={() => setConfirmOpen(false)} disabled={pending}>
               Cancel
@@ -136,7 +139,10 @@ function CloseTradeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <form onSubmit={handleSubmit}>
-          <DialogHeader title="Close trade" description="The exit price and close time — everything else stays as recorded." />
+          <DialogHeader
+            title="Close trade"
+            description="The exit price and close time — everything else stays as recorded."
+          />
           <div className="flex flex-col gap-3 p-4">
             <Field>
               <FieldLabel>Exit price</FieldLabel>

@@ -30,7 +30,13 @@ export default async function NewTradePage() {
   return (
     <Page width="reading">
       <SectionHead title="Log trade" hint={`Recorded against ${account.label}`} />
-      <TradeForm mode="create" accountId={account.id} instruments={instruments} tags={tags} currency={account.currency} />
+      <TradeForm
+        mode="create"
+        accountId={account.id}
+        instruments={instruments}
+        tags={tags}
+        currency={account.currency}
+      />
     </Page>
   );
 }

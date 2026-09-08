@@ -6,15 +6,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "@/components/ui/pagination";
 
-export function TradePaginationBar({
-  page,
-  pageSize,
-  total,
-}: {
-  page: number;
-  pageSize: number;
-  total: number;
-}) {
+export function TradePaginationBar({ page, pageSize, total }: { page: number; pageSize: number; total: number }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

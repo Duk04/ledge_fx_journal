@@ -9,10 +9,7 @@ import { cn } from "@/lib/cn";
  * is sunken and each item raises to `bg-panel` when selected, the same trick
  * a physical switch uses: the thing that's "on" sits proud of the surface.
  */
-export function Segmented({
-  className,
-  ...props
-}: Omit<ToggleGroupPrimitive.ToggleGroupSingleProps, "type">) {
+export function Segmented({ className, ...props }: Omit<ToggleGroupPrimitive.ToggleGroupSingleProps, "type">) {
   return (
     <ToggleGroupPrimitive.Root
       type="single"
@@ -25,10 +22,7 @@ export function Segmented({
   );
 }
 
-export function SegmentedItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Item>) {
+export function SegmentedItem({ className, ...props }: React.ComponentProps<typeof ToggleGroupPrimitive.Item>) {
   return (
     <ToggleGroupPrimitive.Item
       className={cn(

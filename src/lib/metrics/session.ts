@@ -3,9 +3,9 @@
  * are exported as constants so they can be tuned without touching the
  * classification logic below.
  */
-import { TZDate } from '@date-fns/tz'
+import { TZDate } from "@date-fns/tz";
 
-export type MarketSession = 'SYDNEY' | 'TOKYO' | 'LONDON' | 'NEW_YORK' | 'OVERLAP' | 'OFFHOURS'
+export type MarketSession = "SYDNEY" | "TOKYO" | "LONDON" | "NEW_YORK" | "OVERLAP" | "OFFHOURS";
 
 /**
  * [start, end) UTC hour ranges for each session. Sydney wraps past midnight
@@ -18,12 +18,12 @@ export const SESSION_RANGES_UTC = {
   LONDON: [7, 16],
   NEW_YORK: [12, 21],
   OVERLAP: [12, 16], // London ∩ New York
-} as const
+} as const;
 
 function inRange(hour: number, [start, end]: readonly [number, number]): boolean {
-  if (start <= end) return hour >= start && hour < end
+  if (start <= end) return hour >= start && hour < end;
   // wraps past midnight, e.g. Sydney 21 -> 6
-  return hour >= start || hour < end
+  return hour >= start || hour < end;
 }
 
 /**
@@ -46,14 +46,14 @@ function inRange(hour: number, [start, end]: readonly [number, number]): boolean
  * 21:00 -> SYDNEY (New York has just closed, Sydney opens).
  */
 export function marketSession(openedAt: Date): MarketSession {
-  if (isWeekend(openedAt)) return 'OFFHOURS'
-  const hour = openedAt.getUTCHours()
-  if (inRange(hour, SESSION_RANGES_UTC.OVERLAP)) return 'OVERLAP'
-  if (inRange(hour, SESSION_RANGES_UTC.LONDON)) return 'LONDON'
-  if (inRange(hour, SESSION_RANGES_UTC.NEW_YORK)) return 'NEW_YORK'
-  if (inRange(hour, SESSION_RANGES_UTC.TOKYO)) return 'TOKYO'
-  if (inRange(hour, SESSION_RANGES_UTC.SYDNEY)) return 'SYDNEY'
-  return 'OFFHOURS'
+  if (isWeekend(openedAt)) return "OFFHOURS";
+  const hour = openedAt.getUTCHours();
+  if (inRange(hour, SESSION_RANGES_UTC.OVERLAP)) return "OVERLAP";
+  if (inRange(hour, SESSION_RANGES_UTC.LONDON)) return "LONDON";
+  if (inRange(hour, SESSION_RANGES_UTC.NEW_YORK)) return "NEW_YORK";
+  if (inRange(hour, SESSION_RANGES_UTC.TOKYO)) return "TOKYO";
+  if (inRange(hour, SESSION_RANGES_UTC.SYDNEY)) return "SYDNEY";
+  return "OFFHOURS";
 }
 
 /**
@@ -66,13 +66,13 @@ export function marketSession(openedAt: Date): MarketSession {
  * edges of the trading week, which is an accepted, documented limitation.
  */
 export function isWeekend(date: Date): boolean {
-  const day = date.getUTCDay()
-  return day === 0 || day === 6
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
 }
 
-export type Weekday = 'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY'
+export type Weekday = "SUNDAY" | "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY";
 
-const WEEKDAYS: Weekday[] = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']
+const WEEKDAYS: Weekday[] = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
 
 /**
  * Weekday of `date` as seen in `timeZone` (an IANA zone name, e.g.
@@ -80,6 +80,6 @@ const WEEKDAYS: Weekday[] = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSD
  * conversion correctly (including DST where applicable).
  */
 export function tradingWeekday(date: Date, timeZone: string): Weekday {
-  const zoned = new TZDate(date, timeZone)
-  return WEEKDAYS[zoned.getDay()]
+  const zoned = new TZDate(date, timeZone);
+  return WEEKDAYS[zoned.getDay()];
 }

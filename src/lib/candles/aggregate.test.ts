@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { aggregateBars } from "./aggregate";
 import type { Bar } from "@/lib/backtest/types";
 
-function m1(minutesFromEpoch: number, o: number, h: number, l: number, c: number, volume?: number, spread?: number): Bar {
+function m1(
+  minutesFromEpoch: number,
+  o: number,
+  h: number,
+  l: number,
+  c: number,
+  volume?: number,
+  spread?: number,
+): Bar {
   return { ts: minutesFromEpoch * 60_000, open: o, high: h, low: l, close: c, volume, spread };
 }
 

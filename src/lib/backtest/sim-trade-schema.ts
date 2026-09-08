@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod";
 
 /**
  * Validation for a finished simulated trade arriving from the browser.
@@ -21,13 +21,13 @@ import { z } from 'zod'
  * schema rather than in each caller.
  */
 export const simTradeSchema = z.object({
-  side: z.enum(['LONG', 'SHORT']),
+  side: z.enum(["LONG", "SHORT"]),
   lots: z.number().finite().positive(),
   entryTs: z.number().finite().int(),
   entryPrice: z.number().finite(),
   exitTs: z.number().finite().int(),
   exitPrice: z.number().finite(),
-  exitReason: z.enum(['STOP_LOSS', 'TAKE_PROFIT', 'SIGNAL', 'END_OF_DATA']),
+  exitReason: z.enum(["STOP_LOSS", "TAKE_PROFIT", "SIGNAL", "END_OF_DATA"]),
   stopLoss: z.number().finite().optional(),
   takeProfit: z.number().finite().optional(),
   netPnl: z.number().finite(),
@@ -38,7 +38,7 @@ export const simTradeSchema = z.object({
   riskAmount: z.number().finite().nullable(),
   holdingMinutes: z.number().finite().nonnegative(),
   reason: z.string().max(200).optional(),
-})
+});
 
 /**
  * Ceiling on trades written by one strategy run.
@@ -50,10 +50,10 @@ export const simTradeSchema = z.object({
  * trades every 50 bars produces 10k trades, so this is generous for real
  * strategies and still bounds the insert.
  */
-export const MAX_TRADES_PER_RUN = 10_000
+export const MAX_TRADES_PER_RUN = 10_000;
 
 /** Ceiling on log lines a run may report, mirroring the engine's own MAX_LOGS. */
-export const MAX_RUN_LOGS = 500
+export const MAX_RUN_LOGS = 500;
 
 /**
  * The full result the browser posts back after running a strategy.
@@ -70,6 +70,6 @@ export const simRunResultSchema = z.object({
   barsProcessed: z.number().finite().int().nonnegative(),
   logs: z.array(z.string().max(500)).max(MAX_RUN_LOGS).default([]),
   error: z.string().max(2000).optional(),
-})
+});
 
-export type SimRunResultInput = z.input<typeof simRunResultSchema>
+export type SimRunResultInput = z.input<typeof simRunResultSchema>;

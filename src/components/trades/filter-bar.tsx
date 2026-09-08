@@ -49,17 +49,7 @@ const RANGE_OPTIONS = [
 
 /** Query-param keys this bar owns. Kept in one place so "does setting this
  * filter clear the page number" and "is anything set at all" agree. */
-const FILTER_KEYS = [
-  "q",
-  "symbols",
-  "directions",
-  "outcome",
-  "tags",
-  "range",
-  "from",
-  "to",
-  "followedPlan",
-] as const;
+const FILTER_KEYS = ["q", "symbols", "directions", "outcome", "tags", "range", "from", "to", "followedPlan"] as const;
 
 function splitCsv(value: string | null): string[] {
   return value ? value.split(",").filter(Boolean) : [];
@@ -195,7 +185,9 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
 
       <Segmented
         value={current.range}
-        onValueChange={(v) => v && update({ range: v, from: v === "custom" ? current.from : null, to: v === "custom" ? current.to : null })}
+        onValueChange={(v) =>
+          v && update({ range: v, from: v === "custom" ? current.from : null, to: v === "custom" ? current.to : null })
+        }
         aria-label="Date range"
       >
         {RANGE_OPTIONS.map((opt) => (
