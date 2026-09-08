@@ -29,15 +29,24 @@ export default auth;
 export const config = {
   matcher: [
     /*
-     * Run on every path except:
-     *  - /login                     (the sign-in page itself)
-     *  - /api/auth/*                (Auth.js's own endpoints)
-     *  - /_next/*                   (Next.js internals: static, image, etc.)
-     *  - /manifest.webmanifest
-     *  - /icons/*
-     *  - files with an extension (favicon.ico, *.png, *.svg, ...) served
-     *    straight out of /public
+     * Run on every path except the ones listed.
+     *
+     * THE HOLE THIS CLOSES. The previous pattern ended with a "any path
+     * containing a dot" alternative, intended as "static files have
+     * extensions". It excluded far more than that: ANY route with a dot
+     * anywhere in it was served with no middleware at all — a date segment
+     * like /journal/2026.09.08, a symbol with a dot in it, or any future
+     * route someone adds without realising a dot silently disables the gate.
+     * Only the per-page requireUser() calls stood behind it.
+     *
+     * Extensions are now listed explicitly. Adding a new static file type
+     * means editing this line, which is the right amount of friction for
+     * something that turns route protection off.
+     *
+     * This pattern and isPublicPath() in lib/auth-config.ts are two halves of
+     * ONE rule — this decides whether the callback runs, that decides what it
+     * does — and lib/auth-config.test.ts asserts the two agree.
      */
-    "/((?!login$|api/auth/|_next/|manifest\\.webmanifest$|icons/|.*\\..*).*)",
+    "/((?!login$|forgot-password$|reset-password$|verify-email$|api/auth/|_next/|manifest\\.webmanifest$|sw\\.js$|icons/|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|txt|xml|json|woff2?|ttf|map)$).*)",
   ],
 };

@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { signIn } from "@/lib/auth";
 import { signInWithPassword, registerUser } from "@/lib/actions/auth";
+import { authFeatures } from "@/lib/auth-features";
+import { safeNext } from "@/lib/auth/safe-next";
+import { redirectIfAuthenticated } from "@/lib/session";
 
 // Deliberately minimal markup — another agent owns the design system.
 // Styling here is limited to the shared token classes the rest of the app
@@ -11,19 +14,20 @@ interface LoginPageProps {
   searchParams: Promise<{ next?: string; error?: string; registered?: string }>;
 }
 
-function sanitizeNext(next: string | undefined): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
-}
-
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  // Checked in the PAGE, not the (auth) layout: Next's auth guide is explicit
+  // that a layout does not re-render on navigation and does not control
+  // whether the rest of the route renders, so a check there is not a gate.
+  await redirectIfAuthenticated();
+
   const params = await searchParams;
-  const next = sanitizeNext(params.next);
+  const next = safeNext(params.next);
   const error = params.error;
   const justRegistered = params.registered === "1";
 
-  const devLoginEnabled = process.env.ALLOW_DEV_LOGIN === "true";
-  const googleEnabled = Boolean(process.env.AUTH_GOOGLE_ID) && Boolean(process.env.AUTH_GOOGLE_SECRET);
-  const registrationEnabled = process.env.ALLOW_REGISTRATION !== "false";
+  const devLoginEnabled = authFeatures.passwordLogin;
+  const googleEnabled = authFeatures.google;
+  const registrationEnabled = authFeatures.registration;
 
   // Thin server-action wrappers: the real actions in src/lib/actions/auth.ts
   // return `{ error }` on failure (rather than throwing) so they stay easy

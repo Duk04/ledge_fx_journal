@@ -6,7 +6,20 @@ import { DataTable, Th, Td, Button, useToast, NumberInput, Input, Badge } from "
 import { updateInstrument, resetInstrumentsToDefaults } from "@/app/(app)/settings/actions";
 import type { InstrumentRow } from "@/lib/queries/settings";
 
-export function InstrumentsTab({ initialInstruments }: { initialInstruments: InstrumentRow[] }) {
+/**
+ * `canEdit` is the instance-owner check, resolved on the server and passed
+ * down. Members see the table read-only with an explanation, rather than
+ * edit controls that fail on submit — `Instrument` is one shared table
+ * feeding every user's P&L, so writes are owner-only (see
+ * app/(app)/settings/actions.ts).
+ */
+export function InstrumentsTab({
+  initialInstruments,
+  canEdit,
+}: {
+  initialInstruments: InstrumentRow[];
+  canEdit: boolean;
+}) {
   const [resetting, setResetting] = React.useState(false);
   const { toast } = useToast();
 
@@ -22,12 +35,24 @@ export function InstrumentsTab({ initialInstruments }: { initialInstruments: Ins
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start justify-between gap-3 rounded-[var(--radius-panel)] border border-warn/30 bg-warn-weak px-3 py-2.5 text-xs text-ink-2 sm:flex-row sm:items-center">
         <p>
-          These values decide every pip and P&amp;L number in the app, and brokers differ on pip size, contract
-          size, and quote precision for the same symbol. If a number looks wrong, this is the first place to check.
+          {canEdit ? (
+            <>
+              These values decide every pip and P&amp;L number in the app, and brokers differ on pip size, contract
+              size, and quote precision for the same symbol. If a number looks wrong, this is the first place to
+              check &mdash; and editing a row changes it for <strong>every</strong> account on this instance.
+            </>
+          ) : (
+            <>
+              These values decide every pip and P&amp;L number in the app. They are shared by every account here, so
+              only the instance owner can change them &mdash; ask them if a symbol looks wrong for your broker.
+            </>
+          )}
         </p>
-        <Button variant="default" size="sm" className="shrink-0" onClick={handleReset} disabled={resetting}>
-          <RotateCcw /> Reset to defaults
-        </Button>
+        {canEdit ? (
+          <Button variant="default" size="sm" className="shrink-0" onClick={handleReset} disabled={resetting}>
+            <RotateCcw /> Reset to defaults
+          </Button>
+        ) : null}
       </div>
 
       <DataTable>
@@ -44,7 +69,7 @@ export function InstrumentsTab({ initialInstruments }: { initialInstruments: Ins
         </thead>
         <tbody>
           {initialInstruments.map((inst) => (
-            <InstrumentRowItem key={inst.symbol} instrument={inst} />
+            <InstrumentRowItem key={inst.symbol} instrument={inst} canEdit={canEdit} />
           ))}
         </tbody>
       </DataTable>
@@ -52,7 +77,7 @@ export function InstrumentsTab({ initialInstruments }: { initialInstruments: Ins
   );
 }
 
-function InstrumentRowItem({ instrument }: { instrument: InstrumentRow }) {
+function InstrumentRowItem({ instrument, canEdit }: { instrument: InstrumentRow; canEdit: boolean }) {
   const [editing, setEditing] = React.useState(false);
   const [pipSize, setPipSize] = React.useState(instrument.pipSize);
   const [contractSize, setContractSize] = React.useState(instrument.contractSize);
@@ -135,7 +160,14 @@ function InstrumentRowItem({ instrument }: { instrument: InstrumentRow }) {
               </Button>
             </>
           ) : (
-            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${instrument.symbol}`} onClick={() => setEditing(true)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Edit ${instrument.symbol}`}
+              onClick={() => setEditing(true)}
+              disabled={!canEdit}
+              title={canEdit ? undefined : "Only the instance owner can change shared instrument data."}
+            >
               <Pencil />
             </Button>
           )}

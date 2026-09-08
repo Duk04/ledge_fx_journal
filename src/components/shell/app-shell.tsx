@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { signOutAction } from "@/lib/actions/auth";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, User } from "lucide-react";
@@ -110,9 +111,20 @@ export function AppShell({
             </DropdownItem>
             <DropdownSeparator />
             <DropdownItem asChild tone="danger">
-              <Link href="/api/auth/signout" className="flex items-center gap-2">
-                <LogOut className="size-3.5" /> Sign out
-              </Link>
+              {/*
+                A form, not a link to /api/auth/signout. That link was a GET
+                navigation to Auth.js's own interstitial "are you sure?" page,
+                so signing out took two clicks and landed on a page styled
+                nothing like the rest of the app. A server action is one
+                click, and Next applies its Origin check to it — whereas a
+                GET endpoint that ends a session is exactly the shape a
+                cross-site request can trigger from an <img> tag.
+              */}
+              <form action={signOutAction} className="contents">
+                <button type="submit" className="flex w-full items-center gap-2">
+                  <LogOut className="size-3.5" /> Sign out
+                </button>
+              </form>
             </DropdownItem>
           </DropdownContent>
         </Dropdown>

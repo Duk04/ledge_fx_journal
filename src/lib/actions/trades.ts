@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Instrument, MarketSession } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getInstrument, listActiveSymbols } from "@/lib/queries/instruments";
 import { NotFoundError, requireAccountAccess, requireUser } from "@/lib/session";
 import { closeTradeSchema, parseTradeForm, type TradeFormValues } from "@/lib/schemas/trade";
 import { derivedColumns, instrumentSpec } from "@/lib/trade-service";
@@ -106,11 +107,11 @@ export async function createTrade(accountId: string, formData: FormData): Promis
     throw err;
   }
 
-  const instruments = await prisma.instrument.findMany({ where: { isActive: true }, select: { symbol: true } });
-  const parsed = parseTradeForm(formData, { validSymbols: instruments.map((i) => i.symbol) });
+  const symbols = await listActiveSymbols();
+  const parsed = parseTradeForm(formData, { validSymbols: symbols });
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
 
-  const instrument = await prisma.instrument.findUnique({ where: { symbol: parsed.values.symbol } });
+  const instrument = await getInstrument(parsed.values.symbol);
   if (!instrument) return { ok: false, fieldErrors: { symbol: ["Unknown symbol."] } };
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
@@ -164,11 +165,11 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId: account.id } });
   if (!existing) return { ok: false, formError: "Trade not found." };
 
-  const instruments = await prisma.instrument.findMany({ where: { isActive: true }, select: { symbol: true } });
-  const parsed = parseTradeForm(formData, { validSymbols: instruments.map((i) => i.symbol) });
+  const symbols = await listActiveSymbols();
+  const parsed = parseTradeForm(formData, { validSymbols: symbols });
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
 
-  const instrument = await prisma.instrument.findUnique({ where: { symbol: parsed.values.symbol } });
+  const instrument = await getInstrument(parsed.values.symbol);
   if (!instrument) return { ok: false, fieldErrors: { symbol: ["Unknown symbol."] } };
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);

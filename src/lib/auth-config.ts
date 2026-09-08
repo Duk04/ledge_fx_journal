@@ -30,8 +30,10 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: UserRole;
-      timezone: string;
+      /** Seconds-since-epoch when this session was issued. Compared against
+       * `User.sessionsValidFrom` by the DAL to implement "sign out
+       * everywhere" — see src/lib/session.ts. */
+      authAt?: number;
     } & DefaultSession["user"];
   }
 
@@ -52,14 +54,27 @@ declare module "next-auth" {
 // legal without the augmentation; the `jwt`/`session` callbacks below just
 // cast when reading those fields back out.
 
-/** Paths middleware never gates. Kept here so the `authorized` callback's
- * notion of "protected" matches the middleware matcher below it. */
-function isPublicPath(pathname: string): boolean {
+/**
+ * Paths the middleware never gates.
+ *
+ * This and `src/middleware.ts`'s `config.matcher` are two halves of ONE
+ * rule and must change together: the matcher decides whether this callback
+ * runs at all, and this decides what happens when it does. A path excluded
+ * from the matcher but absent here (or the reverse) is a gap.
+ * `src/lib/auth-config.test.ts` asserts they agree.
+ *
+ * Exported so that test can import it.
+ */
+export function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/login" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password" ||
+    pathname === "/verify-email" ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/_next/") ||
     pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
     pathname.startsWith("/icons/") ||
     pathname === "/favicon.ico"
   );
@@ -70,27 +85,55 @@ export const authConfig: NextAuthConfig = {
   // middleware instance, which only ever calls `auth()` to read/verify the
   // session JWT and never needs to run a provider's `authorize`/OAuth flow.
   providers: [],
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    /**
+     * Stated rather than inherited. Auth.js defaults to a 30-day maxAge and a
+     * 24-hour updateAge, and this file previously said neither — so the app's
+     * actual session lifetime was not expressed anywhere in the repo, and a
+     * stolen cookie was good for a month. Seven days is short enough to bound
+     * that and long enough not to be annoying.
+     *
+     * Literals rather than env reads on purpose: this file must stay
+     * importable from the Edge middleware bundle, which cannot load
+     * `@/lib/env` (it is `server-only`).
+     */
+    maxAge: 60 * 60 * 24 * 7,
+    updateAge: 60 * 60 * 24,
+  },
   pages: { signIn: "/login" },
   trustHost: true,
   callbacks: {
+    /**
+     * `user` is only present on the initial sign-in call. The token carries
+     * the MINIMUM needed to identify the session: an id, and when it was
+     * issued.
+     *
+     * `role` and `timezone` used to be stashed here too, and that was a bug
+     * in two directions. A token is only rewritten on sign-in or after
+     * `updateAge`, so a timezone changed in Settings did not take effect for
+     * up to 30 days — and neither did a role demotion, which is the one that
+     * matters. Both are now read from the database by the DAL on each render
+     * (cached per request), which also removes the fail-open defaults the
+     * session callback used to apply.
+     */
     jwt({ token, user }) {
-      // `user` is only present on the initial sign-in call (from a
-      // provider's `authorize()` or the adapter-created user for
-      // OAuth/magic-link). Stash what the session needs onto the token.
       if (user) {
+        // No id means no identifiable session. Returning null makes Auth.js
+        // clear the cookie rather than issue an anonymous one.
+        if (!user.id) return null;
         token.id = user.id;
-        token.role = user.role;
-        token.timezone = user.timezone;
+        token.authAt = Math.floor(Date.now() / 1000);
       }
       return token;
     },
     session({ session, token }) {
-      if (session.user) {
-        session.user.id = (token.id as string | undefined) ?? session.user.id;
-        session.user.role = (token.role as UserRole | undefined) ?? "MEMBER";
-        session.user.timezone = (token.timezone as string | undefined) ?? "UTC";
-      }
+      const id = typeof token.id === "string" ? token.id : null;
+      // Fail closed: a session with no id is treated as signed out by the
+      // DAL, rather than defaulting to something and letting it through.
+      if (!id || !session.user) return session;
+      session.user.id = id;
+      session.user.authAt = typeof token.authAt === "number" ? token.authAt : undefined;
       return session;
     },
     authorized({ request, auth }) {

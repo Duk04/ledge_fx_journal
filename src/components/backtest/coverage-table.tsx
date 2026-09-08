@@ -54,7 +54,13 @@ function formatDate(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
 
-export function CoverageTable({ rows }: { rows: CoverageTableRow[] }) {
+/**
+ * `canDelete` is the instance-owner check, resolved on the server. Candle
+ * data is shared by every account here, so deleting a range takes it away
+ * from everyone — the action is owner-only (see lib/actions/candles.ts) and
+ * the control is hidden rather than left to fail on submit.
+ */
+export function CoverageTable({ rows, canDelete }: { rows: CoverageTableRow[]; canDelete: boolean }) {
   const [deleteTarget, setDeleteTarget] = React.useState<CoverageTableRow | null>(null);
 
   if (rows.length === 0) {
@@ -130,6 +136,12 @@ export function CoverageTable({ rows }: { rows: CoverageTableRow[] }) {
                     size="icon-sm"
                     aria-label={`Delete ${row.symbol} ${row.timeframe} data`}
                     onClick={() => setDeleteTarget(row)}
+                    disabled={!canDelete}
+                    title={
+                      canDelete
+                        ? undefined
+                        : "Candle data is shared by every account here — only the instance owner can delete it."
+                    }
                   >
                     <Trash2 />
                   </Button>

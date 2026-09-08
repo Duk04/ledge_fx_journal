@@ -1,8 +1,8 @@
 import { SectionHead, Panel, PanelHeader, PanelBody } from "@/components/ui";
 import { Page } from "@/components/shell/page";
-import { requireUser } from "@/lib/session";
-import { prisma } from "@/lib/db";
+import { canWriteSharedData, requireUser } from "@/lib/session";
 import { listCoverage, candleStorageBytes } from "@/lib/queries/candles";
+import { listActiveInstruments } from "@/lib/queries/instruments";
 import { CoverageTable, type CoverageTableRow } from "@/components/backtest/coverage-table";
 import { CandleImportPanel } from "@/components/backtest/candle-import";
 
@@ -20,13 +20,13 @@ function formatBytes(bytes: number): string {
 
 export default async function BacktestDataPage() {
   const user = await requireUser();
+  // Candle data is shared by every account, so deleting a range is owner-only
+  // (see lib/actions/candles.ts). Resolved here so the control is hidden
+  // rather than failing on submit.
+  const owner = canWriteSharedData(user.role);
 
   const [instruments, coverage, storageBytes] = await Promise.all([
-    prisma.instrument.findMany({
-      where: { isActive: true },
-      orderBy: { symbol: "asc" },
-      select: { symbol: true, displayName: true },
-    }),
+    listActiveInstruments(),
     listCoverage(user.id),
     candleStorageBytes(),
   ]);
@@ -77,7 +77,7 @@ export default async function BacktestDataPage() {
           caption={coverageRows.length > 0 ? `${coverageRows.length} symbol/timeframe pair(s)` : undefined}
         />
         <PanelBody padded={coverageRows.length === 0}>
-          <CoverageTable rows={coverageRows} />
+          <CoverageTable rows={coverageRows} canDelete={owner} />
         </PanelBody>
       </Panel>
 

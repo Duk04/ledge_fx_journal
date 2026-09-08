@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { CandleSource, Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
 import { parseCandleCsv } from "@/lib/candles/parse";
 import { upsertCandles } from "@/lib/candles/upsert";
 
@@ -123,11 +123,21 @@ export async function importCandles(formData: FormData): Promise<ImportSuccess |
 }
 
 /**
- * Deletes stored candles for a symbol/timeframe, optionally scoped to a
- * range. Candles aren't user-owned data (see the note in
- * lib/queries/candles.ts) so the only check here is that someone is signed
- * in — the UI drives this from an explicit confirm dialog rather than
- * exposing it as a casual one-click action.
+ * Deletes stored candles for a symbol/timeframe, optionally scoped to a range.
+ *
+ * OWNER ONLY. Candles aren't user-owned data (see the note in
+ * lib/queries/candles.ts), and the check used to be nothing more than "is
+ * someone signed in" — which, once registration opened to the public, meant
+ * any stranger could delete the market data every other user backtests
+ * against. Shared data means shared integrity, so writes are gated even
+ * though reads are not.
+ *
+ * The confirm dialog in the UI is not what made this safe: a server action is
+ * reachable by POST regardless of what the interface offers. It is a courtesy
+ * to the owner, not a control.
+ *
+ * `CandleImport` records who supplied which range, so an owner can see what
+ * they are about to remove.
  */
 export async function deleteCandles(input: {
   symbol: string;
@@ -135,7 +145,14 @@ export async function deleteCandles(input: {
   from?: Date;
   to?: Date;
 }): Promise<ActionResult> {
-  await requireUser();
+  try {
+    await requireOwner();
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { ok: false, formError: "Only the instance owner can delete shared market data." };
+    }
+    throw err;
+  }
 
   const { symbol, timeframe, from, to } = input;
   if (!symbol || !TIMEFRAMES.includes(timeframe)) {

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/session";
+import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { derivedColumns, tradeInput } from "@/lib/trade-service";
 import { seedInstruments } from "@/lib/instruments";
@@ -62,8 +62,39 @@ export async function updateProfile(input: z.input<typeof profileSchema>): Promi
 }
 
 // ---------------------------------------------------------------------------
-// Instruments
+// Instruments — OWNER ONLY
+//
+// `Instrument` is a single shared table with no `userId`: one row per symbol,
+// holding the pipSize, contractSize, digits and quoteCurrency that
+// `derivedColumns()` and `resolveConversion()` use to compute P&L, pips and R
+// for EVERY user's trades. Editing a row therefore silently rewrites other
+// people's numbers — a wrong contractSize is off by orders of magnitude, and
+// nothing in the journal would look broken, just wrong.
+//
+// These two actions used to require only that someone be signed in. Under
+// open registration that is any stranger.
+//
+// The honest cost of gating them: a member whose broker really does use a
+// different pip size can no longer correct it themselves. That is a genuine
+// regression, not a non-issue, and the fix is a per-user override table
+// rather than letting everyone write the shared row. Until then the
+// Instruments tab renders read-only for members and says why, instead of
+// offering a control that 403s on submit.
 // ---------------------------------------------------------------------------
+
+/** Shared wrapper: converts requireOwner()'s throw into the action-result
+ * convention, with a message naming the actual reason. */
+async function ownerOrError(what: string): Promise<ActionResult | null> {
+  try {
+    await requireOwner();
+    return null;
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      return { ok: false, formError: `Only the instance owner can ${what}.` };
+    }
+    throw err;
+  }
+}
 
 const instrumentSchema = z.object({
   pipSize: z.coerce.number({ message: "Enter a pip size." }).positive("Must be greater than zero."),
@@ -83,7 +114,8 @@ export async function updateInstrument(
   const parsed = instrumentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
 
-  await requireUser();
+  const denied = await ownerOrError("change instrument specifications");
+  if (denied) return denied;
 
   const existing = await prisma.instrument.findUnique({ where: { symbol } });
   if (!existing) return { ok: false, formError: "Instrument not found." };
@@ -104,7 +136,8 @@ export async function updateInstrument(
 
 /** Restores every instrument's contract fields from `src/lib/instruments.ts`. */
 export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
-  await requireUser();
+  const denied = await ownerOrError("reset the instrument table");
+  if (denied) return denied;
 
   for (const inst of seedInstruments) {
     await prisma.instrument

@@ -25,6 +25,13 @@ datasource db {
 // Enums
 // ---------------------------------------------------------------------------
 
+enum AuthAttemptKind {
+  PASSWORD_LOGIN
+  REGISTER
+  PASSWORD_RESET
+  EMAIL_VERIFY
+}
+
 enum UserRole {
   OWNER
   MEMBER
@@ -138,19 +145,33 @@ model User {
   name         String?
   image        String?
   passwordHash String?  @map("password_hash")
-  role         UserRole @default(OWNER)
+  /// Required by @auth/prisma-adapter: its createUser passes emailVerified
+  /// (as a Date for magic links, null for OAuth), and its stripUndefined only
+  /// drops undefined — so without this column every Google and Resend sign-up
+  /// failed with "Unknown argument emailVerified".
+  emailVerified DateTime? @map("email_verified")
+  /// MEMBER by default. This was OWNER, which with open registration minted
+  /// an instance owner on every sign-up. OWNER now means the single
+  /// administrator who may write the shared Instrument and Candle tables.
+  role         UserRole @default(MEMBER)
   timezone     String   @default("Asia/Ulaanbaatar")
+  /// Any session token issued before this instant is rejected by the DAL.
+  /// This is how "sign out everywhere" works under a JWT strategy, where
+  /// there is no server-side session row to delete: a password reset or
+  /// change stamps it, and getCurrentUser() compares it to the token's
+  /// authAt claim. Per-user, not per-device — see docs/AUTH.md.
+  sessionsValidFrom DateTime? @map("sessions_valid_from")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   accounts       TradingAccount[]
   tags           Tag[]
   journalEntries JournalEntry[]
-  sessions       Session[]
-  authAccounts   AuthAccount[]
+  authAccounts   Account[]
   candleImports  CandleImport[]
   strategies     Strategy[]
   backtestRuns   BacktestRun[]
+  authAttempts   AuthAttempt[]
 
   @@map("users")
 }
@@ -158,7 +179,13 @@ model User {
 // Auth.js (next-auth) Prisma adapter models. Field names on these three
 // models must match what @auth/prisma-adapter expects verbatim — only the
 // table name is remapped via @@map.
-model AuthAccount {
+/// MUST be named `Account` even though the table is `auth_accounts`:
+/// @auth/prisma-adapter calls `prisma.account.findUnique` / `.create` /
+/// `.delete` (see its getUserByAccount/linkAccount/unlinkAccount). With the
+/// model named AuthAccount, the client exposed `prisma.authAccount` and
+/// `prisma.account` was undefined, so every OAuth sign-in threw a TypeError.
+/// The @@map keeps the table name, so no data moves.
+model Account {
   id                String  @id @default(cuid())
   userId            String  @map("userId")
   type              String
@@ -179,16 +206,33 @@ model AuthAccount {
   @@map("auth_accounts")
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique @map("sessionToken")
-  userId       String   @map("userId")
-  expires      DateTime
+/// One row per authentication attempt. Both the sliding window the throttle
+/// reads and a record of what was tried.
+///
+/// Postgres rather than an in-memory Map because this deploys as a possibly
+/// multi-instance serverless app: N instances each with their own counter
+/// means N times the threshold, and a cold start is a free reset for an
+/// attacker. This is the only shared state the app has.
+model AuthAttempt {
+  id        String          @id @default(uuid())
+  kind      AuthAttemptKind
+  /// Lowercased email when known. Recorded even for addresses that do not
+  /// exist, so lockout timing and messaging are identical either way and
+  /// cannot be used to enumerate accounts.
+  email     String?
+  /// Best-effort: only trustworthy behind a proxy that overwrites
+  /// x-forwarded-for. The email bucket is the real gate.
+  ip        String?
+  success   Boolean         @default(false)
+  userId    String?         @map("user_id")
+  createdAt DateTime        @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([userId])
-  @@map("sessions")
+  @@index([kind, email, createdAt])
+  @@index([kind, ip, createdAt])
+  @@index([createdAt])
+  @@map("auth_attempts")
 }
 
 model VerificationToken {

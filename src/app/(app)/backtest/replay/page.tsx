@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { Page } from "@/components/shell/page";
 import { SectionHead, EmptyState, Panel, PanelBody } from "@/components/ui";
 import { requireUser } from "@/lib/session";
+import { getInstrument } from "@/lib/queries/instruments";
 import { getRun } from "@/lib/queries/backtests";
 import { listCoverage, getBars } from "@/lib/queries/candles";
-import { prisma } from "@/lib/db";
 import { resolveConversion } from "@/lib/conversion";
 import { ReplaySetupForm } from "@/components/backtest/replay/replay-setup-form";
 import { ReplaySession } from "@/components/backtest/replay/replay-session";
@@ -41,7 +41,7 @@ export default async function ReplayPage({
   const run = await getRun(user.id, runId);
   if (!run || run.kind !== "REPLAY") notFound();
 
-  const instrument = await prisma.instrument.findUnique({ where: { symbol: run.symbol } });
+  const instrument = await getInstrument(run.symbol);
   if (!instrument) notFound();
 
   const { bars } = await getBars({
