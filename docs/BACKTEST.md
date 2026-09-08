@@ -26,6 +26,53 @@ its *own* fresh `TradingAccount`, one per run, never reuses a live one.
 Deleting a run deletes its trades (FK cascade from `Trade.backtestRunId`)
 and, once nothing else references it, its account too.
 
+## Who computes a run's trades, and why that is acceptable
+
+**Both kinds of run are computed in the browser.** Manual replay always was:
+you click through bars and the client works out each fill using the same
+`entryPrice`/`exitOnBar`/`closeAtPrice` primitives the engine uses, then
+posts the finished trade to `recordReplayTrade`. Coded strategy runs now work
+the same way: the strategy is compiled and executed in a Web Worker
+(`src/lib/backtest/worker.ts`) and `recordStrategyRun` receives the resulting
+trades.
+
+That moved because the alternative was worse. Running author-supplied
+JavaScript on the server is remote code execution, and it cannot be fixed by
+hardening the sandbox — see BACKTEST-ENGINE.md for the three verified escapes,
+one of which reaches `Function` from a bare string literal. The browser is
+where that code's blast radius is the author's own tab.
+
+### What follows: a user can fabricate their own backtest results
+
+Nothing stops a caller posting any trades it likes. This is accepted, and
+here is the whole argument so it can be re-judged rather than re-derived:
+
+1. The rows land in a **fresh `TradingAccount` with `accountType: BACKTEST`,
+   created per run and owned by the posting user**.
+2. **Every read path in this app is scoped by `userId`** — all seven query
+   modules and all five route handlers. There is no leaderboard, no public
+   share link, no cross-user aggregate anywhere.
+3. So a fabricated backtest is a user lying to themselves in their own
+   private ledger, which they could already do by typing a trade in by hand.
+
+What is *not* trusted, even so. `recordStrategyRun` recomputes win rate,
+expectancy, the equity curve and drawdown from the posted trades using the
+same `summarize()`/`equityCurve()`/`maxDrawdown()` the rest of the app uses,
+and never accepts a statistics blob. It re-derives the currency conversion
+rate — one number that scales every P&L figure in the run — from the last
+stored bar. It caps the trade array. And it checks strategy ownership.
+
+### The tripwire
+
+> **If a shared, public, or comparative view of backtest results is ever
+> added — a leaderboard, a shared strategy library showing performance, a
+> "top strategies this week" panel, or any report that puts one user's run
+> next to another's — the argument above collapses, because the fabricated
+> number would then be making a claim to someone else.** At that point the
+> simulation has to move somewhere trustworthy: a real isolate, a separate
+> no-network container, or a constrained strategy DSL the server can evaluate
+> itself. Do not add such a view and leave this as it is.
+
 ## Running a replay
 
 `/backtest/replay` with no `?runId` shows a setup form: symbol, timeframe,
@@ -86,15 +133,27 @@ function onBar(ctx) {
 ```
 
 Saving (`createStrategy`/`updateStrategy` in `src/lib/actions/strategies.ts`)
-compiles the code first (`compileStrategy()`, the same compiler a run uses)
-so a typo'd `onBar` is caught immediately, not three minutes later when a run
-form is submitted. Running does not require saving first — the run form runs
-whatever is currently in the editor if it differs from the last saved copy,
-falling back to the saved strategy only when the code is unchanged (`runStrategy`
-accepts either `strategyId` or raw `code`; an ad-hoc run that was never saved
-has no strategy to link back to afterward, which is the one gap this leaves —
-save it first if you want the run's results page to remember which strategy
-produced it).
+**parses** the code first — `checkStrategySyntax()` in
+`src/lib/backtest/strategy-source.ts` — so a syntax error is caught
+immediately, not three minutes later when a run form is submitted. It parses
+rather than compiling-and-running, which is the distinction the whole
+security fix rests on: `new Function(body)` compiles `body` and hands back a
+function; it does not call it, and nothing here calls the result. A
+`process.exit()` at the top level of a saved strategy therefore does nothing
+on the server.
+
+The one check that genuinely cannot be made without executing the source is
+"does this define a top-level `onBar`?" — the declaration only exists once
+the body has run. That moved to the workbench, which compiles in its Web
+Worker before submitting, so the author still learns about it at edit time.
+
+Running does not require saving first: the run form runs whatever is in the
+editor. `recordStrategyRun` takes `strategyId` only to attribute the run,
+and only when the editor matches the saved copy — an ad-hoc run that was
+never saved has no strategy to link back to, which is the one gap this leaves.
+Save it first if you want the run's results page to remember which strategy
+produced it. Note the server no longer needs the code at all, since it does
+not run it; it is sent to the worker and nowhere else.
 
 ## The fill settings, and how to choose them
 

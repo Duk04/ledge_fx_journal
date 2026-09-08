@@ -432,8 +432,11 @@ model CandleImport {
   @@map("candle_imports")
 }
 
-/// A coded strategy. `code` is JavaScript run in a sandboxed worker — see
-/// docs/BACKTEST.md for the contract it must implement.
+/// A coded strategy. `code` is JavaScript, and it is inert data at rest: it
+/// is compiled and executed ONLY in a Web Worker in the author's own browser
+/// (src/lib/backtest/worker.ts), never in a server process. Saving it is not
+/// a trust decision; running it on the server would be. See docs/BACKTEST.md
+/// for the contract it must implement and BACKTEST-ENGINE.md for why.
 model Strategy {
   id          String  @id @default(uuid())
   userId      String  @map("user_id")

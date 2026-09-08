@@ -26,10 +26,13 @@ const DEFAULT_TIMEOUT_MS = 10_000;
  * exists because `timeoutMs` is only checked BETWEEN bars — a pathological
  * strategy whose `onBar` itself never returns (a true infinite loop) cannot
  * be interrupted by a wall-clock check running on the same synchronous JS
- * thread. That case is what `sandbox.ts` running strategies inside a Web
+ * thread. That case is what `worker.ts` running strategies inside a Web
  * Worker is for: a worker can be `terminate()`d from the outside no matter
- * what its code is doing. This cap is just the second line of defence for
- * runBacktest() called directly (as every test in runner.test.ts does).
+ * what its code is doing, and `use-strategy-runner.ts` does exactly that
+ * after 30 seconds. Note what these caps now protect: strategy code runs only
+ * in the author's own browser, so a run that blows through them wedges that
+ * tab, not a shared server process. This cap is the second line of defence
+ * for runBacktest() called directly (as every test in runner.test.ts does).
  */
 const HARD_BAR_CAP = 1_000_000;
 

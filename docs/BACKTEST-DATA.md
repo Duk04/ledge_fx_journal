@@ -7,7 +7,10 @@ Implementation lives in:
 - `src/lib/candles/parse.ts` — CSV → bars (pure, runs in the browser too)
 - `src/lib/candles/aggregate.ts` — finer bars → coarser bars
 - `src/lib/queries/candles.ts` — reads (`getBars`, `listCoverage`, `candleStorageBytes`, `listImports`)
-- `src/lib/actions/candles.ts` — writes (`importCandles`, `upsertCandles`, `deleteCandles`)
+- `src/lib/actions/candles.ts` — the actions (`importCandles`, `deleteCandles`)
+- `src/lib/candles/upsert.ts` — the bulk upsert itself, deliberately NOT
+  exported from the action module: every export of a `"use server"` file is
+  a callable POST endpoint, and this helper does no authorization of its own
 - `src/app/(app)/backtest/data/page.tsx` + `src/components/backtest/*` — the UI
 
 ## The two supported CSV formats

@@ -195,9 +195,12 @@ initial balance) — see `BacktestResult.equity`'s doc in `types.ts`.
 catches a strategy that is merely slow (e.g. recomputing an indicator over
 the whole history every bar). It **cannot** catch a strategy whose `onBar`
 itself never returns — a true infinite loop — because that runs on the same
-synchronous JS thread as the check. That is exactly what `sandbox.ts`
+synchronous JS thread as the check. That is exactly what `worker.ts`
 running strategies inside a Web Worker is for: a worker can be
-`terminate()`d from the outside regardless of what its code is doing. The
+`terminate()`d from the outside regardless of what its code is doing, and
+`use-strategy-runner.ts` does so after 30 seconds. Note this is now the only
+place that protection exists — the server no longer runs strategy code, so
+these caps guard the author's own tab rather than a shared process. The
 `HARD_BAR_CAP` (1,000,000 bars) is the second line of defence for
 `runBacktest()` called directly, as every test in `runner.test.ts` does.
 
@@ -234,31 +237,69 @@ that would just invite `if (cross)` bugs.
 **This is a guard against mistakes, not a security boundary against hostile
 code.** Read that twice before changing anything here.
 
-The app this belongs to is single-user: a person runs their own strategy
-scripts, written in their own editor, against their own account. That is the
-same trust level as running any other script they wrote. What
-`compileStrategy()` actually buys, by compiling strategy code with `new
-Function` against an explicit, frozen list of named parameters (`Math`,
-`Number`, `JSON`, the indicator functions, ...) plus an explicit shadow list
-(`fetch`, `window`, `globalThis`, `process`, `require`, ...) bound to
-`undefined`:
+That sentence has always been in this file. What changed is the conclusion
+drawn from it. This section used to open "the app this belongs to is
+single-user", and everything after it followed from that premise. The app is
+now deployed publicly with open registration, so the premise is gone — and
+with it the argument that the gap was harmless.
 
-- A typo or accidentally-pasted line that tries to hit the network, read the
-  DOM, or import a module fails loudly and immediately, instead of silently
-  doing something surprising.
-- One runaway strategy can be `terminate()`d (it runs inside a Web Worker)
-  without taking the rest of the app down.
+### Where the compiler runs, and why that is the whole answer
 
-What it does **not** buy: `"use strict"` does not remove access to `Array`,
-`Object`, `Date`, `Promise`, `Symbol`, dynamic `import()`, or any other
-global we did not think to name — and `eval` cannot even be shadowed, because
-strict-mode code is not allowed to bind an identifier named `eval` at all
-(attempting it is a `SyntaxError`, discovered while building this). A user
-determined to defeat this from their own strategy code can. That is fine,
-because the only thing they could be attacking is their own browser tab
-running their own code — there is no other user's data anywhere in reach.
-**Do not repurpose this to run someone else's code.** It was never built to
-survive that, and pretending otherwise would be worse than admitting the gap.
+`compileStrategy()` runs **only in a Web Worker in the author's own browser**
+(`src/lib/backtest/worker.ts`), never in a server module. It is not merely
+preferred; it is the security boundary, and three things enforce it:
+
+- `src/lib/backtest/index.ts` does not re-export `./sandbox`. That single
+  `export *` line was how the compiler reached two server actions without
+  either import looking dangerous.
+- `src/lib/actions/server-action-surface.test.ts` asserts no `"use server"`
+  module reaches `compileStrategy`, and that the barrel stays clean.
+- `npm run build` puts the compiler in a client chunk; grepping
+  `.next/server` for its strings finds nothing.
+
+### Why hardening the sandbox was never an option
+
+What `compileStrategy()` buys is real: compiling against an explicit list of
+named parameters (`Math`, `Number`, `JSON`, the indicator functions, ...)
+plus a shadow list (`fetch`, `window`, `globalThis`, `process`, `require`,
+...) bound to `undefined` means a typo or an accidentally-pasted line that
+tries to hit the network, read the DOM, or import a module fails loudly
+instead of silently doing something surprising. And a runaway strategy is
+`terminate()`d from the host page — something the server never managed,
+because `runBacktest`'s timeout is only checked between bars, so a hang
+inside a single `onBar` call pinned the request thread until the platform
+gave up.
+
+What it cannot buy, with the actual escapes rather than a hand-wave:
+
+```js
+Object.constructor("return process")()    // Object has to be allowed for
+                                          // strategies to be writable at all,
+                                          // and .constructor IS Function
+"".constructor.constructor("return 1")()  // from a bare string literal —
+                                          // names nothing we passed in
+(0, eval)("...")                          // indirect eval: global scope
+```
+
+All three are verified, and `src/lib/backtest/sandbox.test.ts` asserts they
+**succeed** — so that nobody reads the allowlist, concludes it is a boundary,
+and moves the compiler back onto the server.
+
+The third is the one that settles the question. It reaches `Function` through
+a primitive literal, referencing no identifier that any allowlist or shadow
+list could cover. There is no version of this approach that closes it.
+
+One correction worth recording, because this file previously got it backwards:
+`eval` is absent from the shadow list because strict-mode code cannot bind an
+identifier named `eval` at all (attempting it is a `SyntaxError` — a genuine
+discovery, made while building this). But *direct* `eval` inherits the
+compiled function's scope, so `eval("typeof process")` correctly yields
+`"undefined"`. Direct `eval` was never the hole; indirect `eval` and the
+`.constructor` routes are.
+
+**Do not repurpose this to run someone else's code**, and do not add shadows
+believing they close the hole. It was never built to survive hostile code, and
+it cannot be.
 
 ### The strategy API, worked example
 
