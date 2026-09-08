@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { TZDate } from "@date-fns/tz";
 import type { Direction, TagKind } from "@prisma/client";
-import { prisma as db } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import {
   summarize,
   equityCurve,
@@ -91,15 +91,15 @@ export interface AnalyticsCtx {
 type RawTrade = Awaited<ReturnType<typeof fetchAccountData>>["trades"][number];
 
 const fetchAccountData = cache(async (userId: string, accountId: string) => {
-  const account = await db.tradingAccount.findFirst({
+  const account = await prisma.tradingAccount.findFirst({
     where: { id: accountId, userId },
     select: { startingBalance: true, currency: true },
   });
   if (!account) throw new NotFoundError(`Trading account "${accountId}" was not found.`);
 
   const [user, trades, balanceEvents] = await Promise.all([
-    db.user.findUnique({ where: { id: userId }, select: { timezone: true } }),
-    db.trade.findMany({
+    prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }),
+    prisma.trade.findMany({
       where: { accountId, account: { userId } },
       select: {
         id: true,
@@ -122,7 +122,7 @@ const fetchAccountData = cache(async (userId: string, accountId: string) => {
       },
       orderBy: { openedAt: "asc" },
     }),
-    db.balanceEvent.findMany({
+    prisma.balanceEvent.findMany({
       where: { accountId },
       select: { kind: true, amount: true, occurredAt: true },
       orderBy: { occurredAt: "asc" },

@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { toNum } from "@/lib/decimal-bridge";
 import { aggregateBars } from "@/lib/candles/aggregate";
 import type { Bar } from "@/lib/backtest/types";
@@ -56,7 +56,7 @@ async function queryStoredBars(params: {
   // window), so cap by taking the newest rows first and reversing — taking
   // the *oldest* N rows under a limit would silently hand back ancient data
   // when the range is wide, which is never what a limit is for here.
-  const rows = await db.candle.findMany({
+  const rows = await prisma.candle.findMany({
     where: { symbol, timeframe, ...(from || to ? { ts: tsFilter } : {}) },
     orderBy: { ts: limit ? "desc" : "asc" },
     ...(limit ? { take: limit } : {}),
@@ -178,7 +178,7 @@ function estimateGaps(timeframe: Timeframe, firstTs: number, lastTs: number, act
  * on 12 March" — the coverage table renders straight off this.
  */
 export async function listCoverage(userId: string): Promise<CoverageRow[]> {
-  const groups = await db.candle.groupBy({
+  const groups = await prisma.candle.groupBy({
     by: ["symbol", "timeframe"],
     _count: { _all: true },
     _min: { ts: true },
@@ -193,13 +193,13 @@ export async function listCoverage(userId: string): Promise<CoverageRow[]> {
       // The source of the most recently-stored bar — if a range was
       // re-imported from a different source, this reflects the newest data,
       // matching what a backtest run against this symbol/timeframe actually reads.
-      const latestBar = await db.candle.findFirst({
+      const latestBar = await prisma.candle.findFirst({
         where: { symbol: g.symbol, timeframe: g.timeframe },
         orderBy: { ts: "desc" },
         select: { source: true },
       });
 
-      const latestImport = await db.candleImport.findFirst({
+      const latestImport = await prisma.candleImport.findFirst({
         where: { userId, symbol: g.symbol, timeframe: g.timeframe },
         orderBy: { createdAt: "desc" },
       });
@@ -229,7 +229,7 @@ export async function listCoverage(userId: string): Promise<CoverageRow[]> {
 /** `pg_total_relation_size` includes indexes and TOAST, not just the heap —
  * the number a Postgres storage quota (Supabase's included) actually bills. */
 export async function candleStorageBytes(): Promise<number> {
-  const rows = await db.$queryRaw<{ bytes: bigint }[]>`SELECT pg_total_relation_size('candles') AS bytes`;
+  const rows = await prisma.$queryRaw<{ bytes: bigint }[]>`SELECT pg_total_relation_size('candles') AS bytes`;
   return Number(rows[0]?.bytes ?? BigInt(0));
 }
 
@@ -247,7 +247,7 @@ export interface ImportRow {
 }
 
 export async function listImports(userId: string, limit = 20): Promise<ImportRow[]> {
-  const rows = await db.candleImport.findMany({
+  const rows = await prisma.candleImport.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -293,7 +293,7 @@ export async function lastCloseIn(params: {
   if (from) ts.gte = from;
   if (to) ts.lte = to;
 
-  const row = await db.candle.findFirst({
+  const row = await prisma.candle.findFirst({
     where: { symbol, timeframe, ...(from || to ? { ts } : {}) },
     orderBy: { ts: "desc" },
     select: { close: true },

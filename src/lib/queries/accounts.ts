@@ -1,6 +1,6 @@
 import "server-only";
 import { Decimal } from "decimal.js";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { equityCurve, maxDrawdown, summarize } from "@/lib/metrics";
 import { toDec, toDecOr, toNum, toPlain } from "@/lib/decimal-bridge";
 import { toTradeRow } from "@/lib/trade-service";
@@ -52,7 +52,7 @@ export type AccountSummary = {
 };
 
 export async function listAccounts(userId: string): Promise<AccountSummary[]> {
-  const accounts = await db.tradingAccount.findMany({
+  const accounts = await prisma.tradingAccount.findMany({
     where: { userId },
     orderBy: [{ isArchived: "asc" }, { createdAt: "asc" }],
     include: {
@@ -98,7 +98,7 @@ export async function listAccounts(userId: string): Promise<AccountSummary[]> {
 
 /** Full equity/drawdown picture for one account. */
 export async function getAccountEquity(userId: string, accountId: string) {
-  const account = await db.tradingAccount.findFirst({
+  const account = await prisma.tradingAccount.findFirst({
     where: { id: accountId, userId },
     include: {
       trades: {

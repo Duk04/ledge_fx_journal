@@ -1,7 +1,7 @@
 import "server-only";
 import type { Direction, MarketSession, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { computeTrade, summarize } from "@/lib/metrics";
+import { computeTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
 import type { Summary } from "@/lib/metrics/types";
 import { toNum, toPlain } from "@/lib/decimal-bridge";
 import { instrumentSpec, toTradeRow, tradeInput } from "@/lib/trade-service";
@@ -52,21 +52,16 @@ export interface TradeSort {
   direction: "asc" | "desc";
 }
 
-/** ±this many account-currency units of zero counts as breakeven — mirrors
- * classifyOutcome's BREAKEVEN_EPSILON (src/lib/metrics/decimal.ts) so the
- * outcome filter agrees with every other place an outcome is classified. */
-const BREAKEVEN_EPSILON = "0.005";
-
 function outcomeClause(outcome: TradeOutcomeFilter): Prisma.TradeWhereInput {
   switch (outcome) {
     case "OPEN":
       return { status: "OPEN" };
     case "WIN":
-      return { status: "CLOSED", netPnl: { gte: BREAKEVEN_EPSILON } };
+      return { status: "CLOSED", netPnl: { gte: BREAKEVEN_EPSILON_STR } };
     case "LOSS":
-      return { status: "CLOSED", netPnl: { lte: `-${BREAKEVEN_EPSILON}` } };
+      return { status: "CLOSED", netPnl: { lte: `-${BREAKEVEN_EPSILON_STR}` } };
     case "BREAKEVEN":
-      return { status: "CLOSED", netPnl: { gt: `-${BREAKEVEN_EPSILON}`, lt: BREAKEVEN_EPSILON } };
+      return { status: "CLOSED", netPnl: { gt: `-${BREAKEVEN_EPSILON_STR}`, lt: BREAKEVEN_EPSILON_STR } };
   }
 }
 

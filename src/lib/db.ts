@@ -35,15 +35,17 @@ function createPrismaClient() {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-/**
- * `db` is the name the rest of the app imports. Both names point at the same
- * singleton — `prisma` is kept because the Prisma docs use it, `db` because
- * every query site reads better as `db.trade.findMany`.
- */
-export const db = prisma;
-
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-export default prisma;
+/**
+ * ONE exported name: `prisma`.
+ *
+ * This module used to export the same singleton three times — as `prisma`,
+ * as `db`, and as a default — with a comment claiming "`db` is the name the
+ * rest of the app imports". That was not true: `prisma` was imported in 26
+ * files, `db` in 4, and the default in none. All an alias bought was a coin
+ * flip for every new file, and a comment that told a new reader the wrong
+ * answer.
+ */

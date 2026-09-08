@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 export const ACCOUNT_COOKIE = "ledger.account";
 
@@ -14,14 +14,14 @@ export async function resolveActiveAccountId(userId: string): Promise<string | n
   const requested = jar.get(ACCOUNT_COOKIE)?.value;
 
   if (requested) {
-    const owned = await db.tradingAccount.findFirst({
+    const owned = await prisma.tradingAccount.findFirst({
       where: { id: requested, userId },
       select: { id: true },
     });
     if (owned) return owned.id;
   }
 
-  const fallback = await db.tradingAccount.findFirst({
+  const fallback = await prisma.tradingAccount.findFirst({
     where: { userId, isArchived: false },
     orderBy: { createdAt: "asc" },
     select: { id: true },

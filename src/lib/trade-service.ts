@@ -1,6 +1,6 @@
 import type { Instrument, Prisma, Trade } from "@prisma/client";
 import { Decimal } from "decimal.js";
-import { computeTrade, marketSession, validateTradeGeometry } from "@/lib/metrics";
+import { computeTrade, marketSession, validateTradeGeometry, classifyOutcome } from "@/lib/metrics";
 import type { InstrumentSpec, TradeInput, TradeRow } from "@/lib/metrics/types";
 import { fromDec, toDec, toDecOr } from "@/lib/decimal-bridge";
 import { resolveConversion } from "@/lib/conversion";
@@ -135,14 +135,12 @@ export function toTradeRow(
   return {
     netPnl,
     rMultiple: toDec(trade.rMultiple),
-    outcome:
-      trade.status !== "CLOSED" || netPnl === null
-        ? "OPEN"
-        : netPnl.abs().lt("0.005")
-          ? "BREAKEVEN"
-          : netPnl.gt(0)
-            ? "WIN"
-            : "LOSS",
+    // Delegated rather than reimplemented. This was an inline ternary chain
+    // with its own hardcoded "0.005", which is the same rule written a second
+    // time — and the copy that would drift. `classifyOutcome` takes a binary
+    // status, so CANCELLED maps to OPEN here: a cancelled order never filled,
+    // so it has no outcome to classify.
+    outcome: classifyOutcome(netPnl, trade.status === "CLOSED" ? "CLOSED" : "OPEN"),
     openedAt: trade.openedAt,
     closedAt: trade.closedAt,
     holdingMinutes: trade.holdingMinutes,

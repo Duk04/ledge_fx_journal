@@ -1,10 +1,8 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { Decimal } from "decimal.js";
 import { TZDate } from "@date-fns/tz";
 import { prisma } from "@/lib/db";
 import { toDec, toPlain } from "@/lib/decimal-bridge";
-import { ACCOUNT_COOKIE } from "@/lib/active-account";
 
 /**
  * Journal reads: the month calendar, one day's detail, and the plain list of
@@ -18,36 +16,21 @@ import { ACCOUNT_COOKIE } from "@/lib/active-account";
 // ---------------------------------------------------------------------------
 
 /**
- * Which trading account the journal/accounts pages should scope trades to.
- * Mirrors `src/lib/active-account.ts`'s cookie contract exactly (same cookie
- * name, same "requested id if owned, else oldest non-archived account"
- * fallback) but is implemented locally rather than imported from there: that
- * module currently imports a `db` binding that `src/lib/db.ts` does not
- * export (it only exports `prisma`), which throws at call time. That file is
- * outside this agent's owned paths, so rather than depend on the broken
- * export this re-implements the same, small, already-documented contract
- * against `prisma` directly. Only the `ACCOUNT_COOKIE` name constant (a
- * plain string, not the broken function) is imported from it.
+ * Re-exported, not reimplemented.
+ *
+ * This was a byte-for-byte copy of `resolveActiveAccountId`, justified by a
+ * comment claiming `src/lib/active-account.ts` imported a `db` binding that
+ * "src/lib/prisma.ts does not export (it only exports prisma), which throws
+ * at call time". There is no `src/lib/prisma.ts` in this repository and never
+ * has been; `active-account.ts` imports from `@/lib/db` and worked fine. So
+ * the copy existed to route around a problem that did not exist, and left two
+ * implementations of the tenant-selection rule — the one thing in this app
+ * that decides which account's trades a page shows — to be kept in sync by
+ * hand.
+ *
+ * The alias name is kept so the three calling pages are untouched.
  */
-export async function resolveActiveTradingAccountId(userId: string): Promise<string | null> {
-  const jar = await cookies();
-  const requested = jar.get(ACCOUNT_COOKIE)?.value;
-
-  if (requested) {
-    const owned = await prisma.tradingAccount.findFirst({
-      where: { id: requested, userId },
-      select: { id: true },
-    });
-    if (owned) return owned.id;
-  }
-
-  const fallback = await prisma.tradingAccount.findFirst({
-    where: { userId, isArchived: false },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  return fallback?.id ?? null;
-}
+export { resolveActiveAccountId as resolveActiveTradingAccountId } from "@/lib/active-account";
 
 // ---------------------------------------------------------------------------
 // Shared helpers

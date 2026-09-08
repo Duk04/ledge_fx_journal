@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 /**
  * Reads of the shared `Instrument` table.
@@ -25,7 +25,7 @@ export interface InstrumentOption {
 
 /** Active symbols, alphabetically — for pickers. */
 export async function listActiveInstruments(): Promise<InstrumentOption[]> {
-  const rows = await db.instrument.findMany({
+  const rows = await prisma.instrument.findMany({
     where: { isActive: true },
     orderBy: { symbol: "asc" },
     select: { symbol: true, displayName: true },
@@ -35,7 +35,7 @@ export async function listActiveInstruments(): Promise<InstrumentOption[]> {
 
 /** Active symbols only, for validating a submitted symbol against the table. */
 export async function listActiveSymbols(): Promise<string[]> {
-  const rows = await db.instrument.findMany({
+  const rows = await prisma.instrument.findMany({
     where: { isActive: true },
     orderBy: { symbol: "asc" },
     select: { symbol: true },
@@ -45,5 +45,5 @@ export async function listActiveSymbols(): Promise<string[]> {
 
 /** One instrument's full row, or null. Used where the contract fields matter. */
 export async function getInstrument(symbol: string) {
-  return db.instrument.findUnique({ where: { symbol } });
+  return prisma.instrument.findUnique({ where: { symbol } });
 }

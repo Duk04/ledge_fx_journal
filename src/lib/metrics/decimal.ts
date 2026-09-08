@@ -29,3 +29,14 @@ export const ZERO = new Decimal(0)
  * from broker fills, commission and swap. See classifyOutcome in trade.ts.
  */
 export const BREAKEVEN_EPSILON = new Decimal('0.005')
+
+/**
+ * The same threshold as a string, for Prisma `where` comparisons.
+ *
+ * Prisma's Decimal filters accept `string | number | Prisma.Decimal`, and a
+ * decimal.js `Decimal` is none of those — so the query layer needs this
+ * encoding. It is derived rather than retyped: the value existed as a literal
+ * in three places (here, queries/trades.ts and trade-service.ts), each with a
+ * comment promising it matched the others.
+ */
+export const BREAKEVEN_EPSILON_STR = BREAKEVEN_EPSILON.toString()
