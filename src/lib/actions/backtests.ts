@@ -6,13 +6,14 @@ import { Decimal } from "decimal.js";
 import { Prisma, type Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser, NotFoundError } from "@/lib/session";
-import { getBars } from "@/lib/queries/candles";
+import { getBars, lastCloseIn } from "@/lib/queries/candles";
 import { toRunStats } from "@/lib/queries/backtests";
-import { resolveConversion } from "@/lib/conversion";
 import { classifyOutcome, summarize, equityCurve, maxDrawdown } from "@/lib/metrics";
 import type { TradeRow } from "@/lib/metrics/types";
-import { compileStrategy, runBacktest, toJournalTrade } from "@/lib/backtest";
-import type { BacktestConfig, FillModel, SimInstrument, SimTrade } from "@/lib/backtest/types";
+import { toJournalTrade } from "@/lib/backtest";
+import type { SimTrade } from "@/lib/backtest/types";
+import { simRunResultSchema, simTradeSchema } from "@/lib/backtest/sim-trade-schema";
+import { BACKTEST_ACCOUNT_CURRENCY, resolveRunConversionRate } from "@/lib/backtest/run-setup";
 
 export interface ActionResult {
   ok: boolean;
@@ -55,7 +56,6 @@ const fillSchema = z.object({
 /** Backtest accounts are always opened in USD — see docs/BACKTEST.md's
  * design-decision section. Nothing in the run/replay forms asks for a
  * currency, so there is nowhere else this could come from. */
-const BACKTEST_ACCOUNT_CURRENCY = "USD";
 
 async function loadInstrumentOrError(symbol: string) {
   const instrument = await prisma.instrument.findUnique({ where: { symbol } });
@@ -63,40 +63,6 @@ async function loadInstrumentOrError(symbol: string) {
     return { error: { ok: false, formError: `"${symbol}" is not a known instrument.` } as ActionResult };
   }
   return { instrument };
-}
-
-function toSimInstrument(instrument: { symbol: string; digits: number; pipSize: Prisma.Decimal; contractSize: Prisma.Decimal; quoteCurrency: string }): SimInstrument {
-  return {
-    symbol: instrument.symbol,
-    digits: instrument.digits,
-    pipSize: Number(instrument.pipSize),
-    contractSize: Number(instrument.contractSize),
-    quoteCurrency: instrument.quoteCurrency,
-    pointSize: 10 ** -instrument.digits,
-  };
-}
-
-/**
- * One fixed conversion rate for the whole run. The live journal resolves this
- * per trade (see trade-service.ts's `tradeConversion`, using each trade's own
- * exit price), but a backtest fill model (`FillModel.conversionRate`) is a
- * single constant applied to every trade in the run — there is no per-trade
- * slot for it. Using the LAST bar's close as the reference price is the
- * closest single-number equivalent: it is the rate that would have applied
- * to a trade closed near the end of the tested range, which is as reasonable
- * a fixed stand-in as any one number can be for a rate that, in reality,
- * drifted throughout the range. Recorded on the run's `params` for the
- * results page to explain, not hidden.
- */
-function resolveRunConversionRate(
-  instrument: { symbol: string; baseCurrency: string | null; quoteCurrency: string },
-  lastClose: number,
-): number {
-  return resolveConversion({
-    instrument,
-    accountCurrency: BACKTEST_ACCOUNT_CURRENCY,
-    referencePrice: lastClose,
-  }).rate.toNumber();
 }
 
 function labelFor(kind: "Replay" | "Strategy" | string, symbol: string, timeframe: string, from: Date): string {
@@ -188,26 +154,6 @@ export async function createReplayRun(input: CreateReplayInput): Promise<ActionR
   return { ok: true, runId };
 }
 
-const simTradeSchema = z.object({
-  side: z.enum(["LONG", "SHORT"]),
-  lots: z.number().positive(),
-  entryTs: z.number(),
-  entryPrice: z.number(),
-  exitTs: z.number(),
-  exitPrice: z.number(),
-  exitReason: z.enum(["STOP_LOSS", "TAKE_PROFIT", "SIGNAL", "END_OF_DATA"]),
-  stopLoss: z.number().optional(),
-  takeProfit: z.number().optional(),
-  netPnl: z.number(),
-  grossPnl: z.number(),
-  commission: z.number(),
-  pips: z.number(),
-  rMultiple: z.number().nullable(),
-  riskAmount: z.number().nullable(),
-  holdingMinutes: z.number(),
-  reason: z.string().optional(),
-});
-
 /**
  * Persists one trade the replay UI just closed. The client computed `trade`
  * itself, bar by bar, using the exact same `entryPrice`/`exitOnBar`/
@@ -297,25 +243,26 @@ export async function recordReplayTrade(runId: string, trade: SimTrade): Promise
 
 const paramValue = z.union([z.number(), z.string(), z.boolean()]);
 
-const runStrategySchema = z
+const recordStrategyRunSchema = z
   .object({
+    /** Present when the run came from a saved strategy: used to check
+     * ownership, to seed `params`, and to link the run. Absent for a run of
+     * unsaved code in the editor, which the server needs no copy of. */
     strategyId: z.string().optional(),
-    code: z.string().optional(),
     symbol: z.string().trim().min(1, "Choose a symbol."),
     timeframe: z.enum(TIMEFRAMES, { message: "Choose a timeframe." }),
     from: z.coerce.date({ message: "Choose a start date." }),
     to: z.coerce.date({ message: "Choose an end date." }),
     initialBalance: z.coerce.number().positive("Must be greater than zero."),
     params: z.record(z.string(), paramValue).optional(),
+    /** What the browser's worker produced. Trades only — never statistics;
+     * those are recomputed below. */
+    result: simRunResultSchema,
   })
   .extend(fillSchema.shape)
-  .refine((v) => v.to > v.from, { message: "End date must be after the start date.", path: ["to"] })
-  .refine((v) => Boolean(v.strategyId || v.code?.trim()), {
-    message: "Choose a saved strategy or paste code to run.",
-    path: ["strategyId"],
-  });
+  .refine((v) => v.to > v.from, { message: "End date must be after the start date.", path: ["to"] });
 
-export type RunStrategyInput = z.input<typeof runStrategySchema>;
+export type RecordStrategyRunInput = z.input<typeof recordStrategyRunSchema>;
 
 /** Converts a finished `SimTrade` array straight into `TradeRow`s for
  * `summarize()`/`equityCurve()`, without a DB round-trip — the run's own
@@ -335,85 +282,98 @@ function simTradesToRows(trades: SimTrade[]): TradeRow[] {
 }
 
 /**
- * Runs a strategy over a historical range and writes every resulting trade
- * into a fresh BACKTEST account, in one transaction. The simulation itself
- * (`runBacktest`) happens BEFORE the transaction opens — it is pure
- * in-memory computation over up to half a million bars, and holding a DB
- * transaction open for that long would tie up a connection for no reason.
+ * Persists a strategy run the browser just finished.
+ *
+ * WHY THE SIMULATION IS NOT HERE
+ *
+ * This action used to compile and run the strategy itself, which meant
+ * `new Function` executing author-supplied JavaScript inside the Node
+ * process. With open registration that is remote code execution, and the
+ * sandbox cannot be hardened into a fix — `"".constructor.constructor`
+ * reaches the real `Function` from a bare string literal, naming nothing an
+ * allowlist could cover (see src/lib/backtest/sandbox.ts, and the tests in
+ * sandbox.test.ts that assert the escapes work).
+ *
+ * So the run happens in a Web Worker in the author's own browser, on the
+ * author's own code, where the blast radius is their own tab and the host
+ * page can `terminate()` a runaway strategy — something the server never
+ * could, since `runBacktest`'s timeout only fires between bars and a hang
+ * inside one `onBar` call pinned the request.
+ *
+ * WHAT THAT MEANS FOR TRUST, STATED PLAINLY
+ *
+ * A caller can post any trades it likes, so a user can fabricate their own
+ * backtest results. That is accepted, for reasons spelled out in
+ * docs/BACKTEST.md: the rows land in a fresh BACKTEST account owned by that
+ * user, every read path in the app is scoped by userId, and `recordReplayTrade`
+ * below has worked exactly this way since day one. The tripwire is also in
+ * that doc — if a shared, public or comparative view of results is ever
+ * added, this assumption breaks and the simulation has to move somewhere
+ * trustworthy.
+ *
+ * What is NOT trusted, even so:
+ *   - Statistics. Win rate, expectancy, equity curve and drawdown are
+ *     recomputed here from the posted trades with the same functions the rest
+ *     of the app uses, so a client cannot post numbers that disagree with the
+ *     trades they claim to summarise.
+ *   - The conversion rate, which scales every P&L figure: re-read from the
+ *     last stored bar rather than taken from the request.
+ *   - Volume. `simRunResultSchema` caps the trade array; without that, a
+ *     client could post ten million trades into one `createMany`.
+ *   - Strategy ownership, as before.
  */
-export async function runStrategy(input: RunStrategyInput): Promise<ActionResult & { runId?: string }> {
-  const parsed = runStrategySchema.safeParse(input);
+export async function recordStrategyRun(
+  input: RecordStrategyRunInput,
+): Promise<ActionResult & { runId?: string }> {
+  const parsed = recordStrategyRunSchema.safeParse(input);
   if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
   const v = parsed.data;
 
   const user = await requireUser();
 
   let strategyId: string | null = null;
-  let code: string;
   let paramDefaults: Record<string, number | string | boolean> = {};
 
   if (v.strategyId) {
     const strategy = await prisma.strategy.findFirst({ where: { id: v.strategyId, userId: user.id } });
     if (!strategy) return { ok: false, formError: "That strategy was not found." };
     strategyId = strategy.id;
-    code = strategy.code;
     paramDefaults = (strategy.params as Record<string, number | string | boolean> | null) ?? {};
-  } else {
-    code = v.code!.trim();
-  }
-
-  let strategy;
-  try {
-    strategy = compileStrategy(code);
-  } catch (err) {
-    return { ok: false, formError: `Strategy failed to compile: ${err instanceof Error ? err.message : String(err)}` };
   }
 
   const { instrument, error: instrumentError } = await loadInstrumentOrError(v.symbol);
   if (instrumentError) return instrumentError;
 
-  const { bars } = await getBars({ symbol: v.symbol, timeframe: v.timeframe as Timeframe, from: v.from, to: v.to });
-  if (bars.length < MIN_BARS) {
+  // Re-derived, not trusted: this single number scales every P&L in the run.
+  const lastClose = await lastCloseIn({
+    symbol: v.symbol,
+    timeframe: v.timeframe as Timeframe,
+    from: v.from,
+    to: v.to,
+  });
+  if (lastClose === null) {
     return {
       ok: false,
-      formError: `Only ${bars.length} bar(s) of ${v.symbol} ${v.timeframe} are stored in that range — a run needs at least ${MIN_BARS}. Import more data or widen the range.`,
-    };
-  }
-  if (bars.length > MAX_BARS) {
-    return {
-      ok: false,
-      formError: `That range has ${bars.length.toLocaleString()} bars, over the ${MAX_BARS.toLocaleString()}-bar limit for one run — narrow the date range.`,
+      formError: `No ${v.symbol} ${v.timeframe} bars are stored in that range, so this run can't be recorded. Import data for it first.`,
     };
   }
 
-  const simInstrument = toSimInstrument(instrument);
-  const conversionRate = resolveRunConversionRate(instrument, bars[bars.length - 1].close);
-  const fill: FillModel = {
-    spreadPoints: v.spreadPoints,
-    commissionPerLot: v.commissionPerLot,
-    slippagePoints: v.slippagePoints,
-    pessimisticFills: v.pessimisticFills,
-    conversionRate,
-  };
-  const params = { ...paramDefaults, ...(v.params ?? {}) };
-
-  const config: BacktestConfig = {
-    instrument: simInstrument,
-    fill,
-    initialBalance: v.initialBalance,
-    params,
-  };
-
-  const result = runBacktest(bars, strategy, config);
+  // Stored alongside the strategy's own parameters so a run's numbers can be
+  // explained later: every P&L figure in it was scaled by this one rate, and
+  // it is not otherwise recoverable once the bars have moved on. This is the
+  // record `resolveRunConversionRate`'s doc refers to.
+  const conversionRate = resolveRunConversionRate(instrument, lastClose);
+  const params = { ...paramDefaults, ...(v.params ?? {}), conversionRate };
+  const trades = v.result.trades;
 
   const label = labelFor("Strategy", v.symbol, v.timeframe, v.from);
-  const rows = simTradesToRows(result.trades);
-  const summary = toRunStats(summarize(rows), result.trades.length);
+  const rows = simTradesToRows(trades);
+  const summary = toRunStats(summarize(rows), trades.length);
   const curve = equityCurve(rows, v.initialBalance);
   const dd = maxDrawdown(curve);
   summary.maxDrawdownAmount = dd ? dd.amount.toNumber() : null;
   summary.maxDrawdownPct = dd ? dd.pct.toNumber() : null;
-  summary.barsProcessed = result.barsProcessed;
+  summary.barsProcessed = v.result.barsProcessed;
 
   const runId = await prisma.$transaction(async (tx) => {
     const account = await tx.tradingAccount.create({
@@ -433,7 +393,7 @@ export async function runStrategy(input: RunStrategyInput): Promise<ActionResult
         accountId: account.id,
         strategyId,
         kind: "STRATEGY",
-        status: result.trades.length === 0 && result.error ? "FAILED" : "DONE",
+        status: trades.length === 0 && v.result.error ? "FAILED" : "DONE",
         label,
         symbol: v.symbol,
         timeframe: v.timeframe as Timeframe,
@@ -446,15 +406,23 @@ export async function runStrategy(input: RunStrategyInput): Promise<ActionResult
         pessimisticFills: v.pessimisticFills,
         params: params as unknown as Prisma.InputJsonValue,
         stats: summary as unknown as Prisma.InputJsonValue,
-        error: result.error ?? null,
+        error: v.result.error ?? null,
         startedAt: new Date(),
         finishedAt: new Date(),
       },
     });
 
-    if (result.trades.length > 0) {
-      const data: Prisma.TradeCreateManyInput[] = result.trades.map((t) => {
-        const j = toJournalTrade(t, { accountId: account.id, symbol: v.symbol, backtestRunId: run.id });
+    if (trades.length > 0) {
+      const data: Prisma.TradeCreateManyInput[] = trades.map((t) => {
+        // The conversion rate the client used is irrelevant here: toJournalTrade
+        // works from the trade's own already-converted figures. The rate is
+        // stored on the run for provenance, and re-derived above so the value
+        // recorded is the server's.
+        const j = toJournalTrade(t as SimTrade, {
+          accountId: account.id,
+          symbol: v.symbol,
+          backtestRunId: run.id,
+        });
         return {
           accountId: j.accountId,
           symbol: j.symbol,

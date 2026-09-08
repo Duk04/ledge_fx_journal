@@ -33,7 +33,8 @@ import type { ExampleStrategy } from "@/lib/backtest";
 import type { StrategyDetail } from "@/lib/queries/backtests";
 import type { CoverageRow } from "@/lib/queries/candles";
 import { createStrategy, updateStrategy, deleteStrategy } from "@/lib/actions/strategies";
-import { runStrategy } from "@/lib/actions/backtests";
+import { recordStrategyRun } from "@/lib/actions/backtests";
+import { useStrategyRunner } from "./use-strategy-runner";
 import { ParamsEditor, type ParamRecord } from "./params-editor";
 import { StrategyApiReference } from "./api-reference";
 
@@ -65,6 +66,7 @@ export function StrategyWorkbench({
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [saving, startSaving] = React.useTransition();
   const [running, startRunning] = React.useTransition();
+  const runner = useStrategyRunner();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, startDeleting] = React.useTransition();
 
@@ -133,16 +135,61 @@ export function StrategyWorkbench({
     });
   }
 
+  /**
+   * Runs the strategy in a Web Worker, then posts the resulting trades.
+   *
+   * The strategy's code never leaves this browser: it is compiled and
+   * executed in a worker owned by this page (see
+   * src/lib/backtest/worker.ts). The server's job is to hand over the bars,
+   * and afterwards to persist the trades and recompute the run's statistics
+   * from them — it never compiles or runs the source.
+   */
   function handleRun() {
     setRunError(null);
     if (!symbol) {
       setRunError("Choose a symbol.");
       return;
     }
+
     startRunning(async () => {
-      const result = await runStrategy({
+      let payload;
+      try {
+        payload = await runner.fetchBars({ symbol, timeframe, from: effectiveFrom, to: effectiveTo });
+      } catch (err) {
+        setRunError(err instanceof Error ? err.message : "Couldn't load bars for that range.");
+        return;
+      }
+
+      const outcome = await runner.run({
+        code,
+        bars: payload.bars,
+        config: {
+          instrument: payload.instrument,
+          fill: {
+            // The form holds these as strings; the engine wants numbers. The
+            // server action still coerces its own copy independently — this
+            // is the client's, for the client's simulation.
+            spreadPoints: Number(spreadPoints),
+            commissionPerLot: Number(commissionPerLot),
+            slippagePoints: Number(slippagePoints),
+            pessimisticFills,
+            conversionRate: payload.conversionRate,
+          },
+          initialBalance: Number(initialBalance),
+          params,
+        },
+      });
+
+      if (!outcome.ok || !outcome.result) {
+        setRunError(outcome.error ?? "The strategy didn't finish.");
+        return;
+      }
+
+      const saved = await recordStrategyRun({
+        // Only sent when the editor matches the saved strategy, so the run is
+        // attributed to it. Unsaved edits run all the same; the server just
+        // has nothing to link them to.
         strategyId: strategy && !dirty ? strategy.id : undefined,
-        code: !strategy || dirty ? code : undefined,
         symbol,
         timeframe,
         from: effectiveFrom,
@@ -153,13 +200,22 @@ export function StrategyWorkbench({
         commissionPerLot,
         slippagePoints,
         pessimisticFills,
+        result: {
+          trades: outcome.result.trades,
+          barsProcessed: outcome.result.barsProcessed,
+          logs: outcome.result.logs,
+          error: outcome.result.error ?? undefined,
+        },
       });
-      if (result.ok && result.runId) {
+
+      if (saved.ok && saved.runId) {
         toast({ title: "Run complete." });
-        router.push(`/backtest/runs/${result.runId}`);
-      } else {
-        setRunError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? "The run couldn't be started.");
+        router.push(`/backtest/runs/${saved.runId}`);
+        return;
       }
+
+      const firstFieldError = Object.values(saved.fieldErrors ?? {}).flat()[0];
+      setRunError(saved.formError ?? firstFieldError ?? "The run finished but couldn't be saved.");
     });
   }
 

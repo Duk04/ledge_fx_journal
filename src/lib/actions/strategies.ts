@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { compileStrategy } from "@/lib/backtest";
+import { MAX_STRATEGY_CODE_CHARS, checkStrategySyntax } from "@/lib/backtest";
 
 export interface ActionResult {
   ok: boolean;
@@ -30,23 +30,26 @@ const strategySchema = z.object({
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
     z.string().trim().max(400, "Keep it under 400 characters.").optional(),
   ),
-  code: z.string().trim().min(1, "Strategy code is required."),
+  code: z
+    .string()
+    .trim()
+    .min(1, "Strategy code is required.")
+    .max(MAX_STRATEGY_CODE_CHARS, `Keep it under ${MAX_STRATEGY_CODE_CHARS.toLocaleString()} characters.`),
   params: z.record(z.string(), paramValue).optional(),
 });
 
 export type StrategyInput = z.input<typeof strategySchema>;
 
-/** Compiles `code` as a cheap, immediate sanity check — the same compiler the
- * run path uses (`compileStrategy`, see sandbox.ts). Catching a typo'd
- * `onBar` here, at save time, beats discovering it only once a run form is
- * submitted minutes later. */
+/** Parses `code` as a cheap, immediate sanity check so a syntax error is
+ * reported at save time rather than when a run is submitted minutes later.
+ *
+ * This used to call `compileStrategy`, which also RUNS the source — remote
+ * code execution, given this app has open registration. `checkStrategySyntax`
+ * compiles without invoking; see `src/lib/backtest/strategy-source.ts` for why
+ * that is safe and what it gives up (the "defines onBar" check, which needs
+ * execution and now happens in the workbench's Web Worker). */
 function compileCheck(code: string): string | null {
-  try {
-    compileStrategy(code);
-    return null;
-  } catch (err) {
-    return err instanceof Error ? err.message : String(err);
-  }
+  return checkStrategySyntax(code);
 }
 
 function revalidateStrategies() {

@@ -266,3 +266,38 @@ export async function listImports(userId: string, limit = 20): Promise<ImportRow
     createdAt: r.createdAt.toISOString(),
   }));
 }
+
+/**
+ * The close of the last stored bar in a range, or null if the range is empty.
+ *
+ * Exists so a strategy run's currency conversion rate can be derived on the
+ * server without shipping the bars there. The run itself happens in the
+ * browser (see src/lib/backtest/worker.ts), and the browser could perfectly
+ * well send its own last close — but that number scales every P&L figure the
+ * run produces, so it is re-read here rather than trusted. One indexed row.
+ *
+ * Note this reads only stored bars for the requested timeframe: unlike
+ * `getBars`, it does not fall back to aggregating a finer timeframe. For a
+ * conversion rate that is the right trade-off — a reference price from a
+ * neighbouring timeframe would differ in the last decimal at most, and the
+ * caller already handles null by refusing the run.
+ */
+export async function lastCloseIn(params: {
+  symbol: string;
+  timeframe: Timeframe;
+  from?: Date;
+  to?: Date;
+}): Promise<number | null> {
+  const { symbol, timeframe, from, to } = params;
+  const ts: { gte?: Date; lte?: Date } = {};
+  if (from) ts.gte = from;
+  if (to) ts.lte = to;
+
+  const row = await db.candle.findFirst({
+    where: { symbol, timeframe, ...(from || to ? { ts } : {}) },
+    orderBy: { ts: "desc" },
+    select: { close: true },
+  });
+
+  return row ? Number(row.close) : null;
+}
