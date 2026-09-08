@@ -1,159 +1,334 @@
 # Authentication
 
 Auth.js v5 (`next-auth@5.0.0-beta.32`) with `@auth/prisma-adapter`, wired
-against the `User` / `AuthAccount` / `Session` / `VerificationToken` models
-in `prisma/schema.prisma`.
+against the `User` / `Account` / `VerificationToken` models in
+`prisma/schema.prisma`.
+
+## Threat model
+
+**Multi-user, with hostile actors.** This is deployed publicly and
+registration is open by default, so anyone can create an account and any
+authenticated user must be assumed to be probing.
+
+This is worth stating because it was not always true, and several decisions in
+this codebase were correct under the old assumption and wrong under this one.
+Comments and docs that said "single-user app" have been corrected; if you find
+another, it is a bug, not a stale nicety. The two that mattered most:
+
+- Strategy code used to be compiled and run on the server. That is remote
+  code execution here. See `docs/BACKTEST-ENGINE.md`.
+- The shared `Instrument` and `Candle` tables were writable by any signed-in
+  user, and they feed every user's P&L arithmetic.
 
 ## Session strategy: JWT (not database sessions) — and why
 
-The brief for this layer is "database session strategy," and that's where
-this started. It doesn't survive contact with the Credentials provider.
+The brief for this layer was "database session strategy". It does not survive
+contact with the Credentials provider.
 
-Auth.js v5 **refuses to run the Credentials provider unless
-`session.strategy === "jwt"`** whenever an `adapter` is configured — this
-app needs the adapter for OAuth account linking (Google) and magic links
-(Resend), so the two requirements collide: adapter + Credentials only works
-with `strategy: "jwt"`. Auth.js's own docs list this restriction
-explicitly; it isn't a workaround someone found, it's the supported
-combination. The other option the brief mentions — hand-rolling a `Session`
-row for credentials logins inside the `jwt`/`signIn` callback while keeping
-`strategy: "database"` for everything else — means running Auth.js in a
-mode its own database-adapter code path doesn't expect (it would still try
-to look up `Session` by the JWT-derived cookie in ways that don't line up),
-so it was passed over in favor of the combination Auth.js actually
-supports and documents.
+The reason is narrower than this document used to claim. `@auth/core`'s
+`assert.js` throws `UnsupportedStrategy` only when an adapter is configured
+**and credentials is the only provider** — so with Google and Resend also
+registered, `strategy: "database"` would not fail at startup. The actual
+blocker is `@auth/core/lib/actions/callback/index.js`: the credentials branch
+**always** encodes and sets a JWT session cookie, whatever the configured
+strategy. So credentials + database sessions silently produces a cookie the
+database session reader cannot validate. Not unsupported — broken by
+construction.
 
-**What this app does:** `session.strategy = "jwt"`. The adapter
-(`PrismaAdapter(prisma)`) stays configured and is genuinely used — it's
-what creates `User`/`AuthAccount` rows for Google sign-ins and issues/looks
-up rows in `VerificationToken` for Resend magic links. It just never
-touches the `Session` table: the session itself is a signed JWT sealed
-into an httpOnly cookie by Auth.js, verified on every request without a
-database round trip.
+**What this app does:** `session.strategy = "jwt"`, with `maxAge` of 7 days
+and `updateAge` of 1 day, both stated explicitly in `src/lib/auth-config.ts`.
+They used to be unstated, which meant the app's real session lifetime (Auth.js
+defaults to 30 days) was not expressed anywhere in the repository.
 
-**The trade-off, stated plainly:** the `Session` table in
-`prisma/schema.prisma` (and the `sessions` table it maps to) is currently
-**unused**. There is no server-side session list to inspect, and no way to
-revoke one signed-in session without rotating `AUTH_SECRET` (which
-invalidates *every* session, not just one). If you need per-session
-revocation later (e.g. a "sign out this device" button), that means
-switching to the "hand-roll sessions for Credentials, database sessions for
-everything else" approach the brief describes, or moving off Credentials
-entirely and going adapter + database-strategy with only OAuth/magic-link
-providers.
+The adapter stays configured and is genuinely used: it creates `User` and
+`Account` rows for Google sign-ins and issues `VerificationToken` rows for
+Resend magic links.
+
+### What the token carries, and what it does not
+
+The token carries a user id and an `authAt` claim. That is all.
+
+`role` and `timezone` used to be stashed on it, and that was wrong in two
+directions. A token is only rewritten on sign-in or after `updateAge`, so a
+timezone changed in Settings did not take effect for up to a week — and
+neither did a **role demotion**, which is the one that matters. The
+`session` callback then defaulted a missing role to `MEMBER`, which is a
+fail-open pattern the moment roles gate anything.
+
+Both are now read from the database by `getCurrentUser()` in
+`src/lib/session.ts`, cached per request by React's `cache`. One indexed query
+per render, and it buys three things:
+
+- a role or timezone change applies immediately;
+- a deleted user is signed out at once, rather than holding a usable token;
+- `User.sessionsValidFrom` works.
+
+### Session revocation
+
+There is no per-**device** revocation. There is per-**user** revocation:
+`User.sessionsValidFrom` is a timestamp, and `getCurrentUser()` rejects any
+token whose `authAt` predates it. A password reset or change stamps it, which
+signs out every other session.
+
+That is the honest scope. A "sign out my other devices" button can be built on
+it; "sign out this one device" cannot, and would need database sessions, which
+the Credentials provider rules out (above). The dead `Session` model has been
+dropped — a table that looks like a revocation control and is not one is worse
+than no table.
 
 ## The edge / node split
 
-Next.js middleware runs on the Edge runtime, which cannot load Prisma's
-query engine or `bcryptjs`. Two files split the config accordingly:
+Next.js middleware runs on the Edge runtime, which cannot load Prisma's query
+engine or `bcryptjs`. Three files split the config accordingly:
 
-- **`src/lib/auth-config.ts`** — edge-safe. Session/pages config, the
-  `jwt`/`session` callbacks (pure token/session shaping, no I/O), and the
-  `authorized` callback that implements the redirect-vs-401 logic. No
-  providers, no adapter, no Prisma, no bcryptjs import anywhere in this
-  file or anything it imports.
+- **`src/lib/auth-config.ts`** — edge-safe. Session config, the `jwt` and
+  `session` callbacks (pure token shaping, no I/O), the `authorized` callback,
+  and `isPublicPath()`. No providers, no adapter, no Prisma, no bcryptjs, and
+  **no environment reads** — session lifetimes are literals here so that
+  `src/lib/env.ts` can be `server-only` without breaking the edge bundle.
 - **`src/lib/auth.ts`** — Node-only. Spreads `authConfig`, adds
-  `PrismaAdapter(prisma)`, and builds the real `providers` array
-  (Credentials with the bcrypt check, conditionally Google, conditionally
-  Resend). This is what every server component, server action, and the
-  `/api/auth/[...nextauth]` route handler import `auth`/`signIn`/`signOut`
-  from.
-- **`src/middleware.ts`** builds its *own*, separate `NextAuth(authConfig)`
-  instance directly from the edge-safe config — it does **not** import
-  `src/lib/auth.ts` — so the compiled middleware bundle never pulls in
+  `PrismaAdapter(prisma)`, builds the providers, and adds the `signIn`
+  callback (which needs Prisma). This is what server components, server
+  actions and the `/api/auth/[...nextauth]` route handler import from.
+- **`src/middleware.ts`** builds its *own* `NextAuth(authConfig)` instance
+  from the edge-safe config, so the compiled middleware bundle never pulls in
   `@prisma/client` or `bcryptjs`.
 
 ### Why `middleware.ts`, not `proxy.ts`
 
-Next.js 16 deprecates the `middleware` file convention in favor of
-`proxy`, and pins `proxy.ts` to the Node.js runtime with no way to opt back
-into Edge. Since this file specifically needs to run at the edge and must
-never bundle Prisma/bcryptjs, it deliberately keeps the `middleware.ts`
-name — Next 16's own migration notes say to do exactly this ("If you want
-to continue using the edge runtime, keep using middleware").
+Next.js 16 deprecates the `middleware` convention in favour of `proxy`, and
+pins `proxy.ts` to the Node.js runtime with no way back — setting `runtime` in
+a proxy file throws. Since this file needs the edge (cheap, no cold start on
+every navigation) and must never bundle Prisma or bcryptjs, it keeps the
+`middleware.ts` name. Next's own migration note says to do exactly this:
+`node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md`, under
+the middleware/proxy rename — "If you want to continue using the `edge`
+runtime, keep using `middleware`."
+
+Migratable later with `npx @next/codemod middleware-to-proxy .` if Next ships
+edge support for proxy. This is a deprecation knowingly carried.
+
+### Middleware is not a security boundary
+
+Two things follow from Next's own documentation, and both are why every page
+and action calls the DAL regardless:
+
+- Proxy/middleware auth is **optimistic**: it reads the session cookie and
+  never hits the database, because it runs on every route including prefetches.
+- **Server Functions are POSTs to the route they were used on.** A matcher
+  exclusion — or a refactor that moves an action to a different route —
+  silently removes middleware coverage from it. So authentication and
+  authorization are verified *inside* each action, not upstream of it.
+
+The matcher and `isPublicPath()` are two halves of one rule and must change
+together; `src/lib/auth-config.test.ts` asserts they agree. The matcher
+previously ended with an "any path containing a dot" alternative, which
+excluded every route with a dot anywhere in it — a date segment, a symbol, or
+any future route added without realising. Extensions are listed explicitly
+now.
 
 ## Providers
 
 | Provider | Enabled when | Notes |
 |---|---|---|
-| Credentials (email+password) | `ALLOW_DEV_LOGIN === "true"` | Checked in `src/lib/auth.ts` at module load — refusing to *construct* the provider is the actual gate, not just hiding the UI for it, since the callback route is reachable directly regardless of what the login page renders. Compares against `bcryptjs`; when the user doesn't exist (or has no password set) it still runs `bcrypt.compare` against a fixed dummy hash so "no such account" and "wrong password" take the same time. |
-| Google | `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` both non-empty | Standard OAuth; Prisma adapter links the account to a `User` row (creating one if needed). |
-| Resend (magic link) | `AUTH_RESEND_KEY` non-empty | Sends from `EMAIL_FROM`. Uses `VerificationToken`. |
+| Credentials (email + password) | `ALLOW_PASSWORD_LOGIN` (default: on) | Constructed conditionally in `src/lib/auth.ts` — refusing to construct the provider is the actual gate, since `/api/auth/callback/credentials` is reachable regardless of what the login page renders. Throttled per email and per IP. Compares with `bcryptjs` at cost 12; when the user does not exist it still runs a compare against a fixed dummy hash **of the same cost**, so "no such account" and "wrong password" take the same time. |
+| Google | `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` both set | `src/lib/env.ts` refuses one without the other, so a half-configured deployment cannot render a button that always fails. |
+| Resend (magic link) | `AUTH_RESEND_KEY` set | Sends from `EMAIL_FROM`. Uses `VerificationToken`. |
+
+`ALLOW_DEV_LOGIN` is **rejected at boot**, not ignored — silently ignoring a
+renamed flag would leave a deployment believing it had disabled password login
+when it had not.
 
 ### Enabling Google
 
 1. Create OAuth 2.0 credentials at
    https://console.cloud.google.com/apis/credentials.
 2. Add `<AUTH_URL>/api/auth/callback/google` as an authorized redirect URI.
-3. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` in `.env`.
+3. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
 
 ### Enabling Resend
 
 1. Get an API key at https://resend.com/api-keys.
-2. Set `AUTH_RESEND_KEY` and `EMAIL_FROM` in `.env`.
-3. Verify the sending domain in Resend before relying on this in
-   production — unverified domains are rate-limited/sandboxed.
+2. Set `AUTH_RESEND_KEY` and `EMAIL_FROM`.
+3. Verify the sending domain before relying on this in production —
+   unverified domains are rate-limited.
 
-## Session shape
+## Rate limiting
 
-`session.user` carries `id`, `role` (`OWNER | MEMBER`), and `timezone` in
-addition to the Auth.js defaults (`name`, `email`, `image`). See the
-`declare module "next-auth"` / `declare module "next-auth/jwt"`
-augmentation in `src/lib/auth-config.ts`.
+`src/lib/auth/throttle-policy.ts` (the arithmetic, pure) and
+`src/lib/auth/throttle.ts` (the storage).
+
+| Bucket | Window | Failures | Lock |
+|---|---|---|---|
+| Login, per email | 15 min | 5 | 15 min, escalating to 1 h after 10 |
+| Login, per IP | 15 min | 20 | 15 min |
+| Registration, per IP | 1 h / 24 h | 5 / 20 | 1 h / 24 h |
+| Password reset, per email | 1 h | 3 | 1 h |
+| Password reset, per IP | 1 h | 10 | 1 h |
+
+**Postgres, not an in-memory Map.** This deploys as a possibly multi-instance
+serverless app: per-instance counters multiply every threshold by the instance
+count, a cold start resets them for free, and `next dev` clears them on every
+reload — so an in-memory limiter would appear to work while being tested and
+fail in production. A sliding count over `auth_attempts` rows is the only
+shared state available, costs one indexed COUNT per attempt, and doubles as an
+audit trail.
+
+**Where it is enforced.** Inside the Credentials provider's `authorize`, and
+**before bcrypt** — a cost-12 hash is ~250ms of CPU, so the verify endpoint is
+itself the denial-of-service lever. `signInWithPassword` also pre-checks, but
+only so a locked-out user is told "try again in about 12 minutes" instead of
+"invalid email or password"; a client can POST straight past that action.
+
+**Enumeration.** Failures are recorded for addresses that do not exist,
+identically to ones that do. Without that, "locks out after five tries" would
+itself reveal that an account is real — defeating the constant-time bcrypt
+comparison the provider goes to some trouble over. The lockout message is
+therefore the same either way and safe to show.
+
+**The IP buckets are best-effort.** `x-forwarded-for` is client-supplied and
+only trustworthy behind a proxy that overwrites it. They exist to catch
+spraying (one attempt each against a thousand addresses never trips a
+per-email limit) and are deliberately loose enough not to lock out an office
+sharing one address. The email bucket is the real gate.
+
+## Roles
+
+`UserRole { OWNER MEMBER }`. `MEMBER` is the default; `OWNER` is the instance
+administrator.
+
+The privilege `OWNER` carries is writing **shared reference data**: the
+`Instrument` table and `Candle` bar data, neither of which has a `userId`.
+Their contents feed `derivedColumns()` and `resolveConversion()` for every
+user, so a wrong `contractSize` is off by orders of magnitude and nothing in
+anyone's journal looks broken, just wrong.
+
+This used to be nothing at all: the column defaulted to `OWNER`, `registerUser`
+hardcoded `OWNER`, and no code anywhere made an authorization decision on the
+value. Under open registration that meant every stranger who signed up was an
+instance owner.
+
+Who becomes OWNER — `resolveInitialRole()` in `src/lib/auth/roles.ts`, applied
+by both sign-up paths so the route someone registered through cannot decide
+their privileges:
+
+- an address listed in `AUTH_OWNER_EMAILS`;
+- otherwise, the very first account on the instance;
+- otherwise `MEMBER`.
+
+The `auth_hardening` migration demotes everyone and promotes the oldest row,
+which is right for an existing database but fragile if one is ever reset —
+`AUTH_OWNER_EMAILS` is the durable statement.
+
+Rendering: use `isOwner()` (non-throwing) to hide or disable a control.
+`requireOwner()` throws `ForbiddenError`, which action modules convert to
+`{ ok: false, formError }` the same way they already convert `NotFoundError`.
 
 ## The scoping rule
 
 From `src/lib/session.ts`:
 
-> No query in this app is ever written without a `userId` — or an account
-> row that has already been confirmed to belong to the current user — in
-> its WHERE clause.
+> No query in this app is ever written without a `userId` — or an account row
+> that has already been confirmed to belong to the current user — in its WHERE
+> clause.
 
-`requireAccountAccess(accountId)` is where that confirmation happens: it
-loads the `TradingAccount` filtered by both `id` and `userId`, and throws
-`NotFoundError` (rather than a generic 403/permission error) if the row
-doesn't come back — deliberately not distinguishing "doesn't exist" from
-"exists but isn't yours" in the error, so the app never leaks which
-account IDs are in use. It returns the account row so callers build their
-Prisma queries off it directly instead of re-fetching.
+`requireAccountAccess(accountId)` is where that confirmation happens: it loads
+the `TradingAccount` filtered by both `id` and `userId`, and throws
+`NotFoundError` — deliberately not distinguishing "doesn't exist" from "isn't
+yours", so account ids cannot be enumerated. It returns the row so callers
+build their queries off it directly.
+
+**Two deliberate exceptions**, both documented where they are defined:
+`Instrument` and `Candle` are shared reference data with no `userId` (see
+`src/lib/queries/candles.ts` for why duplicating bars per user is the wrong
+trade). For those, the rule that replaces the `userId` rule is: **reads are
+unscoped, writes are gated by `requireOwner()`**.
 
 ## Registration
 
-`registerUser` (in `src/lib/actions/auth.ts`) is gated by
-`ALLOW_REGISTRATION` — any value other than the literal string `"false"`
-(including unset) keeps it enabled. This is intentionally **independent**
-of `ALLOW_DEV_LOGIN`: registration creates a `User` row, a bcrypt
-`passwordHash`, and a starter `TradingAccount` ("Main", MT5, DEMO, starting
-balance 10,000 USD) regardless of whether the Credentials provider is
-registered. It then attempts to sign the new user in immediately; if the
-Credentials provider isn't registered (`ALLOW_DEV_LOGIN` isn't `"true"`),
-that sign-in attempt fails gracefully and the user is sent to `/login` to
-sign in through whatever provider *is* configured instead.
+`registerUser` in `src/lib/actions/auth.ts`, gated by `ALLOW_REGISTRATION`
+(default: on). Creates a `User`, a bcrypt hash at cost 12, and a starter
+`TradingAccount` ("Main", MT5, DEMO, 10,000 USD), then signs the user in.
+
+Rate-limited per IP, which is what bounds it: two rows per call makes an
+unthrottled endpoint a write amplifier.
+
+Password rules (`src/lib/auth/password.ts`): at least 10 characters, at most
+**72 bytes**, not a common password, and not built from the email's local
+part. The byte ceiling is bcrypt's: it hashes 72 bytes and discards the rest
+silently, so 19 emoji (76 bytes) would produce two different passwords with
+the same hash. Rejecting is more honest than truncating. Note this bites
+non-Latin passphrases earlier than users expect — Mongolian Cyrillic is two
+bytes per character, so 36 characters is the real ceiling.
+
+## Environment
+
+`src/lib/env.ts` validates everything at boot, via `src/instrumentation.ts`.
+Before this, `process.env` was read at nineteen call sites and **nothing read
+`AUTH_SECRET` at all** — Auth.js checked it internally, so a missing or
+placeholder secret failed at the first request rather than at startup.
+
+It enforces, among others: `AUTH_SECRET` at least 32 characters and not the
+old `.env.example` placeholder in production; `AUTH_URL` present and https in
+production; Google credentials all-or-nothing;
+`REQUIRE_EMAIL_VERIFICATION` only with a Resend key. Every problem is reported
+at once rather than one per run.
+
+`SKIP_ENV_VALIDATION=1` exists for a CI build with no real database URL, since
+`next build` evaluates module scope while collecting pages.
+
+## What is not built yet
+
+Named rather than left to be discovered:
+
+- **Password reset.** A forgotten password currently needs database access to
+  recover. `sessionsValidFrom` and the `VerificationToken` model are both in
+  place for it. When it is built, note the trap: the Resend provider looks
+  tokens up by `identifier === email`, so a reset token stored under a bare
+  email identifier could be redeemed at `/api/auth/callback/resend` to sign in
+  as that user. Namespace the identifier (`pwreset:` / `verify:`) and store
+  only a hash of the token.
+- **Email verification enforcement.** The column, the `signIn` gate and
+  `requireVerifiedUser()` all exist and honour
+  `REQUIRE_EMAIL_VERIFICATION`, but nothing sends the mail yet, so turning it
+  on would lock everyone out. `env.ts` refuses that combination without a
+  Resend key.
+- **Database-backed tests.** The rules are unit-tested — `safe-next`,
+  `password`, `throttle-policy`, `roles`, `env`, `auth-config` — but the
+  wiring is not: nothing exercises `requireAccountAccess` against a real
+  database, or asserts that a MEMBER's `deleteCandles` writes nothing. That
+  needs a Postgres-backed vitest project.
 
 ## Before production
 
-- [ ] Set `ALLOW_DEV_LOGIN=false` (or unset it) — the Credentials provider
-      must not exist in a deployed environment.
-- [ ] Generate a real `AUTH_SECRET` (`openssl rand -base64 32`) and set it
-      as a deployment secret, not a committed value. Rotating it
-      invalidates every active session (see the trade-off above).
-- [ ] Set `AUTH_URL` to the real deployed origin.
-- [ ] Decide on `ALLOW_REGISTRATION` — leave it on for self-service
-      sign-up, or set it to `"false"` for an invite-only deployment.
-- [ ] If Google/Resend are configured, confirm the redirect URI / sending
-      domain are the production ones, not the dev placeholders.
-- [ ] Confirm `src/middleware.ts`'s matcher still covers every route that
-      needs protecting — a route added outside it is served unauthenticated.
-- [ ] Re-read the "session strategy" trade-off above: there is currently no
-      per-session revocation. If that's a requirement before launch, it
-      needs its own design pass rather than a config flip.
+- [ ] Generate a real `AUTH_SECRET` (`openssl rand -base64 32`) as a
+      deployment secret. Rotating it invalidates every session.
+- [ ] Set `AUTH_URL` to the real https origin. `env.ts` enforces this.
+- [ ] Set `AUTH_OWNER_EMAILS` to your own address, and confirm with
+      `SELECT email, role FROM users` that exactly one OWNER exists.
+- [ ] Decide `ALLOW_REGISTRATION`.
+- [ ] Confirm the middleware matcher still covers every route that needs
+      gating — and remember it does not cover Server Functions at all, which
+      is why the DAL check is not optional.
+- [ ] If Google/Resend are configured, confirm the redirect URI and sending
+      domain are the production ones.
+- [ ] Read "What is not built yet" and decide whether the absence of password
+      reset is acceptable for your users.
 
 ## Verification performed
 
-`npx tsc --noEmit` was run clean against this layer's files, and the dev
-server was started on port 3111 and exercised end-to-end with `curl`:
-`GET /` redirecting to `/login`, `GET /login` returning 200, a full
-Auth.js CSRF + credentials callback flow against the seeded
-`duk@example.com` / `password` account producing a session cookie, and
-`GET /` with that cookie no longer redirecting. See the PR/commit
-description for the raw transcript.
+`npm run verify` (typecheck, lint with `--max-warnings 0`, 431 unit tests) and
+`npm run build` pass. The auth-specific tests cover the redirect sanitiser
+including the `/\evil.com` bypass, the throttle window arithmetic and its
+escalation ordering, the password byte ceiling, role resolution, environment
+validation, and that the middleware matcher and `isPublicPath()` agree —
+including the regression case of a protected route that merely contains a dot.
+
+The runtime flows have **not** been exercised end-to-end since these changes:
+the Supabase project this was developed against is no longer reachable
+(`FATAL: tenant or user not found`), so the `auth_hardening` migration is
+written and validated but **not applied**. Run `npm run db:migrate` against a
+live database, then confirm by hand: Google sign-up (previously broken two
+ways), password sign-in with `ALLOW_DEV_LOGIN` absent, six wrong passwords
+producing a lockout message, an unknown address producing the same message and
+timing, and a MEMBER seeing the Instruments tab read-only.
