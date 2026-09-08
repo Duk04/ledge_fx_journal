@@ -1,0 +1,10 @@
+# Generated or vendored — reformatting these produces noise, not consistency.
+package-lock.json
+prisma/migrations/
+.next/
+coverage/
+
+# Prettier reflows Markdown prose, which rewraps every paragraph in docs/
+# and turns a one-line doc edit into a whole-file diff. The docs here are
+# hand-wrapped at ~76 columns on purpose.
+*.md
