@@ -6,6 +6,7 @@ import { Decimal } from "decimal.js";
 import { type Prisma, type Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { guardNotFound } from "./guard";
 import { requireUser, NotFoundError } from "@/lib/session";
 import { getBars, lastCloseIn } from "@/lib/queries/candles";
 import { toRunStats } from "@/lib/queries/backtests";
@@ -465,7 +466,11 @@ export async function recordStrategyRun(
 export async function deleteRun(id: string): Promise<ActionResult> {
   const user = await requireUser();
 
-  try {
+  // `guardNotFound` converts the NotFoundError thrown inside the transaction
+  // into a failure result. Thrown rather than returned there on purpose: a
+  // `return` from the callback would COMMIT the transaction, and the point of
+  // throwing is to roll back whatever it had already done.
+  return guardNotFound(async () => {
     await prisma.$transaction(async (tx) => {
       const run = await tx.backtestRun.findFirst({ where: { id, userId: user.id } });
       if (!run) throw new NotFoundError("That run was not found.");
@@ -477,11 +482,8 @@ export async function deleteRun(id: string): Promise<ActionResult> {
         await tx.tradingAccount.delete({ where: { id: run.accountId } });
       }
     });
-  } catch (err) {
-    if (err instanceof NotFoundError) return fail(err.message);
-    throw err;
-  }
 
-  revalidatePath("/backtest");
-  return ok();
+    revalidatePath("/backtest");
+    return ok();
+  });
 }
