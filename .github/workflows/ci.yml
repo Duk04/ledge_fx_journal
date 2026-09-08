@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    env:
+      # No database is contacted by any of the steps below: `new PrismaClient()`
+      # does not connect eagerly, every page is dynamic (they all call
+      # requireUser()), and all 431 tests are pure. These exist only because
+      # `next build` evaluates module scope while collecting pages, and
+      # src/lib/env.ts validates the environment there — deliberately, so a
+      # misconfigured deployment fails at boot rather than on the first request
+      # that happens to touch a missing variable.
+      #
+      # Well-formed dummies rather than SKIP_ENV_VALIDATION, so that a change
+      # which breaks env parsing still fails here.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-only-not-a-real-secret-0123456789abcd
+      AUTH_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Runs `postinstall` -> `prisma generate`. This is load-bearing: without
+      # a generated client, tsc reports ~45 errors for models that exist in
+      # schema.prisma but not in the stale client. That was the actual state of
+      # this repo before the script was added, and it is what would have broken
+      # any deploy.
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test
+
+      # Kept in CI on purpose: for a portfolio repo, "the deploy is proven
+      # green on every push" is worth the ~90 seconds. It is also the only step
+      # that would catch a client/server boundary mistake — a server-only
+      # module pulled into a client component typechecks fine and fails here.
+      - run: npm run build
