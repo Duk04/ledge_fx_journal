@@ -1,6 +1,7 @@
 import {
   BookOpen,
   ChartLine,
+  FlaskConical,
   Gauge,
   Settings,
   Table2,
@@ -26,6 +27,7 @@ export const NAV_GROUPS = [
     items: [
       { href: "/analytics", label: "Analytics", icon: ChartLine },
       { href: "/journal", label: "Journal", icon: BookOpen },
+      { href: "/backtest", label: "Backtest", icon: FlaskConical },
     ],
   },
   {
