@@ -7,7 +7,7 @@ import { EntriesList } from "@/components/journal/entries-list";
 import { isValidMonth, monthLabel, todayIn } from "@/components/journal/date-utils";
 import { requireUser } from "@/lib/session";
 import { monthView, resolveActiveTradingAccountId } from "@/lib/queries/journal";
-import { prisma } from "@/lib/db";
+import { getAccountCurrency } from "@/lib/queries/accounts";
 
 export default async function JournalPage({
   searchParams,
@@ -20,10 +20,7 @@ export default async function JournalPage({
   const month = isValidMonth(params.month) ? params.month : currentMonth;
 
   const accountId = await resolveActiveTradingAccountId(user.id);
-  const currency = accountId
-    ? ((await prisma.tradingAccount.findUnique({ where: { id: accountId }, select: { currency: true } }))
-        ?.currency ?? "USD")
-    : "USD";
+  const currency = accountId ? ((await getAccountCurrency(accountId)) ?? "USD") : "USD";
 
   const view = await monthView(user.id, accountId, month, user.timezone);
 

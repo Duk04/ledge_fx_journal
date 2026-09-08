@@ -169,3 +169,76 @@ export function cashFlow(events: { kind: string; amount: Decimal }[]) {
 }
 
 export { toDec };
+
+/**
+ * A trading account's currency, by id.
+ *
+ * Two journal pages each ran this exact two-line query inline against Prisma.
+ * Small, but it is the shape that accumulates: a page reaching past the query
+ * layer for "just one field" is how six of them ended up doing it.
+ *
+ * Deliberately NOT user-scoped: the caller has already resolved this id
+ * through `resolveActiveAccountId`, which validates ownership. Taking a
+ * userId here would imply a check this does not make.
+ */
+export async function getAccountCurrency(accountId: string): Promise<string | null> {
+  const row = await prisma.tradingAccount.findUnique({
+    where: { id: accountId },
+    select: { currency: true },
+  });
+  return row?.currency ?? null;
+}
+
+/** Every balance event across the user's accounts, newest first. */
+export async function listBalanceEvents(userId: string, limit = 50) {
+  return prisma.balanceEvent.findMany({
+    where: { account: { userId } },
+    orderBy: { occurredAt: "desc" },
+    take: limit,
+    include: { account: { select: { id: true, label: true, currency: true } } },
+  });
+}
+
+/**
+ * Today's trades on one account, for the risk guard.
+ *
+ * `dayStart`/`dayEnd` are computed by the caller, because "today" depends on
+ * the user's timezone and this module has no business knowing it. Scoped by
+ * `account: { userId }` rather than by `accountId` alone, per the scoping rule
+ * in lib/session.ts — even though the caller has already validated the
+ * account, so that this query is correct read on its own.
+ */
+export async function listTradesOpenedBetween(params: {
+  userId: string;
+  accountId: string;
+  from: Date;
+  to: Date;
+}) {
+  return prisma.trade.findMany({
+    where: {
+      accountId: params.accountId,
+      account: { userId: params.userId },
+      openedAt: { gte: params.from, lt: params.to },
+    },
+    orderBy: { openedAt: "asc" },
+    select: { id: true, netPnl: true, riskAmount: true, stopLoss: true },
+  });
+}
+
+/** Every balance event on the user's accounts, newest first — no `include`,
+ * for callers that already have the account list and only need to bucket by
+ * `accountId`. */
+export async function listBalanceEventsFlat(userId: string) {
+  return prisma.balanceEvent.findMany({
+    where: { account: { userId } },
+    orderBy: { occurredAt: "desc" },
+  });
+}
+
+/** Per-account risk-per-trade percentages, for a page that renders them all. */
+export async function listAccountRiskSettings(userId: string) {
+  return prisma.tradingAccount.findMany({
+    where: { userId },
+    select: { id: true, riskPerTradePct: true },
+  });
+}

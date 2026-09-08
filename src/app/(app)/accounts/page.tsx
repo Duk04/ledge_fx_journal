@@ -3,9 +3,14 @@ import { Page } from "@/components/shell/page";
 import { AccountCard, type AccountCardData } from "@/components/accounts/account-card";
 import { NewAccountButton } from "@/components/accounts/new-account-button";
 import { requireUser } from "@/lib/session";
-import { listAccounts, cashFlow } from "@/lib/queries/accounts";
+import {
+  cashFlow,
+  listAccountRiskSettings,
+  listAccounts,
+  listBalanceEventsFlat,
+} from "@/lib/queries/accounts";
 import { resolveActiveTradingAccountId } from "@/lib/queries/journal";
-import { prisma } from "@/lib/db";
+import { type Decimal } from "decimal.js";
 import { toDec, toPlain } from "@/lib/decimal-bridge";
 import type { BalanceEventRow } from "@/components/accounts/balance-events-dialog";
 
@@ -15,14 +20,8 @@ export default async function AccountsPage() {
   const [accounts, activeAccountId, rawEvents, riskRows] = await Promise.all([
     listAccounts(user.id),
     resolveActiveTradingAccountId(user.id),
-    prisma.balanceEvent.findMany({
-      where: { account: { userId: user.id } },
-      orderBy: { occurredAt: "desc" },
-    }),
-    prisma.tradingAccount.findMany({
-      where: { userId: user.id },
-      select: { id: true, riskPerTradePct: true },
-    }),
+    listBalanceEventsFlat(user.id),
+    listAccountRiskSettings(user.id),
   ]);
 
   const riskByAccount = new Map(riskRows.map((r) => [r.id, toPlain(r.riskPerTradePct)]));
@@ -34,7 +33,7 @@ export default async function AccountsPage() {
   }
 
   const eventsByAccount = new Map<string, BalanceEventRow[]>();
-  const rawByAccount = new Map<string, { kind: string; amount: import("decimal.js").Decimal }[]>();
+  const rawByAccount = new Map<string, { kind: string; amount: Decimal }[]>();
   for (const e of rawEvents) {
     bucket(eventsByAccount, e.accountId, {
       id: e.id,

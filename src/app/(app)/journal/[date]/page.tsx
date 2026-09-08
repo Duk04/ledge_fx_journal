@@ -8,7 +8,7 @@ import { DayTrades } from "@/components/journal/day-trades";
 import { dayLabel, isValidDate, monthOf, shiftDay } from "@/components/journal/date-utils";
 import { requireUser } from "@/lib/session";
 import { dayView, resolveActiveTradingAccountId } from "@/lib/queries/journal";
-import { prisma } from "@/lib/db";
+import { getAccountCurrency } from "@/lib/queries/accounts";
 
 export default async function JournalDayPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = await params;
@@ -16,10 +16,7 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
 
   const user = await requireUser();
   const accountId = await resolveActiveTradingAccountId(user.id);
-  const currency = accountId
-    ? ((await prisma.tradingAccount.findUnique({ where: { id: accountId }, select: { currency: true } }))
-        ?.currency ?? "USD")
-    : "USD";
+  const currency = accountId ? ((await getAccountCurrency(accountId)) ?? "USD") : "USD";
 
   const view = await dayView(user.id, accountId, date, user.timezone);
 

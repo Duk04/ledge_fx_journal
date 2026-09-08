@@ -6,7 +6,7 @@
  * Functions return `Decimal` (or `Decimal | null`); conversion to plain JS
  * numbers happens only in formatters.ts at the presentation boundary.
  */
-import { Decimal } from 'decimal.js'
+import { type Decimal } from 'decimal.js'
 import { d, BREAKEVEN_EPSILON } from './decimal'
 import type {
   DecimalInput,

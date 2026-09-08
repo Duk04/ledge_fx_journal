@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Decimal } from "decimal.js";
-import { Prisma, type Timeframe } from "@prisma/client";
+import { type Prisma, type Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser, NotFoundError } from "@/lib/session";
 import { getBars, lastCloseIn } from "@/lib/queries/candles";

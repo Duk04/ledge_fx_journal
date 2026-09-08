@@ -1,9 +1,8 @@
 import { TZDate } from "@date-fns/tz";
 import { AlertTriangle } from "lucide-react";
-import { prisma } from "@/lib/db";
 import { requireAccountAccess, requireUser } from "@/lib/session";
 import { toNum } from "@/lib/decimal-bridge";
-import { getAccountEquity } from "@/lib/queries/accounts";
+import { getAccountEquity, listTradesOpenedBetween } from "@/lib/queries/accounts";
 import { computeRiskGuard, type RiskTradeInput } from "@/lib/risk";
 
 /**
@@ -18,11 +17,9 @@ import { computeRiskGuard, type RiskTradeInput } from "@/lib/risk";
  * props from whatever page mounts it, so dropping `<RiskGuard accountId={…} />`
  * into a new page is always safe on its own.
  *
- * NOT wired into any page yet — src/app/(app)/page.tsx (the Overview
- * dashboard) is out of this component's edit scope. It reads best mounted
- * there, directly under the `<SectionHead>` and above the `<StatRow>`, full
- * width, so a breach is the first thing seen on the page it's most relevant
- * to. See the report for the exact snippet.
+ * Mounted on the Overview dashboard (src/app/(app)/page.tsx), under the
+ * SectionHead and above the StatRow, so a breach is the first thing seen on
+ * the page it is most relevant to.
  */
 export async function RiskGuard({ accountId }: { accountId: string }) {
   const user = await requireUser();
@@ -32,11 +29,7 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
   const [todaysTrades, equityData] = await Promise.all([
-    prisma.trade.findMany({
-      where: { accountId: account.id, openedAt: { gte: dayStart, lt: dayEnd } },
-      orderBy: { openedAt: "asc" },
-      select: { id: true, netPnl: true, riskAmount: true, stopLoss: true },
-    }),
+    listTradesOpenedBetween({ userId: user.id, accountId: account.id, from: dayStart, to: dayEnd }),
     getAccountEquity(user.id, account.id),
   ]);
 
@@ -74,7 +67,16 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
   );
 }
 
+/**
+ * Midnight today in the user's timezone, as a plain Date.
+ *
+ * The `new Date(...getTime())` is not redundant. `TZDate` extends Date and
+ * its instant is correct, but it overrides `toISOString()` to emit an offset
+ * rather than a Z-suffixed UTC string — and this value goes straight into a
+ * Prisma `where` against `TIMESTAMP(3)` columns, which carry no time zone.
+ * Same normalisation as lib/range.ts, for the same reason.
+ */
 function startOfToday(timezone: string, now: Date = new Date()): Date {
   const zoned = new TZDate(now, timezone);
-  return TZDate.tz(timezone, zoned.getFullYear(), zoned.getMonth(), zoned.getDate());
+  return new Date(TZDate.tz(timezone, zoned.getFullYear(), zoned.getMonth(), zoned.getDate()).getTime());
 }
