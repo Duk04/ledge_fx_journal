@@ -52,7 +52,9 @@ function sampleStdev(values: Decimal[]): Decimal | null {
  *  - expectancyMoney and expectancyR are both built the same way: rate *
  *    average(win) - (1 - rate) * average(loss), so a trade population that
  *    excludes breakevens from the rate still gets a sensible, non-zero
- *    expectancy even when breakevens are present.
+ *    expectancy even when breakevens are present. expectancyR is additionally
+ *    null when no row had a stop loss at all: there is no R to average, and
+ *    printing 0.00R would assert something the data cannot support.
  *  - Win/loss streaks skip breakevens entirely: a breakeven neither extends
  *    nor breaks a run of wins or losses (documented + tested).
  */
@@ -104,8 +106,12 @@ export function summarize(rows: TradeRow[]): Summary {
   const lossRRows = rBearingRows.filter((r) => r.outcome === 'LOSS')
   const averageWinR = mean(winRRows.map((r) => r.rMultiple))
   const averageLossR = mean(lossRRows.map((r) => r.rMultiple.abs()))
+  // Null, not zero, when NO row carried an R multiple. Reporting "+0.00R
+  // expectancy" for a set of trades that never had a stop loss states a fact
+  // about the strategy that the data cannot support — the honest answer is
+  // that R is unknowable here, which is what null renders as ("—").
   const expectancyR =
-    winRate !== null
+    winRate !== null && rBearingRows.length > 0
       ? new Decimal(winRate).times(averageWinR ?? ZERO).minus(new Decimal(1 - winRate).times(averageLossR ?? ZERO))
       : null
 

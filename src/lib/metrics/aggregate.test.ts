@@ -133,6 +133,32 @@ describe('rows without a stop loss', () => {
     expect(summary.winRate).toBeCloseTo(2 / 3, 10)
     expect(summary.averageRMultiple!.toString()).toBe('0.5') // mean(2, -1), the null-R win excluded
   })
+
+  it('reports expectancyR as null, not zero, when NO trade had a stop loss', () => {
+    // A strategy that never sets a stop produces trades with no R at all.
+    // Averaging nothing is not zero, it is unknown — and printing "+0.00R"
+    // asserts something about the system the data cannot support.
+    const rows: TradeRow[] = [
+      closed('WIN', 100, null, '2026-01-01T00:00:00Z'),
+      closed('LOSS', -40, null, '2026-01-02T00:00:00Z'),
+      closed('LOSS', -60, null, '2026-01-03T00:00:00Z'),
+    ]
+    const summary = summarize(rows)
+    expect(summary.averageRMultiple).toBeNull()
+    expect(summary.expectancyR).toBeNull()
+    // The money-denominated expectancy is still perfectly computable.
+    expect(summary.expectancyMoney).not.toBeNull()
+  })
+
+  it('still reports expectancyR when at least one trade carried a stop', () => {
+    const rows: TradeRow[] = [
+      closed('WIN', 200, 2, '2026-01-01T00:00:00Z'),
+      closed('LOSS', -100, -1, '2026-01-02T00:00:00Z'),
+    ]
+    const summary = summarize(rows)
+    expect(summary.expectancyR).not.toBeNull()
+    expect(summary.expectancyR!.toNumber()).toBeCloseTo(0.5, 6)
+  })
 })
 
 describe('win/loss streaks', () => {
