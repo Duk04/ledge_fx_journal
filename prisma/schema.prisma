@@ -5,14 +5,22 @@
 // columns backfilled by a single function rather than being recomputed ad hoc).
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  // No `engineType` here: the standard native query engine is the default and
+  // is what you want on any machine that can reach binaries.prisma.sh. The
+  // pure-JS engine (`engineType = "client"`) plus a driver adapter is the
+  // fallback for locked-down networks — see docs/DATA-MODEL.md.
 }
 
 datasource db {
   provider  = "postgresql"
+  // The app connects through DATABASE_URL (pooled); migrations go through
+  // DIRECT_URL (an unpooled session connection) because PgBouncer in
+  // transaction mode supports neither prepared statements nor advisory locks.
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -33,6 +41,11 @@ enum AccountType {
   DEMO
   LIVE
   PROP
+  /// Holds backtest trades. Kept as an account type rather than a separate
+  /// table so every existing report — equity curve, R distribution, session
+  /// breakdown — works on a backtest with no new code, while still never
+  /// mixing simulated fills into a live account's statistics.
+  BACKTEST
 }
 
 enum AssetClass {
@@ -76,6 +89,39 @@ enum AttachmentKind {
   OTHER
 }
 
+/// Bar size. M1 is the base everything else can be aggregated from; the app
+/// stores whatever you import and derives coarser bars on read when it can.
+enum Timeframe {
+  M1
+  M5
+  M15
+  M30
+  H1
+  H4
+  D1
+  W1
+}
+
+enum CandleSource {
+  MT5_CSV
+  GENERIC_CSV
+  API
+}
+
+/// REPLAY: you step through bars and place the orders yourself.
+/// STRATEGY: code decides, and the engine runs it over the whole range.
+enum BacktestKind {
+  REPLAY
+  STRATEGY
+}
+
+enum BacktestStatus {
+  DRAFT
+  RUNNING
+  DONE
+  FAILED
+}
+
 enum BalanceEventKind {
   DEPOSIT
   WITHDRAWAL
@@ -102,6 +148,9 @@ model User {
   journalEntries JournalEntry[]
   sessions       Session[]
   authAccounts   AuthAccount[]
+  candleImports  CandleImport[]
+  strategies     Strategy[]
+  backtestRuns   BacktestRun[]
 
   @@map("users")
 }
@@ -172,6 +221,7 @@ model TradingAccount {
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   trades        Trade[]
   balanceEvents BalanceEvent[]
+  backtestRuns  BacktestRun[]
 
   @@index([userId])
   @@map("accounts")
@@ -188,7 +238,8 @@ model Instrument {
   assetClass    AssetClass @map("asset_class")
   isActive      Boolean    @default(true) @map("is_active")
 
-  trades Trade[]
+  trades  Trade[]
+  candles Candle[]
 
   @@map("instruments")
 }
@@ -225,6 +276,9 @@ model Trade {
   holdingMinutes Int?           @map("holding_minutes")
   marketSession  MarketSession? @map("market_session")
 
+  /// Set when this trade came out of a backtest rather than a real fill.
+  backtestRunId String? @map("backtest_run_id")
+
   followedPlan   Boolean? @map("followed_plan")
   emotion        Int?
   confidence     Int?
@@ -238,11 +292,13 @@ model Trade {
   instrument  Instrument     @relation(fields: [symbol], references: [symbol])
   attachments Attachment[]
   tradeTags   TradeTag[]
+  backtestRun BacktestRun?   @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
 
   @@unique([accountId, externalTicket])
   @@index([accountId, openedAt(sort: Desc)])
   @@index([accountId, symbol])
   @@index([accountId, status])
+  @@index([backtestRunId])
   @@map("trades")
 }
 
@@ -320,4 +376,132 @@ model BalanceEvent {
 
   @@index([accountId, occurredAt(sort: Desc)])
   @@map("balance_events")
+}
+
+/// One OHLC bar. The primary key is (symbol, timeframe, ts) so re-importing an
+/// overlapping range is an upsert rather than a duplicate — you can pull "last
+/// 3 months" every week and never dedupe by hand.
+///
+/// SIZE WARNING: one year of M1 for a single symbol is roughly 370k rows /
+/// ~35 MB. Supabase's free tier gives you 500 MB for the whole database, so
+/// import the ranges you actually test, not everything your broker has.
+model Candle {
+  symbol    String
+  timeframe Timeframe
+  /// Bar OPEN time, always stored in UTC. See docs/BACKTEST.md on why the
+  /// importer asks which timezone an MT5 export is in.
+  ts        DateTime  @db.Timestamptz(3)
+
+  open   Decimal  @db.Decimal(18, 8)
+  high   Decimal  @db.Decimal(18, 8)
+  low    Decimal  @db.Decimal(18, 8)
+  close  Decimal  @db.Decimal(18, 8)
+  volume Decimal? @db.Decimal(18, 4)
+  /// MT5 exports the spread in points at bar close; used by the fill model
+  /// when present, otherwise the run's fixed spread applies.
+  spread Int?
+
+  source CandleSource
+
+  instrument Instrument @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
+
+  @@id([symbol, timeframe, ts])
+  @@index([symbol, timeframe, ts(sort: Desc)])
+  @@map("candles")
+}
+
+/// Audit trail for imports: what was loaded, from where, covering what range.
+/// Without it, "why does my backtest stop on 12 March" is unanswerable.
+model CandleImport {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  symbol          String
+  timeframe       Timeframe
+  source          CandleSource
+  fileName        String?      @map("file_name")
+  rowCount        Int          @map("row_count")
+  fromTs          DateTime     @map("from_ts") @db.Timestamptz(3)
+  toTs            DateTime     @map("to_ts") @db.Timestamptz(3)
+  /// Offset applied to convert the file's timestamps to UTC, in minutes.
+  tzOffsetMinutes Int          @default(0) @map("tz_offset_minutes")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, symbol, timeframe])
+  @@map("candle_imports")
+}
+
+/// A coded strategy. `code` is JavaScript run in a sandboxed worker — see
+/// docs/BACKTEST.md for the contract it must implement.
+model Strategy {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  name        String
+  description String?
+  code        String
+  /// Default parameter values, shown in the run form and overridable per run.
+  params      Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs BacktestRun[]
+
+  @@unique([userId, name])
+  @@map("strategies")
+}
+
+/// One backtest. Its trades live in a BACKTEST-type TradingAccount, so the
+/// existing analytics read them without knowing what a backtest is.
+model BacktestRun {
+  id         String  @id @default(uuid())
+  userId     String  @map("user_id")
+  accountId  String  @map("account_id")
+  strategyId String? @map("strategy_id")
+
+  kind   BacktestKind
+  status BacktestStatus @default(DRAFT)
+  label  String?
+
+  symbol    String
+  timeframe Timeframe
+  fromTs    DateTime  @map("from_ts") @db.Timestamptz(3)
+  toTs      DateTime  @map("to_ts") @db.Timestamptz(3)
+
+  initialBalance Decimal @map("initial_balance") @db.Decimal(18, 2)
+
+  // --- Fill model. These are what separate an honest backtest from a lie. ---
+  /// Spread charged on entry AND exit, in points. Ignored per-bar when the
+  /// candle carries its own spread.
+  spreadPoints     Int     @default(0) @map("spread_points")
+  /// Commission per lot per side, in account currency.
+  commissionPerLot Decimal @default(0) @map("commission_per_lot") @db.Decimal(18, 2)
+  /// Extra adverse price movement applied to every fill, in points.
+  slippagePoints   Int     @default(0) @map("slippage_points")
+  /// When a bar's range contains both the stop and the target, assume the stop
+  /// was hit first. Defaults on, because assuming otherwise flatters results.
+  pessimisticFills Boolean @default(true) @map("pessimistic_fills")
+
+  /// Parameter values this run used (a snapshot, so editing the strategy later
+  /// does not rewrite history).
+  params Json?
+  /// Summary statistics, computed at the end and stored so the list page does
+  /// not have to recompute every run.
+  stats  Json?
+  error  String?
+
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  strategy Strategy?      @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  trades   Trade[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([accountId])
+  @@map("backtest_runs")
 }
