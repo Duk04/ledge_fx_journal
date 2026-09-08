@@ -36,6 +36,14 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   as a standalone window on desktop, with a conservative offline story (see
   `docs/PWA.md`: there's no offline write queue, on purpose — the app tells
   you plainly when it can't save instead of pretending to).
+- **Backtesting, two ways** — step through historical bars by hand and place
+  orders as if live, or write a strategy in JavaScript and run it over a
+  range. Either way the resulting trades are written as real `Trade` rows in
+  a dedicated BACKTEST account, so every analytics report works on them
+  unchanged. Strategy code is compiled and executed in a Web Worker in your
+  own browser, never on the server — see `docs/BACKTEST-ENGINE.md` for why
+  that is not a preference. Bars come from MT5 or generic CSV exports with an
+  explicit timezone offset (`docs/BACKTEST-DATA.md`).
 - **A living styleguide** at `/design` — every UI primitive, in every state,
   rendered from the real component source. See `docs/DESIGN-SYSTEM.md`.
 
@@ -46,11 +54,15 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   never a raw hex or a stock palette colour in component code
 - **Prisma 6** on **Postgres**, via `@prisma/adapter-pg` (see "Two things
   to know" below for why, and `docs/DATA-MODEL.md` for the full rationale)
-- **Auth.js (next-auth) v5** — credentials (dev/seeded users), Google OAuth
-  and Resend magic-link, each optional and only registered when configured
-  (see `docs/AUTH.md`)
-- **Vitest** for the pure-function layers (`metrics`, `risk`) — no I/O, no
-  mocking, just inputs and expected outputs
+- **Auth.js (next-auth) v5** — email + password (throttled per email and per
+  IP), Google OAuth and Resend magic links, each only registered when
+  configured. `docs/AUTH.md` states the threat model and what is
+  deliberately not built yet
+- **Vitest** — 674 tests across the pure layers (metrics, the backtest
+  engine, candle parsing, conversions, validation schemas, the auth rules),
+  no I/O and no mocking, running in about a second. `docs/TESTING.md`
+  explains what that covers and, more usefully, what it does not
+- **lightweight-charts** for the replay candlestick view
 - **Recharts** for the handful of real charts; a hand-rolled inline-SVG
   `Sparkline` everywhere a chart-per-table-row would be absurd
 
@@ -88,7 +100,9 @@ change, in dev and in any migration plan for production data.
 | `npm run dev` | Start the dev server (Turbopack) |
 | `npm run build` | Production build |
 | `npm run start` | Run the production build |
+| `npm run verify` | typecheck + lint + format check + tests — **the gate** |
 | `npm run lint` | ESLint |
+| `npm run format` | Prettier, write |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Run the Vitest suite once |
 | `npm run test:watch` | Vitest in watch mode |
