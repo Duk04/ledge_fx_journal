@@ -69,11 +69,14 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
         slippagePoints,
         pessimisticFills,
       });
-      if (result.ok && result.runId) {
-        router.push(`/backtest/replay?runId=${result.runId}`);
-      } else {
-        setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? "Couldn't start that replay.");
+      // Narrowed on `ok` alone — see the note in strategy-workbench.tsx.
+      if (!result.ok) {
+        const firstFieldError = Object.values(result.fieldErrors ?? {}).flat()[0];
+        setError(result.formError ?? firstFieldError ?? "Couldn't start that replay.");
+        return;
       }
+
+      router.push(`/backtest/replay?runId=${result.runId}`);
     });
   }
 

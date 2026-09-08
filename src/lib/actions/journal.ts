@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 
 /**
  * Journal writes. See docs/JOURNAL.md for the autosave contract these back:
@@ -12,21 +13,6 @@ import { prisma } from "@/lib/db";
  * and no "create entry" step, because the whole point of the day view is
  * that the form is always there, ready.
  */
-
-export interface ActionResult {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  formError?: string;
-}
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (out[key] ??= []).push(issue.message);
-  }
-  return out;
-}
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date.");
 
@@ -53,10 +39,10 @@ const fieldInputSchema = z.object({
  */
 export async function saveJournalEntry(
   input: z.infer<typeof fieldInputSchema>,
-): Promise<ActionResult & { savedAt?: string }> {
+): Promise<ActionResult<{ savedAt: string }>> {
   const parsed = fieldInputSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+    return failFields(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
@@ -83,7 +69,7 @@ const moodInputSchema = z.object({
 export async function setMood(input: z.infer<typeof moodInputSchema>): Promise<ActionResult> {
   const parsed = moodInputSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+    return failFields(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
@@ -96,14 +82,14 @@ export async function setMood(input: z.infer<typeof moodInputSchema>): Promise<A
   });
 
   revalidateDay(parsed.data.date);
-  return { ok: true };
+  return ok();
 }
 
 /** Clears a day's entry entirely. `deleteMany` so an already-empty day is a no-op, not an error. */
 export async function deleteEntry(date: string): Promise<ActionResult> {
   const parsed = dateSchema.safeParse(date);
   if (!parsed.success) {
-    return { ok: false, formError: "Invalid date." };
+    return fail("Invalid date.");
   }
 
   const user = await requireUser();
@@ -112,5 +98,5 @@ export async function deleteEntry(date: string): Promise<ActionResult> {
   await prisma.journalEntry.deleteMany({ where: { userId: user.id, entryDate } });
 
   revalidateDay(parsed.data);
-  return { ok: true };
+  return ok();
 }

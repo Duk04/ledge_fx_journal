@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "@/lib/actions/result";
 import { derivedColumns, tradeInput } from "@/lib/trade-service";
 import { seedInstruments } from "@/lib/instruments";
 import { IANA_TIMEZONES } from "@/components/settings/timezones";
@@ -14,21 +15,6 @@ import { IANA_TIMEZONES } from "@/components/settings/timezones";
  * to stand on its own; everything else in Settings lives here, colocated
  * with the route that's its only caller.
  */
-
-export interface ActionResult {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  formError?: string;
-}
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (out[key] ??= []).push(issue.message);
-  }
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 // Profile
@@ -44,10 +30,10 @@ const profileSchema = z.object({
 
 export async function updateProfile(input: z.input<typeof profileSchema>): Promise<ActionResult> {
   const parsed = profileSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
   if (!IANA_TIMEZONES.some((tz) => tz.value === parsed.data.timezone)) {
-    return { ok: false, fieldErrors: { timezone: ["Choose a timezone from the list."] } };
+    return failFields({ timezone: ["Choose a timezone from the list."] });
   }
 
   const user = await requireUser();
@@ -58,7 +44,7 @@ export async function updateProfile(input: z.input<typeof profileSchema>): Promi
 
   revalidatePath("/settings");
   revalidatePath("/", "layout");
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -112,13 +98,13 @@ export async function updateInstrument(
   input: z.input<typeof instrumentSchema>,
 ): Promise<ActionResult> {
   const parsed = instrumentSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
   const denied = await ownerOrError("change instrument specifications");
   if (denied) return denied;
 
   const existing = await prisma.instrument.findUnique({ where: { symbol } });
-  if (!existing) return { ok: false, formError: "Instrument not found." };
+  if (!existing) return fail("Instrument not found.");
 
   await prisma.instrument.update({
     where: { symbol },
@@ -131,7 +117,7 @@ export async function updateInstrument(
   });
 
   revalidatePath("/settings");
-  return { ok: true };
+  return ok();
 }
 
 /** Restores every instrument's contract fields from `src/lib/instruments.ts`. */
@@ -160,7 +146,7 @@ export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
   }
 
   revalidatePath("/settings");
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +160,7 @@ export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
  * See docs/JOURNAL.md for why this exists as a button rather than only a
  * one-off script.
  */
-export async function recomputeDerivedColumns(): Promise<ActionResult & { updated?: number }> {
+export async function recomputeDerivedColumns(): Promise<ActionResult<{ updated: number }>> {
   const user = await requireUser();
 
   const accounts = await prisma.tradingAccount.findMany({

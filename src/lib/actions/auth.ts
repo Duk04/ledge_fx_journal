@@ -8,26 +8,23 @@ import { AuthError, BCRYPT_COST, signIn, signOut } from "@/lib/auth";
 import { authFeatures } from "@/lib/auth-features";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/db";
+import { fail, fieldErrorsFrom, type ActionResult } from "./result";
 import { safeNext } from "@/lib/auth/safe-next";
 import { validatePassword } from "@/lib/auth/password";
 import { resolveInitialRole } from "@/lib/auth/roles";
 import { checkThrottle, clientIpFrom, pruneOldAttempts, recordAttempt } from "@/lib/auth/throttle";
 
-export interface ActionResult {
-  error?: string;
-  fieldErrors?: Record<string, string>;
-}
-
-function zodFieldErrors(error: z.ZodError): Record<string, string> {
-  const fieldErrors: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path[0];
-    if (typeof key === "string" && !fieldErrors[key]) {
-      fieldErrors[key] = issue.message;
-    }
-  }
-  return fieldErrors;
-}
+/**
+ * These used to return `{ error?: string; fieldErrors?: Record<string, string> }`
+ * — a third shape, with a differently-named form message and single strings
+ * where every other action module used arrays. Now on the shared
+ * `ActionResult`, so a caller does not have to remember which convention a
+ * given action follows.
+ *
+ * `undefined` is still a possible return: a successful sign-in `redirect()`s,
+ * which throws Next's control-flow error, so there is nothing to return.
+ */
+export type AuthResult = ActionResult;
 
 /** Client IP for the throttle buckets. Header-derived, never form-derived. */
 async function requestIp(): Promise<string | null> {
@@ -54,9 +51,9 @@ const signInSchema = z.object({
  * "invalid email or password", which is otherwise indistinguishable from
  * having simply mistyped again.
  */
-export async function signInWithPassword(formData: FormData): Promise<ActionResult | undefined> {
+export async function signInWithPassword(formData: FormData): Promise<AuthResult | undefined> {
   if (!authFeatures.passwordLogin) {
-    return { error: "Password sign-in is disabled on this instance." };
+    return fail("Password sign-in is disabled on this instance.");
   }
 
   const parsed = signInSchema.safeParse({
@@ -65,7 +62,7 @@ export async function signInWithPassword(formData: FormData): Promise<ActionResu
   });
 
   if (!parsed.success) {
-    return { error: "Check your email and password.", fieldErrors: zodFieldErrors(parsed.error) };
+    return { ok: false, formError: "Check your email and password.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -77,7 +74,7 @@ export async function signInWithPassword(formData: FormData): Promise<ActionResu
     { policy: "PASSWORD_LOGIN_IP", kind: "PASSWORD_LOGIN", ip },
   ]);
   if (!gate.allowed) {
-    return { error: gate.message };
+    return fail(gate.message);
   }
 
   try {
@@ -90,7 +87,7 @@ export async function signInWithPassword(formData: FormData): Promise<ActionResu
     if (err instanceof AuthError) {
       // Deliberately generic: don't reveal whether the email exists. The
       // provider has already recorded the failed attempt.
-      return { error: "Invalid email or password." };
+      return fail("Invalid email or password.");
     }
     throw err;
   }
@@ -130,9 +127,9 @@ const registerSchema = z.object({
  * creates a `User` row AND a `TradingAccount` row per call, so unthrottled it
  * is an unbounded write amplifier for anyone who can reach the page.
  */
-export async function registerUser(formData: FormData): Promise<ActionResult | undefined> {
+export async function registerUser(formData: FormData): Promise<AuthResult | undefined> {
   if (!authFeatures.registration) {
-    return { error: "Registration is currently disabled." };
+    return fail("Registration is currently disabled.");
   }
 
   const parsed = registerSchema.safeParse({
@@ -142,7 +139,7 @@ export async function registerUser(formData: FormData): Promise<ActionResult | u
   });
 
   if (!parsed.success) {
-    return { error: "Fix the errors below.", fieldErrors: zodFieldErrors(parsed.error) };
+    return { ok: false, formError: "Fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const { name, password } = parsed.data;
@@ -151,12 +148,12 @@ export async function registerUser(formData: FormData): Promise<ActionResult | u
 
   const gate = await checkThrottle([{ policy: "REGISTER_IP", kind: "REGISTER", ip }]);
   if (!gate.allowed) {
-    return { error: gate.message };
+    return fail(gate.message);
   }
 
   const policy = validatePassword(password, { email });
   if (!policy.ok) {
-    return { error: "Fix the errors below.", fieldErrors: { password: policy.message } };
+    return { ok: false, formError: "Fix the errors below.", fieldErrors: { password: [policy.message] } };
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -166,8 +163,9 @@ export async function registerUser(formData: FormData): Promise<ActionResult | u
     // the per-IP bucket is what makes that expensive.
     await recordAttempt({ kind: "REGISTER", email, ip, success: false });
     return {
-      error: "Fix the errors below.",
-      fieldErrors: { email: "An account with this email already exists." },
+      ok: false,
+      formError: "Fix the errors below.",
+      fieldErrors: { email: ["An account with this email already exists."] },
     };
   }
 

@@ -208,14 +208,19 @@ export function StrategyWorkbench({
         },
       });
 
-      if (saved.ok && saved.runId) {
-        toast({ title: "Run complete." });
-        router.push(`/backtest/runs/${saved.runId}`);
+      // Narrow on `ok` alone. `saved.ok && saved.runId` reads naturally but
+      // does not narrow: the compiler cannot rule out the success arm on the
+      // other side of it, so `saved.formError` is not available there. Under
+      // the old intersection type both arms carried every field optionally, so
+      // this compiled and silently read undefined.
+      if (!saved.ok) {
+        const firstFieldError = Object.values(saved.fieldErrors ?? {}).flat()[0];
+        setRunError(saved.formError ?? firstFieldError ?? "The run finished but couldn't be saved.");
         return;
       }
 
-      const firstFieldError = Object.values(saved.fieldErrors ?? {}).flat()[0];
-      setRunError(saved.formError ?? firstFieldError ?? "The run finished but couldn't be saved.");
+      toast({ title: "Run complete." });
+      router.push(`/backtest/runs/${saved.runId}`);
     });
   }
 

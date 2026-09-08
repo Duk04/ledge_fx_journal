@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import type { Instrument, MarketSession } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { fail, failFields, ok, type ActionResult } from "./result";
 import { getInstrument, listActiveSymbols } from "@/lib/queries/instruments";
-import { NotFoundError, requireAccountAccess, requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { accountOrFailure } from "./guard";
 import { closeTradeSchema, parseTradeForm, type TradeFormValues } from "@/lib/schemas/trade";
 import { derivedColumns, instrumentSpec } from "@/lib/trade-service";
 import { resolveConversion } from "@/lib/conversion";
@@ -18,7 +20,16 @@ import type { TradeInput } from "@/lib/metrics/types";
  * catch a thrown error with; a rejected promise there just breaks the page.
  */
 
-export type ActionResult = { ok: true; id: string } | { ok: false; fieldErrors?: Record<string, string[]>; formError?: string };
+/**
+ * Every write here reports the trade it touched.
+ *
+ * This module's local type was the one the shared `ActionResult<T>` was
+ * modelled on: a real discriminated union with a REQUIRED payload on the
+ * success arm, rather than the seven `{ ok: boolean }` interfaces the other
+ * action modules had. Kept as a named alias because the name reads well at
+ * six call sites, and because the components importing it need not change.
+ */
+type TradeResult = ActionResult<{ id: string }>;
 
 
 /**
@@ -97,25 +108,21 @@ function revalidateTradeViews(tradeId?: string) {
 // createTrade
 // ---------------------------------------------------------------------------
 
-export async function createTrade(accountId: string, formData: FormData): Promise<ActionResult> {
+export async function createTrade(accountId: string, formData: FormData): Promise<TradeResult> {
   const user = await requireUser();
-  let account;
-  try {
-    account = await requireAccountAccess(accountId);
-  } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
-    throw err;
-  }
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
+  const account = found.account;
 
   const symbols = await listActiveSymbols();
   const parsed = parseTradeForm(formData, { validSymbols: symbols });
-  if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
+  if (!parsed.ok) return failFields(parsed.fieldErrors);
 
   const instrument = await getInstrument(parsed.values.symbol);
-  if (!instrument) return { ok: false, fieldErrors: { symbol: ["Unknown symbol."] } };
+  if (!instrument) return failFields({ symbol: ["Unknown symbol."] });
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
-  if (tagIds === null) return { ok: false, fieldErrors: { tagIds: ["One or more tags could not be found."] } };
+  if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
 
   const derived = derivedColumns(formTradeInput(parsed.values, instrument, account.currency));
 
@@ -145,35 +152,31 @@ export async function createTrade(accountId: string, formData: FormData): Promis
   });
 
   revalidateTradeViews(trade.id);
-  return { ok: true, id: trade.id };
+  return ok({ id: trade.id });
 }
 
 // ---------------------------------------------------------------------------
 // updateTrade
 // ---------------------------------------------------------------------------
 
-export async function updateTrade(accountId: string, tradeId: string, formData: FormData): Promise<ActionResult> {
+export async function updateTrade(accountId: string, tradeId: string, formData: FormData): Promise<TradeResult> {
   const user = await requireUser();
-  let account;
-  try {
-    account = await requireAccountAccess(accountId);
-  } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
-    throw err;
-  }
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
+  const account = found.account;
 
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId: account.id } });
-  if (!existing) return { ok: false, formError: "Trade not found." };
+  if (!existing) return fail("Trade not found.");
 
   const symbols = await listActiveSymbols();
   const parsed = parseTradeForm(formData, { validSymbols: symbols });
-  if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
+  if (!parsed.ok) return failFields(parsed.fieldErrors);
 
   const instrument = await getInstrument(parsed.values.symbol);
-  if (!instrument) return { ok: false, fieldErrors: { symbol: ["Unknown symbol."] } };
+  if (!instrument) return failFields({ symbol: ["Unknown symbol."] });
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
-  if (tagIds === null) return { ok: false, fieldErrors: { tagIds: ["One or more tags could not be found."] } };
+  if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
 
   const derived = derivedColumns(formTradeInput(parsed.values, instrument, account.currency));
 
@@ -203,27 +206,23 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
   });
 
   revalidateTradeViews(tradeId);
-  return { ok: true, id: tradeId };
+  return ok({ id: tradeId });
 }
 
 // ---------------------------------------------------------------------------
 // deleteTrade
 // ---------------------------------------------------------------------------
 
-export async function deleteTrade(accountId: string, tradeId: string): Promise<ActionResult> {
-  try {
-    await requireAccountAccess(accountId);
-  } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
-    throw err;
-  }
+export async function deleteTrade(accountId: string, tradeId: string): Promise<TradeResult> {
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
 
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId }, select: { id: true } });
-  if (!existing) return { ok: false, formError: "Trade not found." };
+  if (!existing) return fail("Trade not found.");
 
   await prisma.trade.delete({ where: { id: tradeId } });
   revalidateTradeViews();
-  return { ok: true, id: tradeId };
+  return ok({ id: tradeId });
 }
 
 // ---------------------------------------------------------------------------
@@ -234,27 +233,23 @@ export async function closeTrade(
   accountId: string,
   tradeId: string,
   input: { exitPrice: string | number; closedAt: string | Date },
-): Promise<ActionResult> {
-  let account;
-  try {
-    account = await requireAccountAccess(accountId);
-  } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
-    throw err;
-  }
+): Promise<TradeResult> {
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
+  const account = found.account;
 
   const parsed = closeTradeSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
+    return failFields(parsed.error.flatten().fieldErrors as Record<string, string[]>);
   }
 
   const existing = await prisma.trade.findFirst({
     where: { id: tradeId, accountId },
     include: { instrument: true },
   });
-  if (!existing) return { ok: false, formError: "Trade not found." };
+  if (!existing) return fail("Trade not found.");
   if (parsed.data.closedAt.getTime() < existing.openedAt.getTime()) {
-    return { ok: false, fieldErrors: { closedAt: ["Close time cannot be before the open time."] } };
+    return failFields({ closedAt: ["Close time cannot be before the open time."] });
   }
 
   const derived = derivedColumns({
@@ -290,27 +285,23 @@ export async function closeTrade(
   });
 
   revalidateTradeViews(tradeId);
-  return { ok: true, id: tradeId };
+  return ok({ id: tradeId });
 }
 
 // ---------------------------------------------------------------------------
 // setTradeTags
 // ---------------------------------------------------------------------------
 
-export async function setTradeTags(accountId: string, tradeId: string, tagIds: string[]): Promise<ActionResult> {
+export async function setTradeTags(accountId: string, tradeId: string, tagIds: string[]): Promise<TradeResult> {
   const user = await requireUser();
-  try {
-    await requireAccountAccess(accountId);
-  } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
-    throw err;
-  }
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
 
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId }, select: { id: true } });
-  if (!existing) return { ok: false, formError: "Trade not found." };
+  if (!existing) return fail("Trade not found.");
 
   const owned = await assertTagsOwned(user.id, tagIds);
-  if (owned === null) return { ok: false, fieldErrors: { tagIds: ["One or more tags could not be found."] } };
+  if (owned === null) return failFields({ tagIds: ["One or more tags could not be found."] });
 
   await prisma.trade.update({
     where: { id: tradeId },
@@ -318,26 +309,22 @@ export async function setTradeTags(accountId: string, tradeId: string, tagIds: s
   });
 
   revalidateTradeViews(tradeId);
-  return { ok: true, id: tradeId };
+  return ok({ id: tradeId });
 }
 
 // ---------------------------------------------------------------------------
 // duplicateTrade — a fast way to log "another one of these, right now".
 // ---------------------------------------------------------------------------
 
-export async function duplicateTrade(accountId: string, tradeId: string): Promise<ActionResult> {
-  try {
-    await requireAccountAccess(accountId);
-  } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
-    throw err;
-  }
+export async function duplicateTrade(accountId: string, tradeId: string): Promise<TradeResult> {
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
 
   const existing = await prisma.trade.findFirst({
     where: { id: tradeId, accountId },
     include: { tradeTags: true },
   });
-  if (!existing) return { ok: false, formError: "Trade not found." };
+  if (!existing) return fail("Trade not found.");
 
   // A duplicate is deliberately a fresh, OPEN position: same symbol,
   // direction, size and planned stop/target, opened "now" — the setup you
@@ -363,5 +350,5 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
   });
 
   revalidateTradeViews(created.id);
-  return { ok: true, id: created.id };
+  return ok({ id: created.id });
 }

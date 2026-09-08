@@ -4,21 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-
-export interface ActionResult {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  formError?: string;
-}
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (out[key] ??= []).push(issue.message);
-  }
-  return out;
-}
+import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 
 function revalidateTags() {
   revalidatePath("/settings");
@@ -35,7 +21,7 @@ const createSchema = z.object({ name: nameSchema, kind: kindSchema, color: color
 
 export async function createTag(input: z.input<typeof createSchema>): Promise<ActionResult> {
   const parsed = createSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
   const user = await requireUser();
 
@@ -43,7 +29,7 @@ export async function createTag(input: z.input<typeof createSchema>): Promise<Ac
     where: { userId_kind_name: { userId: user.id, kind: parsed.data.kind, name: parsed.data.name } },
   });
   if (existing) {
-    return { ok: false, fieldErrors: { name: ["A tag with this name already exists in this group."] } };
+    return failFields({ name: ["A tag with this name already exists in this group."] });
   }
 
   const max = await prisma.tag.aggregate({
@@ -62,7 +48,7 @@ export async function createTag(input: z.input<typeof createSchema>): Promise<Ac
   });
 
   revalidateTags();
-  return { ok: true };
+  return ok();
 }
 
 const updateSchema = z.object({ name: nameSchema, color: colorSchema });
@@ -70,22 +56,22 @@ const updateSchema = z.object({ name: nameSchema, color: colorSchema });
 /** Renames and/or recolours a tag. Reordering is a separate action (`reorderTag`). */
 export async function updateTag(tagId: string, input: z.input<typeof updateSchema>): Promise<ActionResult> {
   const parsed = updateSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
   const user = await requireUser();
   const tag = await prisma.tag.findFirst({ where: { id: tagId, userId: user.id } });
-  if (!tag) return { ok: false, formError: "Tag not found." };
+  if (!tag) return fail("Tag not found.");
 
   const clash = await prisma.tag.findFirst({
     where: { userId: user.id, kind: tag.kind, name: parsed.data.name, NOT: { id: tagId } },
   });
   if (clash) {
-    return { ok: false, fieldErrors: { name: ["A tag with this name already exists in this group."] } };
+    return failFields({ name: ["A tag with this name already exists in this group."] });
   }
 
   await prisma.tag.update({ where: { id: tagId }, data: { name: parsed.data.name, color: parsed.data.color } });
   revalidateTags();
-  return { ok: true };
+  return ok();
 }
 
 /**
@@ -95,7 +81,7 @@ export async function updateTag(tagId: string, input: z.input<typeof updateSchem
 export async function reorderTag(tagId: string, direction: "up" | "down"): Promise<ActionResult> {
   const user = await requireUser();
   const tag = await prisma.tag.findFirst({ where: { id: tagId, userId: user.id } });
-  if (!tag) return { ok: false, formError: "Tag not found." };
+  if (!tag) return fail("Tag not found.");
 
   const neighbor = await prisma.tag.findFirst({
     where: {
@@ -105,7 +91,7 @@ export async function reorderTag(tagId: string, direction: "up" | "down"): Promi
     },
     orderBy: { sortOrder: direction === "up" ? "desc" : "asc" },
   });
-  if (!neighbor) return { ok: true };
+  if (!neighbor) return ok();
 
   await prisma.$transaction([
     prisma.tag.update({ where: { id: tag.id }, data: { sortOrder: neighbor.sortOrder } }),
@@ -113,7 +99,7 @@ export async function reorderTag(tagId: string, direction: "up" | "down"): Promi
   ]);
 
   revalidateTags();
-  return { ok: true };
+  return ok();
 }
 
 /** Deleting a tag cascades to `trade_tags` (schema `onDelete: Cascade`) — the
@@ -121,9 +107,9 @@ export async function reorderTag(tagId: string, direction: "up" | "down"): Promi
 export async function deleteTag(tagId: string): Promise<ActionResult> {
   const user = await requireUser();
   const tag = await prisma.tag.findFirst({ where: { id: tagId, userId: user.id } });
-  if (!tag) return { ok: false, formError: "Tag not found." };
+  if (!tag) return fail("Tag not found.");
 
   await prisma.tag.delete({ where: { id: tagId } });
   revalidateTags();
-  return { ok: true };
+  return ok();
 }

@@ -3,39 +3,15 @@
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { requireUser, requireAccountAccess, NotFoundError } from "@/lib/session";
+import { requireUser } from "@/lib/session";
+import { accountOrFailure } from "./guard";
 import { prisma } from "@/lib/db";
+import { failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { ACCOUNT_COOKIE } from "@/lib/active-account";
-
-export interface ActionResult {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  formError?: string;
-}
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (out[key] ??= []).push(issue.message);
-  }
-  return out;
-}
 
 /** `requireAccountAccess` throws NotFoundError for a missing/foreign account —
  * actions must never throw at a form, so every write funnels the lookup
  * through this instead. */
-async function accountOrError(accountId: string) {
-  try {
-    return { account: await requireAccountAccess(accountId) };
-  } catch (err) {
-    if (err instanceof NotFoundError) {
-      return { error: { ok: false, formError: "That account was not found." } as ActionResult };
-    }
-    throw err;
-  }
-}
-
 function revalidateAccounts() {
   revalidatePath("/accounts");
   // Equity/label/type shown in the account switcher & rail live in the shared layout.
@@ -70,7 +46,7 @@ export type AccountInput = z.input<typeof accountSchema>;
 
 export async function createAccount(input: AccountInput): Promise<ActionResult> {
   const parsed = accountSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
   const user = await requireUser();
 
@@ -89,15 +65,15 @@ export async function createAccount(input: AccountInput): Promise<ActionResult> 
   });
 
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }
 
 export async function updateAccount(accountId: string, input: AccountInput): Promise<ActionResult> {
   const parsed = accountSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
-  const { error } = await accountOrError(accountId);
-  if (error) return error;
+  const found = await accountOrFailure(accountId, "That account was not found.");
+  if ("failure" in found) return found.failure;
 
   await prisma.tradingAccount.update({
     where: { id: accountId },
@@ -114,7 +90,7 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
   });
 
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -122,12 +98,12 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
 // ---------------------------------------------------------------------------
 
 export async function archiveAccount(accountId: string, archived: boolean): Promise<ActionResult> {
-  const { error } = await accountOrError(accountId);
-  if (error) return error;
+  const found = await accountOrFailure(accountId, "That account was not found.");
+  if ("failure" in found) return found.failure;
 
   await prisma.tradingAccount.update({ where: { id: accountId }, data: { isArchived: archived } });
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }
 
 /**
@@ -136,8 +112,8 @@ export async function archiveAccount(accountId: string, archived: boolean): Prom
  * hundreds of trade rows. See docs/JOURNAL.md for the rationale.
  */
 export async function deleteAccount(accountId: string): Promise<ActionResult> {
-  const { error } = await accountOrError(accountId);
-  if (error) return error;
+  const found = await accountOrFailure(accountId, "That account was not found.");
+  if ("failure" in found) return found.failure;
 
   const tradeCount = await prisma.trade.count({ where: { accountId } });
   if (tradeCount > 0) {
@@ -149,7 +125,7 @@ export async function deleteAccount(accountId: string): Promise<ActionResult> {
 
   await prisma.tradingAccount.delete({ where: { id: accountId } });
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -179,10 +155,10 @@ export type BalanceEventInput = z.input<typeof balanceEventSchema>;
  */
 export async function addBalanceEvent(accountId: string, input: BalanceEventInput): Promise<ActionResult> {
   const parsed = balanceEventSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
 
-  const { error } = await accountOrError(accountId);
-  if (error) return error;
+  const found = await accountOrFailure(accountId, "That account was not found.");
+  if ("failure" in found) return found.failure;
 
   const magnitude = Math.abs(parsed.data.amount);
   const signedAmount =
@@ -203,16 +179,16 @@ export async function addBalanceEvent(accountId: string, input: BalanceEventInpu
   });
 
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }
 
 export async function deleteBalanceEvent(accountId: string, eventId: string): Promise<ActionResult> {
-  const { error } = await accountOrError(accountId);
-  if (error) return error;
+  const found = await accountOrFailure(accountId, "That account was not found.");
+  if ("failure" in found) return found.failure;
 
   await prisma.balanceEvent.deleteMany({ where: { id: eventId, accountId } });
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -221,8 +197,8 @@ export async function deleteBalanceEvent(accountId: string, eventId: string): Pr
 
 /** Sets the `ledger.account` cookie the whole app reads to scope trades/journal. */
 export async function setActiveAccount(accountId: string): Promise<ActionResult> {
-  const { error } = await accountOrError(accountId);
-  if (error) return error;
+  const found = await accountOrFailure(accountId, "That account was not found.");
+  if ("failure" in found) return found.failure;
 
   const jar = await cookies();
   jar.set(ACCOUNT_COOKIE, accountId, {
@@ -232,5 +208,5 @@ export async function setActiveAccount(accountId: string): Promise<ActionResult>
   });
 
   revalidateAccounts();
-  return { ok: true };
+  return ok();
 }

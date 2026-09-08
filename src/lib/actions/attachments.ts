@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
 
@@ -14,21 +15,6 @@ import { getStorage } from "@/lib/storage";
  * rather than throwing, since a thrown rejection has nothing to catch it on
  * the calling form's side.
  */
-
-export interface ActionResult {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  formError?: string;
-}
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (out[key] ??= []).push(issue.message);
-  }
-  return out;
-}
 
 /** Loads a trade scoped to the current user, or null. Every action below calls this before writing anything — see SCOPING RULE in lib/session.ts. */
 async function ownedTrade(userId: string, tradeId: string) {
@@ -66,15 +52,15 @@ export async function addExternalLink(
   url: string,
   kind: "BEFORE" | "AFTER" | "OTHER" = "OTHER",
   caption?: string,
-): Promise<ActionResult & { id?: string }> {
+): Promise<ActionResult<{ id: string }>> {
   const parsed = addExternalLinkSchema.safeParse({ tradeId, url, kind, caption });
   if (!parsed.success) {
-    return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+    return failFields(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
   const trade = await ownedTrade(user.id, parsed.data.tradeId);
-  if (!trade) return { ok: false, formError: "Trade not found." };
+  if (!trade) return fail("Trade not found.");
 
   const row = await prisma.attachment.create({
     data: {
@@ -101,12 +87,12 @@ const setCaptionSchema = z.object({
 export async function setCaption(attachmentId: string, caption: string | null): Promise<ActionResult> {
   const parsed = setCaptionSchema.safeParse({ attachmentId, caption });
   if (!parsed.success) {
-    return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+    return failFields(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
   const attachment = await ownedAttachment(user.id, parsed.data.attachmentId);
-  if (!attachment) return { ok: false, formError: "Attachment not found." };
+  if (!attachment) return fail("Attachment not found.");
 
   const value = parsed.data.caption?.trim();
   await prisma.attachment.update({
@@ -115,7 +101,7 @@ export async function setCaption(attachmentId: string, caption: string | null): 
   });
 
   revalidateTrade(attachment.tradeId);
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -130,17 +116,17 @@ const setKindSchema = z.object({
 export async function setAttachmentKind(attachmentId: string, kind: "BEFORE" | "AFTER" | "OTHER"): Promise<ActionResult> {
   const parsed = setKindSchema.safeParse({ attachmentId, kind });
   if (!parsed.success) {
-    return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+    return failFields(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
   const attachment = await ownedAttachment(user.id, parsed.data.attachmentId);
-  if (!attachment) return { ok: false, formError: "Attachment not found." };
+  if (!attachment) return fail("Attachment not found.");
 
   await prisma.attachment.update({ where: { id: attachment.id }, data: { kind: parsed.data.kind } });
 
   revalidateTrade(attachment.tradeId);
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -148,11 +134,11 @@ export async function setAttachmentKind(attachmentId: string, kind: "BEFORE" | "
 // ---------------------------------------------------------------------------
 
 export async function deleteAttachment(attachmentId: string): Promise<ActionResult> {
-  if (!attachmentId) return { ok: false, formError: "Missing attachment id." };
+  if (!attachmentId) return fail("Missing attachment id.");
 
   const user = await requireUser();
   const attachment = await ownedAttachment(user.id, attachmentId);
-  if (!attachment) return { ok: false, formError: "Attachment not found." };
+  if (!attachment) return fail("Attachment not found.");
 
   if (attachment.storageKey) {
     await getStorage().deleteObject(attachment.storageKey);
@@ -160,5 +146,5 @@ export async function deleteAttachment(attachmentId: string): Promise<ActionResu
   await prisma.attachment.delete({ where: { id: attachment.id } });
 
   revalidateTrade(attachment.tradeId);
-  return { ok: true };
+  return ok();
 }

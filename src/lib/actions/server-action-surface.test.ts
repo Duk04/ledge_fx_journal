@@ -64,7 +64,27 @@ const UNAUTHENTICATED_BY_DESIGN = new Set([
   'signOutAction', // tearing a session down needs no session
 ])
 
-const AUTH_FNS = ['requireUser', 'requireOwner', 'requireRole', 'requireVerifiedUser', 'requireAccountAccess']
+/**
+ * Calling any of these counts as authenticating.
+ *
+ * The first five are the DAL's own entry points. The last three live in
+ * `./guard` and exist only to convert what those throw into the
+ * action-result convention — `accountOrFailure` calls
+ * `requireAccountAccess`, `withOwner` calls `requireOwner`. They are listed
+ * explicitly rather than discovered, because this test reads source text and
+ * does not follow imports across modules; a shared helper added to
+ * `guard.ts` has to be named here too.
+ */
+const AUTH_FNS = [
+  'requireUser',
+  'requireOwner',
+  'requireRole',
+  'requireVerifiedUser',
+  'requireAccountAccess',
+  'accountOrFailure',
+  'withOwner',
+  'guardNotFound',
+]
 
 /** Every top-level function in `source`, as name -> body text. */
 function topLevelFunctions(source: string): Map<string, string> {
@@ -113,11 +133,12 @@ describe('server action surface', () => {
     it('authenticates in every exported action', () => {
       const fns = topLevelFunctions(source)
 
-      // Several modules funnel their ownership check through a module-local
-      // helper — accounts.ts's `accountOrError`, attachments.ts's
-      // `ownedTrade`/`ownedAttachment`, strategies.ts's `strategyOrError`.
-      // Calling one of those IS authenticating, so treat a call to a helper
-      // that authenticates as equivalent to authenticating directly.
+      // Some modules funnel their ownership check through a module-local
+      // helper — attachments.ts's `ownedTrade`/`ownedAttachment`,
+      // strategies.ts's `strategyOrError`. Calling one of those IS
+      // authenticating, so a call to a helper that authenticates counts as
+      // authenticating directly. (The account check that used to be copied
+      // per-module now lives in ./guard and is listed in AUTH_FNS above.)
       const authenticatingHelpers = [...fns.entries()]
         .filter(([, body]) => callsAny(body, AUTH_FNS))
         .map(([fnName]) => fnName)

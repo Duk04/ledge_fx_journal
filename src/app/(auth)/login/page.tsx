@@ -38,8 +38,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   async function handleSignIn(formData: FormData) {
     "use server";
     const result = await signInWithPassword(formData);
-    if (result?.error) {
-      const qs = new URLSearchParams({ next, error: result.error });
+    if (result && !result.ok) {
+      const qs = new URLSearchParams({ next, error: result.formError ?? "Something went wrong." });
       redirect(`/login?${qs.toString()}`);
     }
   }
@@ -47,8 +47,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   async function handleRegister(formData: FormData) {
     "use server";
     const result = await registerUser(formData);
-    if (result?.error) {
-      const qs = new URLSearchParams({ next, error: result.error });
+    if (result && !result.ok) {
+      const qs = new URLSearchParams({ next, error: result.formError ?? "Something went wrong." });
       redirect(`/login?${qs.toString()}`);
     }
   }

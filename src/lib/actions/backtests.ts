@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { Decimal } from "decimal.js";
 import { type Prisma, type Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { requireUser, NotFoundError } from "@/lib/session";
 import { getBars, lastCloseIn } from "@/lib/queries/candles";
 import { toRunStats } from "@/lib/queries/backtests";
@@ -14,21 +15,6 @@ import { toJournalTrade } from "@/lib/backtest";
 import type { SimTrade } from "@/lib/backtest/types";
 import { simRunResultSchema, simTradeSchema } from "@/lib/backtest/sim-trade-schema";
 import { BACKTEST_ACCOUNT_CURRENCY, resolveRunConversionRate } from "@/lib/backtest/run-setup";
-
-export interface ActionResult {
-  ok: boolean;
-  fieldErrors?: Record<string, string[]>;
-  formError?: string;
-}
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (out[key] ??= []).push(issue.message);
-  }
-  return out;
-}
 
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
 
@@ -57,10 +43,17 @@ const fillSchema = z.object({
  * design-decision section. Nothing in the run/replay forms asks for a
  * currency, so there is nowhere else this could come from. */
 
+/**
+ * The error arm is typed `ActionFailure`, not `ActionResult`. `ActionResult`
+ * includes the success arm, so returning one from a function declared
+ * `Promise<ActionResult<{ runId: string }>>` does not typecheck — the payload
+ * would be missing. `ActionFailure` is assignable to every `ActionResult<T>`,
+ * which is what a shared failure value needs to be.
+ */
 async function loadInstrumentOrError(symbol: string) {
   const instrument = await prisma.instrument.findUnique({ where: { symbol } });
   if (!instrument) {
-    return { error: { ok: false, formError: `"${symbol}" is not a known instrument.` } as ActionResult };
+    return { error: fail(`"${symbol}" is not a known instrument.`) };
   }
   return { instrument };
 }
@@ -92,9 +85,9 @@ export type CreateReplayInput = z.input<typeof createReplaySchema>;
  * No trades are simulated here — replay is driven bar-by-bar in the browser
  * (see components/backtest/replay); this just opens the ledger it writes to.
  */
-export async function createReplayRun(input: CreateReplayInput): Promise<ActionResult & { runId?: string }> {
+export async function createReplayRun(input: CreateReplayInput): Promise<ActionResult<{ runId: string }>> {
   const parsed = createReplaySchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
   const v = parsed.data;
 
   const user = await requireUser();
@@ -166,12 +159,12 @@ export async function createReplayRun(input: CreateReplayInput): Promise<ActionR
  */
 export async function recordReplayTrade(runId: string, trade: SimTrade): Promise<ActionResult> {
   const parsed = simTradeSchema.safeParse(trade);
-  if (!parsed.success) return { ok: false, formError: "That trade wasn't shaped like a finished trade." };
+  if (!parsed.success) return fail("That trade wasn't shaped like a finished trade.");
 
   const user = await requireUser();
   const run = await prisma.backtestRun.findFirst({ where: { id: runId, userId: user.id } });
-  if (!run) return { ok: false, formError: "That replay run was not found." };
-  if (run.kind !== "REPLAY") return { ok: false, formError: "This run isn't a replay session." };
+  if (!run) return fail("That replay run was not found.");
+  if (run.kind !== "REPLAY") return fail("This run isn't a replay session.");
 
   const journalInput = toJournalTrade(parsed.data, {
     accountId: run.accountId,
@@ -234,7 +227,7 @@ export async function recordReplayTrade(runId: string, trade: SimTrade): Promise
 
   revalidatePath("/backtest");
   revalidatePath(`/backtest/runs/${run.id}`);
-  return { ok: true };
+  return ok();
 }
 
 // ---------------------------------------------------------------------------
@@ -324,9 +317,9 @@ function simTradesToRows(trades: SimTrade[]): TradeRow[] {
  */
 export async function recordStrategyRun(
   input: RecordStrategyRunInput,
-): Promise<ActionResult & { runId?: string }> {
+): Promise<ActionResult<{ runId: string }>> {
   const parsed = recordStrategyRunSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
   const v = parsed.data;
 
   const user = await requireUser();
@@ -336,7 +329,7 @@ export async function recordStrategyRun(
 
   if (v.strategyId) {
     const strategy = await prisma.strategy.findFirst({ where: { id: v.strategyId, userId: user.id } });
-    if (!strategy) return { ok: false, formError: "That strategy was not found." };
+    if (!strategy) return fail("That strategy was not found.");
     strategyId = strategy.id;
     paramDefaults = (strategy.params as Record<string, number | string | boolean> | null) ?? {};
   }
@@ -485,10 +478,10 @@ export async function deleteRun(id: string): Promise<ActionResult> {
       }
     });
   } catch (err) {
-    if (err instanceof NotFoundError) return { ok: false, formError: err.message };
+    if (err instanceof NotFoundError) return fail(err.message);
     throw err;
   }
 
   revalidatePath("/backtest");
-  return { ok: true };
+  return ok();
 }

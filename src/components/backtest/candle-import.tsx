@@ -26,7 +26,8 @@ import {
   useToast,
 } from "@/components/ui";
 import { parseCandleCsv, type ParseCandleCsvResult } from "@/lib/candles/parse";
-import { importCandles, type ImportFailure, type ImportSuccess } from "@/lib/actions/candles";
+import { importCandles, type ImportReport } from "@/lib/actions/candles";
+import type { ActionResult } from "@/lib/actions/result";
 
 export interface InstrumentOption {
   symbol: string;
@@ -74,7 +75,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
   const [preview, setPreview] = React.useState<ParseCandleCsvResult | null>(null);
   const [previewError, setPreviewError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
-  const [result, setResult] = React.useState<ImportSuccess | ImportFailure | null>(null);
+  const [result, setResult] = React.useState<ActionResult<ImportReport> | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -365,7 +366,7 @@ function ParsePreview({ preview }: { preview: ParseCandleCsvResult }) {
   );
 }
 
-function ImportSummary({ result }: { result: ImportSuccess | ImportFailure }) {
+function ImportSummary({ result }: { result: ActionResult<ImportReport> }) {
   if (!result.ok) {
     return (
       <p className="rounded-[var(--radius-control)] border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">

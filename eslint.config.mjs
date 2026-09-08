@@ -21,9 +21,34 @@ const eslintConfig = defineConfig([
     // Everything except db.ts itself, which is the module that legitimately
     // constructs the singleton.
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/lib/db.ts"],
+    // db.ts constructs the singleton; result.ts is where ActionResult is
+    // DEFINED. Both are the modules their rules point everything else at.
+    ignores: ["src/lib/db.ts", "src/lib/actions/result.ts"],
     plugins: { import: importPlugin },
     rules: {
+      /**
+       * One `ActionResult`, imported from `@/lib/actions/result`.
+       *
+       * The type was declared TEN times across the action modules: seven
+       * byte-identical interfaces, one missing `fieldErrors`, one a proper
+       * discriminated union, and one a different shape entirely. Nothing but
+       * a convention stopped the eleventh — and the divergence was not
+       * cosmetic. `backtests.ts`'s `ActionResult & { runId?: string }` made
+       * `runId` optional on the FAILURE arm too, so `result.runId` typechecked
+       * on a value that could never have one.
+       */
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TSInterfaceDeclaration[id.name='ActionResult']",
+          message: "Import ActionResult from '@/lib/actions/result' rather than redeclaring it.",
+        },
+        {
+          selector: "TSTypeAliasDeclaration[id.name='ActionResult']",
+          message: "Import ActionResult from '@/lib/actions/result' rather than redeclaring it.",
+        },
+      ],
+
       /**
        * One Prisma client, one name. `src/lib/db.ts` owns the singleton;
        * constructing a second one opens a second connection pool, which on a

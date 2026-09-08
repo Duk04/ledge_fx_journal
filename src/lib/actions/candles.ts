@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { CandleSource, Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { fail, ok, type ActionResult } from "./result";
 import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
 import { parseCandleCsv } from "@/lib/candles/parse";
 import { upsertCandles } from "@/lib/candles/upsert";
@@ -14,13 +15,15 @@ import { upsertCandles } from "@/lib/candles/upsert";
  * rejected promise with.
  */
 
-export interface ActionResult {
-  ok: boolean;
-  formError?: string;
-}
-
-export interface ImportSuccess {
-  ok: true;
+/**
+ * What a successful import reports back.
+ *
+ * This was two hand-written interfaces, `ImportSuccess` ({ ok: true, ...this })
+ * and `ImportFailure` ({ ok: false, formError }) — which is `ActionResult<T>`
+ * spelled out longhand. Both names are still exported, as aliases, so the
+ * import panel that consumes them is untouched.
+ */
+export interface ImportReport {
   format: "MT5" | "GENERIC";
   inserted: number;
   updated: number;
@@ -28,10 +31,8 @@ export interface ImportSuccess {
   warnings: string[];
 }
 
-export interface ImportFailure {
-  ok: false;
-  formError: string;
-}
+export type ImportSuccess = { ok: true } & ImportReport;
+export type ImportFailure = { ok: false; formError: string };
 
 const TIMEFRAMES: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -50,12 +51,12 @@ function revalidateDataPage() {
  * ever be reached once that framework limit is raised to allow it through —
  * see docs/BACKTEST-DATA.md.
  */
-export async function importCandles(formData: FormData): Promise<ImportSuccess | ImportFailure> {
+export async function importCandles(formData: FormData): Promise<ActionResult<ImportReport>> {
   const user = await requireUser();
 
   const file = formData.get("file");
-  if (!(file instanceof File)) return { ok: false, formError: "Choose a CSV file to import." };
-  if (file.size === 0) return { ok: false, formError: "That file is empty." };
+  if (!(file instanceof File)) return fail("Choose a CSV file to import.");
+  if (file.size === 0) return fail("That file is empty.");
   if (file.size > MAX_UPLOAD_BYTES) {
     return {
       ok: false,
@@ -66,15 +67,15 @@ export async function importCandles(formData: FormData): Promise<ImportSuccess |
   const symbol = String(formData.get("symbol") ?? "")
     .trim()
     .toUpperCase();
-  if (!symbol) return { ok: false, formError: "Choose a symbol." };
+  if (!symbol) return fail("Choose a symbol.");
 
   const timeframeRaw = String(formData.get("timeframe") ?? "");
-  if (!TIMEFRAMES.includes(timeframeRaw as Timeframe)) return { ok: false, formError: "Choose a timeframe." };
+  if (!TIMEFRAMES.includes(timeframeRaw as Timeframe)) return fail("Choose a timeframe.");
   const timeframe = timeframeRaw as Timeframe;
 
   const tzOffsetMinutes = Number(formData.get("tzOffsetMinutes"));
   if (!Number.isFinite(tzOffsetMinutes)) {
-    return { ok: false, formError: "A timezone offset is required — see the hint next to that field." };
+    return fail("A timezone offset is required — see the hint next to that field.");
   }
 
   const instrument = await prisma.instrument.findUnique({ where: { symbol } });
@@ -112,14 +113,13 @@ export async function importCandles(formData: FormData): Promise<ImportSuccess |
 
   revalidateDataPage();
 
-  return {
-    ok: true,
+  return ok({
     format: parsed.format,
     inserted,
     updated,
     skipped: parsed.skipped,
     warnings: parsed.warnings,
-  };
+  });
 }
 
 /**
@@ -149,14 +149,14 @@ export async function deleteCandles(input: {
     await requireOwner();
   } catch (err) {
     if (err instanceof ForbiddenError) {
-      return { ok: false, formError: "Only the instance owner can delete shared market data." };
+      return fail("Only the instance owner can delete shared market data.");
     }
     throw err;
   }
 
   const { symbol, timeframe, from, to } = input;
   if (!symbol || !TIMEFRAMES.includes(timeframe)) {
-    return { ok: false, formError: "Symbol and timeframe are required." };
+    return fail("Symbol and timeframe are required.");
   }
 
   const tsFilter: { gte?: Date; lte?: Date } = {};
@@ -168,5 +168,5 @@ export async function deleteCandles(input: {
   });
 
   revalidateDataPage();
-  return { ok: true };
+  return ok();
 }
