@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useRouter } from "next/navigation";
 import { setActiveAccount } from "@/lib/actions/accounts";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";

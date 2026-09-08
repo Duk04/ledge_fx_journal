@@ -1,4 +1,3 @@
-import * as React from "react";
 import { cn } from "@/lib/cn";
 import { formatMoney, formatPercent, formatPips, formatR } from "@/lib/metrics/formatters";
 
