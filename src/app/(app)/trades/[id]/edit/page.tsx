@@ -3,7 +3,11 @@ import { Page } from "@/components/shell/page";
 import { SectionHead } from "@/components/ui/panel";
 import { requireUser } from "@/lib/session";
 import { getTrade, listInstruments, listTagsForUser } from "@/lib/queries/trades";
-import { TradeForm, isoToDatetimeLocal, type TradeFormInput } from "@/components/trades/trade-form";
+import { TradeForm } from "@/components/trades/trade-form";
+// From the pure module, not the client component: a server page reaching
+// into a "use client" file for a date helper pulls that whole module into
+// the server graph.
+import { isoToDatetimeLocal, type TradeFormInput } from "@/components/trades/trade-form-values";
 
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
