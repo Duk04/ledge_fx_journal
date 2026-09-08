@@ -114,12 +114,25 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
 
   // Debounce text search only — every other control is a discrete click and
   // should apply immediately.
+  //
+  // `update` and `current.q` belong in the dependency list, and leaving them
+  // out was a real bug rather than a lint technicality. `update` closes over
+  // `searchParams`; with `[searchDraft]` alone the effect did not re-run when
+  // any OTHER filter changed, so a pending 250ms timer still held the
+  // `update` built from the pre-change URL. Firing it rebuilt the query
+  // string from those stale params and silently reverted the filter the user
+  // had just set — visible only as a control that flicked back on its own.
+  //
+  // With them listed, changing another filter re-runs this effect and resets
+  // the timer, which is also the better behaviour: the search then applies
+  // against the URL as it actually is. No loop, because `update({ q })`
+  // changes `searchParams`, which re-runs this effect, which returns early
+  // now that `searchDraft === current.q`.
   React.useEffect(() => {
     if (searchDraft === current.q) return;
     const timer = window.setTimeout(() => update({ q: searchDraft }), 250);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchDraft]);
+  }, [searchDraft, current.q, update]);
 
   const hasFilters = FILTER_KEYS.some((key) => {
     const value = current[key as keyof typeof current];

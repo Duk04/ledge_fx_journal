@@ -146,9 +146,15 @@ export function AttachmentUploader({
     [tradeId, toast, online],
   );
 
-  function handleFiles(files: FileList | File[]) {
-    Array.from(files).forEach((file) => upload(file));
-  }
+  // `useCallback` purely so the paste effect below can depend on it
+  // honestly. It does nothing but fan out to `upload`, so its identity only
+  // ever changes when `upload`'s does.
+  const handleFiles = React.useCallback(
+    (files: FileList | File[]) => {
+      Array.from(files).forEach((file) => upload(file));
+    },
+    [upload],
+  );
 
   // Paste anywhere while this component is mounted. Scoped to image data
   // specifically, so pasting text into some unrelated field on the page is
@@ -171,8 +177,7 @@ export function AttachmentUploader({
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upload]);
+  }, [handleFiles]);
 
   function retry(pending: PendingUpload) {
     upload(pending.file, pending.tempId);
@@ -441,7 +446,7 @@ function AttachmentTile({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent size="lg" className="max-h-[90vh]">
           {src ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element -- a full-size lightbox of an attachment whose dimensions are unknown until it loads, served from our own authenticated route or an arbitrary https URL. next/image can optimise neither.
             <img src={src} alt={attachment.caption ?? "Trade screenshot"} className="max-h-[85vh] w-full object-contain" />
           ) : null}
           {caption ? <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{caption}</p> : null}

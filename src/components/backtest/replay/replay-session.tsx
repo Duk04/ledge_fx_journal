@@ -114,6 +114,34 @@ export function ReplaySession({
   const digits = instrument.digits;
   const canOrder = !position && !pendingOrder;
 
+  /**
+   * Declared above the keyboard effect, and memoised, so that effect can list
+   * it as a dependency.
+   *
+   * It previously sat below and was excluded via a suppression, on the
+   * reasoning that every value it reads (`lots`, `stopLoss`, `takeProfit`,
+   * `canOrder`) was already in the effect's dependency list — which was true,
+   * and is exactly the kind of correctness that stops being true the moment
+   * someone adds a fifth value here and does not think to update a list in
+   * another part of the file. `toast`, `buy` and `sell` were already
+   * missing from it.
+   */
+  const submitOrder = React.useCallback(
+    (side: "LONG" | "SHORT") => {
+      const lotsNum = Number(lots);
+      if (!Number.isFinite(lotsNum) || lotsNum <= 0) {
+        toast({ title: "Enter a lot size first", tone: "warn" });
+        return;
+      }
+      const sl = stopLoss.trim() === "" ? undefined : Number(stopLoss);
+      const tp = takeProfit.trim() === "" ? undefined : Number(takeProfit);
+      const order = { lots: lotsNum, stopLoss: sl, takeProfit: tp };
+      if (side === "LONG") buy(order);
+      else sell(order);
+    },
+    [lots, stopLoss, takeProfit, toast, buy, sell],
+  );
+
   // -------------------------------------------------------------- keyboard
   React.useEffect(() => {
     function isTyping(target: EventTarget | null) {
@@ -147,24 +175,11 @@ export function ReplaySession({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-    // submitOrder is stable enough in practice (reads refs-through-state each
-    // render via closure) — re-subscribing on every keystroke in the lots/SL/TP
-    // fields would be wasteful for a listener this cheap to recreate anyway.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [togglePlaying, stepForward, stepBack, canOrder, lots, stopLoss, takeProfit]);
-
-  function submitOrder(side: "LONG" | "SHORT") {
-    const lotsNum = Number(lots);
-    if (!Number.isFinite(lotsNum) || lotsNum <= 0) {
-      toast({ title: "Enter a lot size first", tone: "warn" });
-      return;
-    }
-    const sl = stopLoss.trim() === "" ? undefined : Number(stopLoss);
-    const tp = takeProfit.trim() === "" ? undefined : Number(takeProfit);
-    const order = { lots: lotsNum, stopLoss: sl, takeProfit: tp };
-    if (side === "LONG") buy(order);
-    else sell(order);
-  }
+    // Re-subscribes whenever a lots/SL/TP keystroke changes `submitOrder`.
+    // That is a `removeEventListener` plus an `addEventListener` on one
+    // `window` listener — the original comment was right that it is cheap,
+    // and it is now correct as well as cheap.
+  }, [togglePlaying, stepForward, stepBack, canOrder, submitOrder]);
 
   async function handleSaveToJournal() {
     setFinishing(true);

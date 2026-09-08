@@ -74,15 +74,28 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
   // is impure, and the timer only needs to start once the toast is on screen.
   const startedAt = React.useRef(0);
 
+  // `onDismiss` arrives as a fresh inline closure from the provider on every
+  // render, so depending on it directly would restart the dismiss timer each
+  // time the provider re-rendered — a toast that never disappears. Held in a
+  // ref instead, updated after commit, so the timeout always calls the
+  // current one while the effect itself only re-runs when `paused` changes.
+  //
+  // (Excluding it from the dependency list was the right call; suppressing
+  // the lint rule to express that was not, since the next reader cannot tell
+  // a deliberate omission from an oversight.)
+  const onDismissRef = React.useRef(onDismiss);
+  React.useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
   React.useEffect(() => {
     if (paused) return;
     startedAt.current = Date.now();
-    const timer = window.setTimeout(onDismiss, remaining.current);
+    const timer = window.setTimeout(() => onDismissRef.current(), remaining.current);
     return () => {
       window.clearTimeout(timer);
       remaining.current = Math.max(0, remaining.current - (Date.now() - startedAt.current));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused]);
 
   return (

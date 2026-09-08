@@ -188,7 +188,7 @@ export function TradeForm({
     } catch {
       /* localStorage unavailable (private mode, blocked) — fine, just skip prefill */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only prefill for a new trade. The only missing dep is `form`, which react-hook-form guarantees is stable; adding it would re-run the prefill and overwrite what the user has typed.
   }, [mode]);
 
   // `useWatch` rather than `form.watch()`: it's a real hook React (and its
