@@ -1,0 +1,8 @@
+# A `vercel deploy` from a laptop uploads the working tree. Secrets and local
+# state never belong in it: production reads its environment from Vercel.
+.env
+.env.*
+!.env.example
+.uploads
+test-results
+playwright-report
