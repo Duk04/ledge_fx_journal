@@ -260,3 +260,20 @@ describe("computeRiskGuard — miscellaneous", () => {
     expect(types).toContain("NO_STOP");
   });
 });
+
+describe("account daily loss limit", () => {
+  const base = { startingBalance: 100_000, riskPerTradePct: 1, equity: 100_000 };
+  const loss = (n: number) => ({ id: String(n), netPnl: n, riskAmount: 500, hasStop: true });
+
+  it("uses the account's limit, as a share of the starting balance, when set", () => {
+    const under = computeRiskGuard({ ...base, dailyLossLimitPct: 5, trades: [loss(-4000)] });
+    expect(under.breaches.map((b) => b.type)).not.toContain("DAILY_LOSS_LIMIT");
+    const at = computeRiskGuard({ ...base, dailyLossLimitPct: 5, trades: [loss(-5000)] });
+    expect(at.breaches.find((b) => b.type === "DAILY_LOSS_LIMIT")?.message).toMatch(/5% daily loss limit/);
+  });
+
+  it("falls back to the 3x-per-trade-risk heuristic without one", () => {
+    const r = computeRiskGuard({ ...base, trades: [loss(-3000)] });
+    expect(r.breaches.map((b) => b.type)).toContain("DAILY_LOSS_LIMIT");
+  });
+});

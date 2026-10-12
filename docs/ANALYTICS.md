@@ -109,3 +109,45 @@ bar at the bottom" (a big win) from "big bar at the top" (a big loss).
   main summary, so it moves with the range picker — unlike the open
   positions / today-week-month panels next to it on the page, which are
   deliberately range-independent (see above).
+
+## The Periods tab
+
+`src/lib/queries/analytics/periods.ts`, rendered by
+`src/components/dashboard/periods-view.tsx`. Three reports:
+
+- **By month** — net P&L per calendar month, all time, bucketed by **close**
+  date in the user's timezone (a month's P&L is what was realised in it — the
+  daily-P&L convention). Not range-scoped: the grid *is* the time axis.
+- **Against the previous period** — the selected range's summary next to
+  the window of equal length immediately before it, by **open** date like
+  every other range-scoped report, so its "this range" column matches
+  Breakdowns. "All" has nothing before it and says so.
+- **Exit efficiency** — MAE/MFE in R, over closed trades in range that have
+  both prices and a stop: how far winners went against you first (stop
+  placement), the average best excursion against the average realised R,
+  and the share of the available move winners kept. R is measured against
+  the initial stop (`docs/METRICS.md`).
+
+MAE/MFE prices are entered on the trade form or measured from stored M1
+candles ("Measure from candles" on a closed trade's page,
+`src/lib/metrics/excursion.ts`). Only bars wholly inside the holding period
+are read — the entry and exit bars contain prices from before the fill and
+after the close — and the measurement is refused, not guessed, when the
+candles don't cover the trade.
+
+## The challenge panel (prop-firm rules)
+
+An account can carry evaluation rules — daily loss limit, max drawdown
+(static from the starting balance, or trailing the highest closed balance),
+profit target, minimum trading days — set in the account dialog. When any is
+set, the dashboard shows a Challenge panel (`src/lib/prop.ts`):
+
+- All-time and never range-scoped: an evaluation is one continuous thing.
+- Percentages are of the **starting balance**, as the firms define them.
+- Realised only: the journal has no live prices, so a floating loss on an
+  open position does not count until it closes. The panel says so.
+- A breach is sticky — a balance that closed below the floor once has failed,
+  however it recovered.
+- The risk guard (`src/lib/risk.ts`) uses the account's daily loss limit in
+  place of its own heuristic when one is set, so the two never disagree about
+  whether today's limit is gone.

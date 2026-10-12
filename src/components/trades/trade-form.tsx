@@ -41,6 +41,8 @@ const RESPONSIVE_HEIGHT = "h-control-lg sm:h-control";
 
 /** Fields rendered inside the collapsible "Discipline & notes" panel. */
 const ADVANCED_FIELDS = [
+  "maePrice",
+  "mfePrice",
   "commission",
   "swap",
   "followedPlan",
@@ -430,6 +432,20 @@ export function TradeForm({
         </PanelHeader>
         {panelOpen ? (
           <PanelBody id={advancedId} className="flex flex-col gap-4">
+            <FieldRow>
+              <Field>
+                <FieldLabel optional>Worst price (MAE)</FieldLabel>
+                <NumberInput placeholder="0.00000" aria-invalid={!!errors.maePrice} {...form.register("maePrice")} />
+                <FieldHint>The furthest price went against you while open.</FieldHint>
+                <FieldError>{errors.maePrice?.message}</FieldError>
+              </Field>
+              <Field>
+                <FieldLabel optional>Best price (MFE)</FieldLabel>
+                <NumberInput placeholder="0.00000" aria-invalid={!!errors.mfePrice} {...form.register("mfePrice")} />
+                <FieldHint>The furthest it went in your favour. Or fill both from candles on the trade page.</FieldHint>
+                <FieldError>{errors.mfePrice?.message}</FieldError>
+              </Field>
+            </FieldRow>
             <FieldRow>
               <Field>
                 <FieldLabel optional>Commission</FieldLabel>

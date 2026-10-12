@@ -35,6 +35,7 @@ export type {
   MaxDrawdownDTO,
   OpenTrade,
   OverviewData,
+  PropDTO,
   RecentTrade,
 } from "./overview";
 
@@ -43,3 +44,6 @@ export type { Breakdowns } from "./breakdowns";
 
 export { heatmap, rHistogram } from "./distributions";
 export type { HeatmapCell, RHistogramBucket, RHistogramResult, TradeExtreme } from "./distributions";
+
+export { periods } from "./periods";
+export type { ExcursionStats, MonthCell, PeriodComparison, PeriodsData, YearRow } from "./periods";

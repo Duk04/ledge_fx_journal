@@ -72,6 +72,9 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
       // Where the stop was at entry; R is measured from it. Blank = same as
       // the stop loss (lib/metrics/trade.ts, riskStop).
       initialStopLoss: optionalPositive("Initial stop must be greater than 0"),
+      // Worst / best price while open (MAE / MFE) — lib/metrics/excursion.ts.
+      maePrice: optionalPositive("Worst price must be greater than 0"),
+      mfePrice: optionalPositive("Best price must be greater than 0"),
       takeProfit: optionalPositive("Take profit must be greater than 0"),
 
       volumeLots: z.preprocess(
@@ -153,6 +156,8 @@ const SCALAR_KEYS = [
   "exitPrice",
   "stopLoss",
   "initialStopLoss",
+  "maePrice",
+  "mfePrice",
   "takeProfit",
   "volumeLots",
   "commission",

@@ -38,7 +38,7 @@ test("log a closed trade and see computed P&L, R and session", async ({ page }) 
   await page.getByLabel("Closed at").fill("2026-03-04T23:00");
   await page.getByRole("button", { name: /Log trade/ }).click();
 
-  await expect(page).toHaveURL(/\/trades\/[^/]+$/);
+  await expect(page).toHaveURL(/\/trades\/(?!new$)[^/]+$/);
   await expect(fact(page, "Net P&L")).toContainText("$200.00");
   await expect(fact(page, "R multiple")).toContainText("+2.00R");
   await expect(fact(page, "Pips")).toContainText("20");

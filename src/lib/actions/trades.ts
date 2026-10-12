@@ -144,6 +144,8 @@ export async function createTrade(accountId: string, formData: FormData): Promis
       exitPrice: parsed.values.exitPrice?.toString() ?? null,
       stopLoss: parsed.values.stopLoss?.toString() ?? null,
       initialStopLoss: (parsed.values.initialStopLoss ?? parsed.values.stopLoss)?.toString() ?? null,
+      maePrice: parsed.values.maePrice?.toString() ?? null,
+      mfePrice: parsed.values.mfePrice?.toString() ?? null,
       takeProfit: parsed.values.takeProfit?.toString() ?? null,
       volumeLots: parsed.values.volumeLots.toString(),
       commission: (parsed.values.commission ?? 0).toString(),
@@ -197,6 +199,8 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
     initialStopLoss:
       (parsed.values.initialStopLoss ?? existing.initialStopLoss ?? parsed.values.stopLoss)?.toString() ?? null,
     takeProfit: parsed.values.takeProfit?.toString() ?? null,
+    maePrice: parsed.values.maePrice?.toString() ?? null,
+    mfePrice: parsed.values.mfePrice?.toString() ?? null,
     commission: (parsed.values.commission ?? 0).toString(),
     swap: (parsed.values.swap ?? 0).toString(),
     conversionRate: parsed.values.conversionRate?.toString() ?? null,

@@ -30,6 +30,8 @@ export interface TradeFormInput {
   exitPrice: string;
   stopLoss: string;
   initialStopLoss: string;
+  maePrice: string;
+  mfePrice: string;
   takeProfit: string;
   volumeLots: string;
   commission: string;
@@ -105,6 +107,8 @@ export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeForm
     exitPrice: "",
     stopLoss: "",
     initialStopLoss: "",
+    maePrice: "",
+    mfePrice: "",
     takeProfit: "",
     volumeLots: "",
     commission: "",
@@ -130,6 +134,8 @@ export function buildFormData(values: TradeFormInput): FormData {
   if (values.exitPrice) fd.set("exitPrice", values.exitPrice);
   if (values.stopLoss) fd.set("stopLoss", values.stopLoss);
   if (values.initialStopLoss) fd.set("initialStopLoss", values.initialStopLoss);
+  if (values.maePrice) fd.set("maePrice", values.maePrice);
+  if (values.mfePrice) fd.set("mfePrice", values.mfePrice);
   if (values.takeProfit) fd.set("takeProfit", values.takeProfit);
   fd.set("volumeLots", values.volumeLots);
   if (values.commission) fd.set("commission", values.commission);

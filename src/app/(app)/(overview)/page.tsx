@@ -8,6 +8,7 @@ import { OpenPositionsPanel } from "@/components/dashboard/open-positions-panel"
 import { PnlRows } from "@/components/dashboard/pnl-rows";
 import { DisciplinePanel } from "@/components/dashboard/discipline-panel";
 import { RecentTradesTable } from "@/components/dashboard/recent-trades-table";
+import { ChallengePanel } from "@/components/dashboard/challenge-panel";
 import { EquityChart } from "@/components/charts/equity-chart";
 import { DrawdownChart } from "@/components/charts/drawdown-chart";
 import { DailyPnlChart } from "@/components/charts/daily-pnl-chart";
@@ -97,6 +98,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </Panel>
 
         <div className="flex flex-col gap-4 lg:col-span-4">
+          {data.prop ? <ChallengePanel prop={data.prop} currency={data.currency} /> : null}
+
           <Panel>
             <PanelHeader title="Open positions" caption={String(data.openTrades.length)} />
             <PanelBody padded={false}>

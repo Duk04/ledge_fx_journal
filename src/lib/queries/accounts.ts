@@ -233,10 +233,19 @@ export async function listBalanceEventsFlat(userId: string) {
   });
 }
 
-/** Per-account risk-per-trade percentages, for a page that renders them all. */
+/** Per-account risk settings — risk per trade and the challenge rules — for
+ * a page that renders them all. */
 export async function listAccountRiskSettings(userId: string) {
   return prisma.tradingAccount.findMany({
     where: { userId },
-    select: { id: true, riskPerTradePct: true },
+    select: {
+      id: true,
+      riskPerTradePct: true,
+      dailyLossLimitPct: true,
+      maxDrawdownPct: true,
+      drawdownMode: true,
+      profitTargetPct: true,
+      minTradingDays: true,
+    },
   });
 }

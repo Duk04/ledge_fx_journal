@@ -19,6 +19,8 @@ import {
   SelectContent,
   SelectItem,
   Button,
+  Segmented,
+  SegmentedItem,
   useToast,
 } from "@/components/ui";
 import { createAccount, updateAccount, type AccountInput } from "@/lib/actions/accounts";
@@ -31,6 +33,11 @@ type FormValues = {
   currency: string;
   startingBalance: string;
   riskPerTradePct: string;
+  dailyLossLimitPct: string;
+  maxDrawdownPct: string;
+  drawdownMode: "STATIC" | "TRAILING";
+  profitTargetPct: string;
+  minTradingDays: string;
 };
 
 const PLATFORMS: { value: FormValues["platform"]; label: string }[] = [
@@ -55,6 +62,11 @@ export type EditableAccount = {
   currency: string;
   startingBalance: string;
   riskPerTradePct: string | null;
+  dailyLossLimitPct: string | null;
+  maxDrawdownPct: string | null;
+  drawdownMode: "STATIC" | "TRAILING";
+  profitTargetPct: string | null;
+  minTradingDays: number | null;
 };
 
 /**
@@ -92,6 +104,11 @@ export function AccountFormDialog({
           currency: account.currency,
           startingBalance: account.startingBalance,
           riskPerTradePct: account.riskPerTradePct ?? "",
+          dailyLossLimitPct: account.dailyLossLimitPct ?? "",
+          maxDrawdownPct: account.maxDrawdownPct ?? "",
+          drawdownMode: account.drawdownMode,
+          profitTargetPct: account.profitTargetPct ?? "",
+          minTradingDays: account.minTradingDays === null ? "" : String(account.minTradingDays),
         }
       : {
           label: "",
@@ -101,6 +118,11 @@ export function AccountFormDialog({
           currency: "USD",
           startingBalance: "10000",
           riskPerTradePct: "",
+          dailyLossLimitPct: "",
+          maxDrawdownPct: "",
+          drawdownMode: "STATIC",
+          profitTargetPct: "",
+          minTradingDays: "",
         },
   });
 
@@ -118,6 +140,11 @@ export function AccountFormDialog({
       currency: values.currency,
       startingBalance: values.startingBalance,
       riskPerTradePct: values.riskPerTradePct === "" ? undefined : values.riskPerTradePct,
+      dailyLossLimitPct: values.dailyLossLimitPct,
+      maxDrawdownPct: values.maxDrawdownPct,
+      drawdownMode: values.drawdownMode,
+      profitTargetPct: values.profitTargetPct,
+      minTradingDays: values.minTradingDays,
     };
 
     const result = account ? await updateAccount(account.id, input) : await createAccount(input);
@@ -225,6 +252,57 @@ export function AccountFormDialog({
                 <FieldError>{errors.riskPerTradePct?.message}</FieldError>
               </Field>
             </FieldRow>
+
+            {/* Prop-firm challenge rules. Leave all blank for a normal account;
+                set any of them and the dashboard shows a challenge panel. */}
+            <div className="flex flex-col gap-3 border-t border-line pt-3">
+              <div>
+                <p className="text-xs font-medium text-ink">Challenge rules</p>
+                <p className="text-2xs text-ink-3">
+                  For a prop-firm evaluation. Percentages are of the starting balance; leave blank to ignore.
+                </p>
+              </div>
+              <FieldRow>
+                <Field>
+                  <FieldLabel optional>Daily loss limit</FieldLabel>
+                  <NumberInput {...register("dailyLossLimitPct")} unit="%" placeholder="5" />
+                  <FieldError>{errors.dailyLossLimitPct?.message}</FieldError>
+                </Field>
+                <Field>
+                  <FieldLabel optional>Profit target</FieldLabel>
+                  <NumberInput {...register("profitTargetPct")} unit="%" placeholder="10" />
+                  <FieldError>{errors.profitTargetPct?.message}</FieldError>
+                </Field>
+              </FieldRow>
+              <FieldRow>
+                <Field>
+                  <FieldLabel optional>Max drawdown</FieldLabel>
+                  <NumberInput {...register("maxDrawdownPct")} unit="%" placeholder="10" />
+                  <FieldError>{errors.maxDrawdownPct?.message}</FieldError>
+                </Field>
+                <Field>
+                  <FieldLabel>Drawdown measured from</FieldLabel>
+                  <Controller
+                    control={control}
+                    name="drawdownMode"
+                    render={({ field }) => (
+                      <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)}>
+                        <SegmentedItem value="STATIC">Starting balance</SegmentedItem>
+                        <SegmentedItem value="TRAILING">Highest balance</SegmentedItem>
+                      </Segmented>
+                    )}
+                  />
+                </Field>
+              </FieldRow>
+              <FieldRow>
+                <Field>
+                  <FieldLabel optional>Minimum trading days</FieldLabel>
+                  <NumberInput {...register("minTradingDays")} unit="days" placeholder="4" inputMode="numeric" />
+                  <FieldError>{errors.minTradingDays?.message}</FieldError>
+                </Field>
+                <div aria-hidden />
+              </FieldRow>
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>

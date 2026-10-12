@@ -3,6 +3,9 @@ import type { Direction } from "@prisma/client";
 import { type DateWindow } from "@/lib/range";
 import { toTradeRow } from "@/lib/trade-service";
 import { TZDate } from "@date-fns/tz";
+import { format } from "date-fns";
+import type { Decimal } from "decimal.js";
+import { computePropStatus, hasPropRules, type PropRules } from "@/lib/prop";
 import { summarize, equityCurve, drawdownSeries, maxDrawdown, dailyPnl, ZERO } from "@/lib/metrics";
 import type { BalanceEvent, TradeRow } from "@/lib/metrics/types";
 
@@ -65,8 +68,26 @@ export interface MaxDrawdownDTO {
   lengthDays: number | null;
 }
 
+/** The prop-challenge panel's numbers (src/lib/prop.ts), plain for the client. */
+export interface PropDTO {
+  verdict: "IN_PROGRESS" | "PASSED" | "FAILED";
+  balance: number;
+  dailyLoss: { progress: number; threshold: number; remaining: number; breached: boolean } | null;
+  maxDrawdown: {
+    mode: "STATIC" | "TRAILING";
+    floor: number;
+    progress: number;
+    remaining: number;
+    breached: boolean;
+  } | null;
+  profitTarget: { progress: number; threshold: number; remaining: number; met: boolean } | null;
+  minTradingDays: { required: number; done: number; met: boolean } | null;
+}
+
 export interface OverviewData {
   currency: string;
+  /** null when the account has no challenge rules set. */
+  prop: PropDTO | null;
   summary: SerializedSummary;
   equity: EquityPointDTO[];
   /** Balance the moment before the window opened — draw the chart's reference line here, not at the account's all-time starting balance. */
@@ -177,6 +198,47 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
     }));
 
   const todayPnl = pnlSince(allRows, periodStart("day", timezone, now));
+
+  // --- Prop challenge: all time, never range-scoped -----------------------------
+  const rules: PropRules = {
+    dailyLossLimitPct: toNum(account.dailyLossLimitPct),
+    maxDrawdownPct: toNum(account.maxDrawdownPct),
+    drawdownMode: account.drawdownMode,
+    profitTargetPct: toNum(account.profitTargetPct),
+    minTradingDays: account.minTradingDays,
+  };
+  let prop: PropDTO | null = null;
+  if (hasPropRules(rules)) {
+    const tradingDays = new Set(
+      trades.filter((t) => t.closedAt !== null).map((t) => format(new TZDate(t.closedAt!, timezone), "yyyy-MM-dd")),
+    ).size;
+    const s = computePropStatus({ startingBalance, curve: fullCurve, todayPnl, tradingDays, rules });
+    const n = (d: Decimal) => toNum(d) ?? 0;
+    prop = {
+      verdict: s.verdict,
+      balance: n(s.balance),
+      dailyLoss: s.dailyLoss && {
+        progress: s.dailyLoss.progress,
+        threshold: n(s.dailyLoss.threshold),
+        remaining: n(s.dailyLoss.remaining),
+        breached: s.dailyLoss.breached,
+      },
+      maxDrawdown: s.maxDrawdown && {
+        mode: s.maxDrawdown.mode,
+        floor: n(s.maxDrawdown.floor),
+        progress: s.maxDrawdown.progress,
+        remaining: n(s.maxDrawdown.remaining),
+        breached: s.maxDrawdown.breached,
+      },
+      profitTarget: s.profitTarget && {
+        progress: s.profitTarget.progress,
+        threshold: n(s.profitTarget.threshold),
+        remaining: n(s.profitTarget.remaining),
+        met: s.profitTarget.met,
+      },
+      minTradingDays: s.minTradingDays,
+    };
+  }
   const weekPnl = pnlSince(allRows, periodStart("week", timezone, now));
   const monthPnl = pnlSince(allRows, periodStart("month", timezone, now));
 
@@ -194,6 +256,7 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
 
   return {
     currency: account.currency,
+    prop,
     summary: serializeSummary(summary),
     equity: windowCurve.map((p) => ({
       at: p.at.toISOString(),

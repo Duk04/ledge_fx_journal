@@ -5,13 +5,14 @@ import { Page, Grid } from "@/components/shell/page";
 import { Panel, PanelBody, PanelHeader, SectionHead } from "@/components/ui/panel";
 import { DirectionBadge, Badge, SessionBadge, TagChip } from "@/components/ui/badge";
 import { Money, Pips, RValue } from "@/components/ui/value";
-import { formatDuration, formatInZone, formatPrice } from "@/lib/metrics/formatters";
+import { formatDuration, formatInZone, formatPrice, formatR } from "@/lib/metrics/formatters";
 import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
 import { ScreenshotGallery } from "@/components/trades/screenshot-gallery";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
 import { ExecutionsPanel } from "@/components/trades/executions-panel";
+import { ExcursionFromCandlesButton } from "@/components/trades/excursion-button";
 
 function outcomeOf(
   status: string,
@@ -157,6 +158,27 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
                 label="Planned R:R"
                 value={trade.recomputed.plannedRR ? `${Number(trade.recomputed.plannedRR).toFixed(2)}:1` : "—"}
               />
+              <FactRow
+                label="Worst price (MAE)"
+                value={
+                  trade.maePrice !== null
+                    ? `${formatPrice(Number(trade.maePrice), trade.digits)}${trade.maeR !== null ? ` · ${formatR(trade.maeR)}` : ""}`
+                    : "—"
+                }
+              />
+              <FactRow
+                label="Best price (MFE)"
+                value={
+                  trade.mfePrice !== null
+                    ? `${formatPrice(Number(trade.mfePrice), trade.digits)}${trade.mfeR !== null ? ` · ${formatR(trade.mfeR)}` : ""}`
+                    : "—"
+                }
+              />
+              {trade.status === "CLOSED" && (trade.maePrice === null || trade.mfePrice === null) ? (
+                <div className="flex justify-end">
+                  <ExcursionFromCandlesButton accountId={trade.accountId} tradeId={trade.id} />
+                </div>
+              ) : null}
               <FactRow label="Risk amount" value={<Money value={trade.riskAmount} currency={trade.currency} />} />
               <div className="my-1 h-px bg-line" />
               <FactRow

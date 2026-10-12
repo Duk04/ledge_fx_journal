@@ -14,7 +14,7 @@ test("partial close keeps the trade open; closing the rest computes P&L from bot
   await page.getByLabel("Stop loss").fill("1.09900");
   await page.getByLabel("Opened at").fill("2026-03-04T17:00");
   await page.getByRole("button", { name: /Log trade/ }).click();
-  await expect(page).toHaveURL(/\/trades\/[^/]+$/);
+  await expect(page).toHaveURL(/\/trades\/(?!new$)[^/]+$/);
 
   const closeOnce = async (lots: string | null, price: string, at: string) => {
     await page.getByRole("button", { name: "Close trade" }).click();

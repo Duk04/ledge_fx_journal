@@ -20,6 +20,7 @@ import { ExtremesTable } from "@/components/dashboard/extremes-table";
 import { RHistogram } from "@/components/charts/r-histogram";
 import { SessionHeatmap } from "@/components/charts/session-heatmap";
 import { HourOfDayChart } from "@/components/charts/hour-of-day-chart";
+import { PeriodsView } from "@/components/dashboard/periods-view";
 import { requireUser, requireAccountAccess } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import {
@@ -28,6 +29,7 @@ import {
   rHistogram,
   heatmap,
   holdingBuckets,
+  periods,
   resolveRange,
   isRangeKey,
   type RangeKey,
@@ -54,12 +56,13 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   // React-cached per (userId, accountId) for this request, so these five
   // calls share the underlying trade/account query instead of issuing it
   // five times.
-  const [ov, bd, rh, hm, hb] = await Promise.all([
+  const [ov, bd, rh, hm, hb, pd] = await Promise.all([
     overview(ctx),
     breakdowns(ctx),
     rHistogram(ctx),
     heatmap(ctx),
     holdingBuckets(ctx),
+    periods(ctx),
   ]);
 
   const currency = ov.currency;
@@ -74,6 +77,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           <TabsTrigger value="breakdowns">Breakdowns</TabsTrigger>
           <TabsTrigger value="distribution">Distribution</TabsTrigger>
           <TabsTrigger value="timing">Timing</TabsTrigger>
+          <TabsTrigger value="periods">Periods</TabsTrigger>
         </TabsList>
 
         <TabsContent value="breakdowns" className="flex flex-col gap-4 pt-4">
@@ -184,6 +188,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               </PanelBody>
             </Panel>
           </div>
+        </TabsContent>
+
+        <TabsContent value="periods" className="flex flex-col gap-4 pt-4">
+          <PeriodsView data={pd} currency={currency} />
         </TabsContent>
       </Tabs>
     </Page>

@@ -47,6 +47,7 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
     trades,
     startingBalance,
     riskPerTradePct: toNum(account.riskPerTradePct),
+    dailyLossLimitPct: toNum(account.dailyLossLimitPct),
     equity,
   });
 

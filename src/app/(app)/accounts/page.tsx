@@ -19,7 +19,7 @@ export default async function AccountsPage() {
     listAccountRiskSettings(user.id),
   ]);
 
-  const riskByAccount = new Map(riskRows.map((r) => [r.id, toPlain(r.riskPerTradePct)]));
+  const riskByAccount = new Map(riskRows.map((r) => [r.id, r]));
 
   function bucket<T>(map: Map<string, T[]>, key: string, value: T) {
     const list = map.get(key);
@@ -53,7 +53,12 @@ export default async function AccountsPage() {
       accountType: a.accountType,
       currency: a.currency,
       startingBalance: a.startingBalance,
-      riskPerTradePct: riskByAccount.get(a.id) ?? null,
+      riskPerTradePct: toPlain(riskByAccount.get(a.id)?.riskPerTradePct ?? null),
+      dailyLossLimitPct: toPlain(riskByAccount.get(a.id)?.dailyLossLimitPct ?? null),
+      maxDrawdownPct: toPlain(riskByAccount.get(a.id)?.maxDrawdownPct ?? null),
+      drawdownMode: riskByAccount.get(a.id)?.drawdownMode ?? "STATIC",
+      profitTargetPct: toPlain(riskByAccount.get(a.id)?.profitTargetPct ?? null),
+      minTradingDays: riskByAccount.get(a.id)?.minTradingDays ?? null,
       equity: a.equity,
       netPnl: a.netPnl,
       tradeCount: a.tradeCount,

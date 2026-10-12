@@ -22,6 +22,12 @@ function revalidateAccounts() {
 // Create / update
 // ---------------------------------------------------------------------------
 
+const blankToUndefined = (v: unknown) => (v === "" || v === null || v === undefined ? undefined : v);
+const optionalPercent = z.preprocess(
+  blankToUndefined,
+  z.coerce.number().min(0, "Must be zero or more.").max(100, "Must be 100 or less.").optional(),
+);
+
 const accountSchema = z.object({
   label: z.string().trim().min(1, "Label is required.").max(80, "Keep it under 80 characters."),
   broker: z.preprocess(
@@ -36,13 +42,33 @@ const accountSchema = z.object({
     .toUpperCase()
     .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code, e.g. USD."),
   startingBalance: z.coerce.number({ message: "Enter a starting balance." }).min(0, "Must be zero or more."),
-  riskPerTradePct: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? undefined : v),
-    z.coerce.number().min(0, "Must be zero or more.").max(100, "Must be 100 or less.").optional(),
+  riskPerTradePct: optionalPercent,
+  // Prop-firm challenge rules (src/lib/prop.ts). All optional.
+  dailyLossLimitPct: optionalPercent,
+  maxDrawdownPct: optionalPercent,
+  drawdownMode: z.enum(["STATIC", "TRAILING"]).default("STATIC"),
+  profitTargetPct: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().min(0, "Must be zero or more.").max(1000).optional(),
+  ),
+  minTradingDays: z.preprocess(
+    blankToUndefined,
+    z.coerce.number().int("Whole days only.").min(0, "Must be zero or more.").max(365).optional(),
   ),
 });
 
 export type AccountInput = z.input<typeof accountSchema>;
+
+function ruleColumns(d: z.output<typeof accountSchema>) {
+  const pct = (v: number | undefined) => (v === undefined ? null : v.toFixed(3));
+  return {
+    dailyLossLimitPct: pct(d.dailyLossLimitPct),
+    maxDrawdownPct: pct(d.maxDrawdownPct),
+    drawdownMode: d.drawdownMode,
+    profitTargetPct: pct(d.profitTargetPct),
+    minTradingDays: d.minTradingDays ?? null,
+  };
+}
 
 export async function createAccount(input: AccountInput): Promise<ActionResult> {
   const parsed = accountSchema.safeParse(input);
@@ -60,6 +86,7 @@ export async function createAccount(input: AccountInput): Promise<ActionResult> 
       currency: parsed.data.currency,
       startingBalance: parsed.data.startingBalance.toFixed(2),
       riskPerTradePct: parsed.data.riskPerTradePct !== undefined ? parsed.data.riskPerTradePct.toFixed(3) : null,
+      ...ruleColumns(parsed.data),
     },
   });
 
@@ -84,6 +111,7 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
       currency: parsed.data.currency,
       startingBalance: parsed.data.startingBalance.toFixed(2),
       riskPerTradePct: parsed.data.riskPerTradePct !== undefined ? parsed.data.riskPerTradePct.toFixed(3) : null,
+      ...ruleColumns(parsed.data),
     },
   });
 

@@ -40,6 +40,13 @@ export interface RiskGuardInput {
   startingBalance: number;
   /** Percent, e.g. 1 for "1% per trade". null when the account has nothing configured. */
   riskPerTradePct: number | null;
+  /**
+   * The account's own daily loss limit, percent of STARTING balance (the
+   * prop-firm rule — src/lib/prop.ts). When set it replaces the heuristic
+   * below, so the guard and the challenge panel never disagree about whether
+   * today's limit is gone. Optional: callers that predate it get the default.
+   */
+  dailyLossLimitPct?: number | null;
   equity: number;
 }
 
@@ -66,7 +73,7 @@ function numberWord(n: number): string {
 }
 
 export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
-  const { trades, startingBalance, riskPerTradePct, equity } = input;
+  const { trades, startingBalance, riskPerTradePct, equity, dailyLossLimitPct = null } = input;
   const realised = trades.filter((t) => t.netPnl !== null) as (RiskTradeInput & { netPnl: number })[];
 
   const dailyNetPnl = realised.reduce((sum, t) => sum + t.netPnl, 0);
@@ -83,12 +90,19 @@ export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
 
   const breaches: RiskBreach[] = [];
 
-  // DAILY_LOSS_LIMIT — 3x the configured per-trade risk, or a flat 3% when
-  // nothing is configured. `startingBalance` is intentionally unused in the
-  // threshold itself (see file header); it stays a parameter for parity with
-  // what the account actually configures and for future use.
-  void startingBalance;
-  if (dailyLossAmount > 0) {
+  // DAILY_LOSS_LIMIT — the account's own limit when it has one (an amount:
+  // that percent of the starting balance, as prop firms define it).
+  // Otherwise a heuristic against current equity: 3x the configured
+  // per-trade risk, or a flat 3% when nothing is configured.
+  if (dailyLossAmount > 0 && dailyLossLimitPct !== null && startingBalance > 0) {
+    const limit = (startingBalance * dailyLossLimitPct) / 100;
+    if (dailyLossAmount >= limit) {
+      breaches.push({
+        type: "DAILY_LOSS_LIMIT",
+        message: `Down ${dailyLossAmount.toFixed(2)} today — your ${dailyLossLimitPct}% daily loss limit (${limit.toFixed(2)}) is used up. Stop trading this account today.`,
+      });
+    }
+  } else if (dailyLossAmount > 0) {
     const thresholdPct = riskPerTradePct !== null ? riskPerTradePct * DAILY_LOSS_MULTIPLE : DAILY_LOSS_FALLBACK_PCT;
     if (dailyLossPct >= thresholdPct) {
       breaches.push({

@@ -44,7 +44,15 @@ export type RawTrade = Awaited<ReturnType<typeof fetchAccountData>>["trades"][nu
 export const fetchAccountData = cache(async (userId: string, accountId: string) => {
   const account = await prisma.tradingAccount.findFirst({
     where: { id: accountId, userId },
-    select: { startingBalance: true, currency: true },
+    select: {
+      startingBalance: true,
+      currency: true,
+      dailyLossLimitPct: true,
+      maxDrawdownPct: true,
+      drawdownMode: true,
+      profitTargetPct: true,
+      minTradingDays: true,
+    },
   });
   if (!account) throw new NotFoundError(`Trading account "${accountId}" was not found.`);
 
@@ -70,6 +78,9 @@ export const fetchAccountData = cache(async (userId: string, accountId: string) 
         followedPlan: true,
         emotion: true,
         instrument: { select: { digits: true } },
+        initialStopLoss: true,
+        maePrice: true,
+        mfePrice: true,
         tradeTags: { select: { tag: { select: { id: true, name: true, kind: true } } } },
       },
       orderBy: { openedAt: "asc" },

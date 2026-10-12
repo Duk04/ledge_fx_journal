@@ -109,6 +109,11 @@ enum Timeframe {
   W1
 }
 
+enum DrawdownMode {
+  STATIC
+  TRAILING
+}
+
 enum ExecutionKind {
   ENTRY
   EXIT
@@ -286,18 +291,25 @@ model VerificationToken {
 // ---------------------------------------------------------------------------
 
 model TradingAccount {
-  id              String      @id @default(uuid())
-  userId          String      @map("user_id")
-  label           String
-  broker          String?
-  platform        Platform
-  accountType     AccountType @map("account_type")
-  currency        String      @default("USD")
-  startingBalance Decimal     @map("starting_balance") @db.Decimal(18, 2)
-  riskPerTradePct Decimal?    @map("risk_per_trade_pct") @db.Decimal(6, 3)
-  isArchived      Boolean     @default(false) @map("is_archived")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+  id                String       @id @default(uuid())
+  userId            String       @map("user_id")
+  label             String
+  broker            String?
+  platform          Platform
+  accountType       AccountType  @map("account_type")
+  currency          String       @default("USD")
+  startingBalance   Decimal      @map("starting_balance") @db.Decimal(18, 2)
+  riskPerTradePct   Decimal?     @map("risk_per_trade_pct") @db.Decimal(6, 3)
+  /// Prop-firm challenge rules (src/lib/prop.ts). All optional; an account
+  /// with none set shows no challenge panel. Percents of starting balance.
+  dailyLossLimitPct Decimal?     @map("daily_loss_limit_pct") @db.Decimal(6, 3)
+  maxDrawdownPct    Decimal?     @map("max_drawdown_pct") @db.Decimal(6, 3)
+  drawdownMode      DrawdownMode @default(STATIC) @map("drawdown_mode")
+  profitTargetPct   Decimal?     @map("profit_target_pct") @db.Decimal(6, 3)
+  minTradingDays    Int?         @map("min_trading_days")
+  isArchived        Boolean      @default(false) @map("is_archived")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   trades        Trade[]
@@ -344,6 +356,11 @@ model Trade {
   /// Where the stop was at entry. Risk and R are measured against this, so a
   /// stop trailed to breakeven does not distort R (lib/metrics/trade.ts).
   initialStopLoss Decimal? @map("initial_stop_loss") @db.Decimal(18, 8)
+  /// Maximum adverse / favourable excursion: the worst and best price the
+  /// position saw while open. Entered by hand, or filled from M1 candles
+  /// (src/lib/metrics/excursion.ts). Analytics express them in R.
+  maePrice        Decimal? @map("mae_price") @db.Decimal(18, 8)
+  mfePrice        Decimal? @map("mfe_price") @db.Decimal(18, 8)
   takeProfit      Decimal? @map("take_profit") @db.Decimal(18, 8)
 
   volumeLots     Decimal  @map("volume_lots") @db.Decimal(12, 4)

@@ -1,5 +1,6 @@
 import "server-only";
 import { Decimal } from "decimal.js";
+import { excursionInR } from "@/lib/metrics/excursion";
 import type { Direction, MarketSession, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
@@ -237,6 +238,11 @@ export interface TradeDetail {
   currency: string;
   /** Where the stop was at entry — what risk and R are measured from. */
   initialStopLoss: string | null;
+  maePrice: string | null;
+  mfePrice: string | null;
+  /** MAE/MFE in R against the initial stop; null without a stop or prices. */
+  maeR: number | null;
+  mfeR: number | null;
   executions: TradeExecution[];
   /** Lots still open: total entered minus total exited. */
   openLots: string;
@@ -332,6 +338,18 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
     accountId: trade.accountId,
     currency: trade.account.currency,
     initialStopLoss: toPlain(trade.initialStopLoss),
+    maePrice: toPlain(trade.maePrice),
+    mfePrice: toPlain(trade.mfePrice),
+    ...(() => {
+      const { maeR, mfeR } = excursionInR({
+        direction: trade.direction,
+        entryPrice: trade.entryPrice.toString(),
+        riskStop: (trade.initialStopLoss ?? trade.stopLoss)?.toString() ?? null,
+        maePrice: trade.maePrice?.toString() ?? null,
+        mfePrice: trade.mfePrice?.toString() ?? null,
+      });
+      return { maeR: maeR?.toNumber() ?? null, mfeR: mfeR?.toNumber() ?? null };
+    })(),
     executions: trade.executions.map((e) => ({
       id: e.id,
       kind: e.kind,
