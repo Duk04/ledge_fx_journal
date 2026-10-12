@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Tailwind scans every non-ignored file for class names, prose included.
+   The docs quote utilities as examples of what NOT to write — e.g.
+   "not `rounded-[var(…)]`" in DESIGN-SYSTEM.md — and a quoted candidate with
+   an ellipsis in it generated `border-radius: var(…)`, which broke the CSS
+   build. Prose is not markup, so it is not a source. */
+@source not "../../docs";
+@source not "../../*.md";
+
 /* =============================================================================
    LEDGER — design system for FX Journal
    -----------------------------------------------------------------------------
