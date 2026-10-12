@@ -75,6 +75,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await getSession();
   const id = session?.user?.id;
   if (!id) return null;
+  const sid = session?.user?.sid;
 
   const row = await prisma.user.findUnique({
     where: { id },
@@ -88,9 +89,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       timezone: true,
       emailVerified: true,
       sessionsValidFrom: true,
+      // Same query, not a second round-trip: is THIS token signed out? A
+      // token minted before `sid` existed has none and cannot be matched;
+      // it ages out within the session maxAge.
+      revokedSessions: sid ? { where: { sid }, select: { sid: true }, take: 1 } : false,
     },
   });
   if (!row) return null;
+  if (row.revokedSessions?.length) return null;
 
   if (row.sessionsValidFrom) {
     const authAt = session?.user?.authAt;

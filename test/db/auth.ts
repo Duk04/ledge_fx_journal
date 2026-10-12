@@ -9,12 +9,14 @@ export class RedirectError extends Error {
   }
 }
 
-type SessionStub = { user: { id: string; authAt: number } } | null;
+type SessionStub = { user: { id: string; authAt: number; sid: string } } | null;
 const g = globalThis as unknown as { __testSession?: SessionStub };
 
-/** Make subsequent `auth()` calls return a session for `userId`, or none. */
-export function signInAs(userId: string | null, authAt: Date = new Date()) {
-  g.__testSession = userId ? { user: { id: userId, authAt: Math.floor(authAt.getTime() / 1000) } } : null;
+/** Make subsequent `auth()` calls return a session for `userId`, or none.
+ * Each call is a new sign-in: a fresh `sid`, unless one is passed to stand
+ * for "the same token again". */
+export function signInAs(userId: string | null, authAt: Date = new Date(), sid: string = crypto.randomUUID()) {
+  g.__testSession = userId ? { user: { id: userId, authAt: Math.floor(authAt.getTime() / 1000), sid } } : null;
 }
 
 export function currentTestSession(): SessionStub {

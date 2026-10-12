@@ -4,7 +4,8 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AuthError, BCRYPT_COST, signIn, signOut } from "@/lib/auth";
+import { AuthError, BCRYPT_COST, auth, signIn, signOut } from "@/lib/auth";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth-config";
 import { authFeatures } from "@/lib/auth-features";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/db";
@@ -105,6 +106,26 @@ export async function signInWithPassword(formData: FormData): Promise<AuthResult
  * the app's own components, and gets Next's Origin check for free.
  */
 export async function signOutAction() {
+  // Revoke this token before clearing the cookie. Clearing alone is not
+  // enough: the middleware re-sets the session cookie on every request it
+  // passes (Auth.js's rolling refresh), so any request still in flight at
+  // sign-out — a Link prefetch from the page being left — answers with the
+  // old token and the browser stores it again. The DAL rejects a revoked
+  // `sid`, so a resurrected cookie authenticates nothing. Found by
+  // e2e/auth.spec.ts failing in CI, where those prefetches are slower.
+  const session = await auth();
+  const sid = session?.user?.sid;
+  const userId = session?.user?.id;
+  if (sid && userId) {
+    const issuedAt = (session.user.authAt ?? Math.floor(Date.now() / 1000)) * 1000;
+    await prisma.revokedSession.upsert({
+      where: { sid },
+      create: { sid, userId, expiresAt: new Date(issuedAt + SESSION_MAX_AGE_SECONDS * 1000) },
+      update: {},
+    });
+    // Housekeeping: a row is useless once its token would have expired.
+    await prisma.revokedSession.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {});
+  }
   await signOut({ redirectTo: "/login" });
 }
 

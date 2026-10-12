@@ -34,6 +34,10 @@ declare module "next-auth" {
        * `User.sessionsValidFrom` by the DAL to implement "sign out
        * everywhere" — see src/lib/session.ts. */
       authAt?: number;
+      /** Random per-sign-in id. Signing out records it in RevokedSession, so
+       * this one token stops working even if a late response re-sets its
+       * cookie — see signOutAction in src/lib/actions/auth.ts. */
+      sid?: string;
     } & DefaultSession["user"];
   }
 
@@ -80,6 +84,9 @@ export function isPublicPath(pathname: string): boolean {
   );
 }
 
+/** Exported so sign-out can date a revocation row's expiry (RevokedSession). */
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
 export const authConfig: NextAuthConfig = {
   // No providers here on purpose — this config is shared with the Edge
   // middleware instance, which only ever calls `auth()` to read/verify the
@@ -98,7 +105,7 @@ export const authConfig: NextAuthConfig = {
      * importable from the Edge middleware bundle, which cannot load
      * `@/lib/env` (it is `server-only`).
      */
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE_SECONDS,
     updateAge: 60 * 60 * 24,
   },
   pages: { signIn: "/login" },
@@ -124,6 +131,8 @@ export const authConfig: NextAuthConfig = {
         if (!user.id) return null;
         token.id = user.id;
         token.authAt = Math.floor(Date.now() / 1000);
+        // Web Crypto, so this stays importable from the Edge middleware.
+        token.sid = crypto.randomUUID();
       }
       return token;
     },
@@ -134,6 +143,7 @@ export const authConfig: NextAuthConfig = {
       if (!id || !session.user) return session;
       session.user.id = id;
       session.user.authAt = typeof token.authAt === "number" ? token.authAt : undefined;
+      session.user.sid = typeof token.sid === "string" ? token.sid : undefined;
       return session;
     },
     authorized({ request, auth }) {

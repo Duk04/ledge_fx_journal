@@ -41,3 +41,22 @@ test("sign out works from the keyboard", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login/);
 });
+
+// Regression: the middleware re-sets the session cookie on every request, so
+// a request in flight at sign-out (a Link prefetch) can hand the browser the
+// old token back. Simulated here deterministically by restoring the cookie
+// by hand. Sign-out revokes the token itself, so it must not work again.
+test("a session cookie restored after sign-out is rejected", async ({ page, context }) => {
+  await signIn(page);
+  const before = (await context.cookies()).filter((c) => c.name.includes("session-token"));
+  expect(before.length).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "Account menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await context.addCookies(before);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.locator("#email")).toBeVisible();
+});

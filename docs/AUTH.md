@@ -46,7 +46,8 @@ Resend magic links.
 
 ### What the token carries, and what it does not
 
-The token carries a user id and an `authAt` claim. That is all.
+The token carries a user id, an `authAt` claim, and a random `sid` (one per
+sign-in, used to revoke that token alone — below). That is all.
 
 `role` and `timezone` used to be stashed on it, and that was wrong in two
 directions. A token is only rewritten on sign-in or after `updateAge`, so a
@@ -65,16 +66,33 @@ per render, and it buys three things:
 
 ### Session revocation
 
-There is no per-**device** revocation. There is per-**user** revocation:
-`User.sessionsValidFrom` is a timestamp, and `getCurrentUser()` rejects any
-token whose `authAt` predates it. A password reset or change stamps it, which
-signs out every other session.
+Two levels, both enforced by `getCurrentUser()` in one query:
 
-That is the honest scope. A "sign out my other devices" button can be built on
-it; "sign out this one device" cannot, and would need database sessions, which
-the Credentials provider rules out (above). The dead `Session` model has been
-dropped — a table that looks like a revocation control and is not one is worse
-than no table.
+- **Per user:** `User.sessionsValidFrom` is a timestamp, and any token whose
+  `authAt` predates it is rejected. A password reset or change stamps it,
+  which signs out every other session.
+- **Per token:** signing out records the token's `sid` in `RevokedSession`,
+  and a token whose `sid` is listed is rejected.
+
+The per-token list exists because of a bug, not as a feature. Sign-out used to
+rely on clearing the cookie, and that is not enough with this setup: the
+Auth.js middleware re-sets the session cookie on every request it passes
+(rolling expiry), so any request still in flight when the user signs out — a
+production `<Link>` prefetch, typically — answers with the old token and the
+browser stores it again. The user lands on /login, opens the app, and is
+signed back in. It showed up as a CI-only e2e failure (prefetches are slower
+there); `e2e/auth.spec.ts` now reproduces it deterministically by restoring
+the old cookie by hand. Clearing the cookie is still done — it is what makes
+the browser look signed out — but the revocation is what makes it true.
+
+A row is only needed until its token would have expired; `expiresAt` is issue
+time + `maxAge`, and sign-out prunes expired rows. Tokens minted before `sid`
+existed carry none, cannot be revoked individually, and age out within a week.
+
+Still not built: a "sign out my other devices" button (the per-user stamp
+supports it) and a list of active sessions (that would need a row per
+sign-in, not per sign-out). The dead `Session` model stays dropped — a table
+that looks like a revocation control and is not one is worse than no table.
 
 ## The edge / node split
 

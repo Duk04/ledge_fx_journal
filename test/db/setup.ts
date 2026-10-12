@@ -20,8 +20,19 @@ import { inject, vi } from "vitest";
 process.env.DATABASE_URL = inject("databaseUrl");
 
 vi.mock("@/lib/auth", async () => {
-  const { currentTestSession } = await import("./auth");
-  return { auth: async () => currentTestSession() };
+  const { currentTestSession, RedirectError } = await import("./auth");
+  return {
+    auth: async () => currentTestSession(),
+    // The real signOut clears the cookie and redirects; here, just redirect.
+    signOut: async ({ redirectTo }: { redirectTo?: string } = {}) => {
+      throw new RedirectError(redirectTo ?? "/");
+    },
+    signIn: async () => {
+      throw new Error("signIn is not available in db tests");
+    },
+    AuthError: class AuthError extends Error {},
+    BCRYPT_COST: 4,
+  };
 });
 
 vi.mock("next/cache", () => ({
