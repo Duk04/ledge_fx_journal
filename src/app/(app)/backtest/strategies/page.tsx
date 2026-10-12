@@ -54,7 +54,7 @@ export default async function StrategiesPage({ searchParams }: { searchParams: P
                       key={s.id}
                       href={`/backtest/strategies?id=${s.id}`}
                       className={cn(
-                        "flex flex-col gap-0.5 rounded-[3px] px-2 py-1.5 text-sm",
+                        "flex flex-col gap-0.5 rounded-inner px-2 py-1.5 text-sm",
                         active ? "bg-selected text-ink" : "text-ink-2 hover:bg-hover",
                       )}
                     >

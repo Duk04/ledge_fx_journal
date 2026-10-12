@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { Page, Grid } from "@/components/shell/page";
-import { SectionHead, Panel, PanelHeader, PanelBody, Label2, StatRow, Stat } from "@/components/ui";
+import { SectionHead, Panel, PanelHeader, PanelBody, Label2, StatRow, Stat, EmptyState, Button } from "@/components/ui";
 import { formatMoney, formatPercent, formatR } from "@/lib/metrics/formatters";
 import { RangeControl } from "@/components/dashboard/range-control";
 import { RiskGuard } from "@/components/dashboard/risk-guard";
@@ -52,7 +54,15 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       <RiskGuard accountId={account.id} />
 
       <StatRow>
-        <Stat label="Net P&L" value={formatMoney(s.netPnl, data.currency)} tone={toneOf(s.netPnl)} />
+        {/* The headline: larger, and signed (colour is never the only cue).
+            No sparkline here: at six tiles across it spilled into the next
+            tile, and the equity chart directly below already draws it. */}
+        <Stat
+          label="Net P&L"
+          size="lg"
+          value={`${s.netPnl > 0.005 ? "+" : ""}${formatMoney(s.netPnl, data.currency)}`}
+          tone={toneOf(s.netPnl)}
+        />
         <Stat
           label="Win rate"
           value={formatPercent(s.winRate)}
@@ -77,6 +87,29 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           tone={data.streak.current > 0 ? "profit" : data.streak.current < 0 ? "loss" : "neutral"}
         />
       </StatRow>
+
+      {data.recentTrades.length === 0 && data.openTrades.length === 0 ? (
+        // First run: one clear next step instead of six dashes and three empty
+        // charts. The panels below still render, so the layout a user is about
+        // to fill is visible.
+        <Panel>
+          <PanelBody>
+            <EmptyState
+              icon={<Sparkles className="size-4" />}
+              title="Nothing logged on this account yet"
+              description="Log your first trade by hand, or import a MetaTrader statement to bring in your history at once."
+            />
+            <div className="flex flex-wrap justify-center gap-2 pb-2">
+              <Button asChild variant="primary">
+                <Link href="/trades/new">Log a trade</Link>
+              </Button>
+              <Button asChild variant="default">
+                <Link href="/trades/import">Import a statement</Link>
+              </Button>
+            </div>
+          </PanelBody>
+        </Panel>
+      ) : null}
 
       <Grid>
         <Panel className="lg:col-span-8">

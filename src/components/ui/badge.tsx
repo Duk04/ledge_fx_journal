@@ -16,7 +16,7 @@ export function Badge({ tone = "neutral", className, ...props }: React.Component
   return (
     <span
       className={cn(
-        "inline-flex h-[1.15rem] shrink-0 items-center gap-1 rounded-[3px] border px-1.5",
+        "inline-flex h-[1.15rem] shrink-0 items-center gap-1 rounded-inner border px-1.5",
         "text-2xs font-medium whitespace-nowrap",
         tones[tone],
         className,
@@ -29,10 +29,15 @@ export function Badge({ tone = "neutral", className, ...props }: React.Component
 /**
  * Direction. LONG/SHORT rather than an arrow glyph: at 11px an arrow is a
  * smudge, and traders read the words faster anyway.
+ *
+ * Neutral, not green/red. It used to be painted in the profit/loss tones,
+ * which broke rule 3 of docs/DESIGN-SYSTEM.md (colour is reserved for money)
+ * in the worst way: a SHORT that made money showed a red badge beside a
+ * green P&L, and the eye reads the badge first.
  */
 export function DirectionBadge({ direction }: { direction: "LONG" | "SHORT" }) {
   return (
-    <Badge tone={direction === "LONG" ? "profit" : "loss"} className="mono w-[3.4rem] justify-center tracking-[0.06em]">
+    <Badge tone="outline" className="mono w-[3.4rem] justify-center tracking-[0.06em]">
       {direction}
     </Badge>
   );
@@ -61,7 +66,7 @@ export function SessionBadge({ session }: { session: string | null | undefined }
     <span
       title={meta.name}
       className={cn(
-        "mono inline-flex h-[1.15rem] w-[1.9rem] items-center justify-center rounded-[3px]",
+        "mono inline-flex h-[1.15rem] w-[1.9rem] items-center justify-center rounded-inner",
         "border border-line bg-panel-sunken text-2xs tracking-[0.04em] text-ink-2",
         meta.code === "OV" && "border-brand-line bg-brand-weak text-brand",
       )}
@@ -89,7 +94,7 @@ export function TagChip({
   return (
     <span
       className={cn(
-        "inline-flex h-[1.35rem] shrink-0 items-center gap-1.5 rounded-[3px] border border-line",
+        "inline-flex h-[1.35rem] shrink-0 items-center gap-1.5 rounded-inner border border-line",
         "bg-panel-sunken px-1.5 text-xs text-ink-2",
         className,
       )}

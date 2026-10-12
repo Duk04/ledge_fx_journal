@@ -120,7 +120,7 @@ function HeatCell({ cell, maxAbs, currency }: { cell: HeatmapCell; maxAbs: numbe
       <div
         tabIndex={0}
         aria-label={`${WEEKDAY_SHORT[cell.weekday] ?? cell.weekday} ${cell.sessionLabel}: ${cell.count} trade${cell.count === 1 ? "" : "s"}${cell.count > 0 ? `, net ${formatMoney(cell.netPnl, currency)}` : ""}`}
-        className="relative flex aspect-square min-h-9 items-center justify-center rounded-[3px] border border-line-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        className="relative flex aspect-square min-h-9 items-center justify-center rounded-inner border border-line-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         style={{
           backgroundColor:
             cell.count === 0

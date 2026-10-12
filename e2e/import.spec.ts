@@ -27,8 +27,10 @@ test("import an MT4 statement, then undo it", async ({ page }) => {
     await expect(page.getByRole("cell", { name: new RegExp(symbol) }).first()).toBeVisible();
   }
 
-  // Same file again: nothing new to write.
+  // Same file again: nothing new to write. Wait for hydration first — a file
+  // chosen before React attaches its onChange is silently dropped.
   await page.goto("/trades/import");
+  await page.waitForLoadState("networkidle");
   await page.getByTestId("statement-file").setInputFiles(upload);
   await page.getByRole("button", { name: "Preview" }).click();
   await expect(page.getByText("3 already imported")).toBeVisible();

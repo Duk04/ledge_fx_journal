@@ -24,7 +24,7 @@ export function TooltipContent({
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 max-w-56 rounded-[var(--radius-control)] border border-line bg-panel-raised px-2 py-1 text-2xs text-ink shadow-overlay",
+          "z-50 max-w-56 rounded-control border border-line bg-panel-raised px-2 py-1 text-2xs text-ink shadow-overlay",
           className,
         )}
         {...props}

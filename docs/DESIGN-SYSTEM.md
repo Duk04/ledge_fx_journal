@@ -58,6 +58,21 @@ Specific choices worth knowing about:
   background always stays proportionally related to its foreground colour
   without a second value to keep in sync.
 
+### Radii
+
+`--radius-control` (inputs, buttons), `--radius-inner` (anything nested in a
+control: a key hint, a segment, a menu item — one step tighter so the inner
+corner sits inside the outer), `--radius-panel`, `--radius-overlay`. Use the
+utilities (`rounded-control`, `rounded-inner`, …), not `rounded-[var(…)]` or
+pixel literals; 65 such literals were replaced when `--radius-inner` was
+added.
+
+### Direction is not money
+
+`DirectionBadge` is neutral. It used to be green for LONG and red for SHORT,
+which broke rule 3 in the most confusing way available: a profitable short
+showed a red badge next to a green P&L.
+
 ### Text contrast
 
 Every ink step is real text somewhere (`.label`, `FieldHint`, chart axis

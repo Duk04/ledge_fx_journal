@@ -5,6 +5,7 @@ import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip,
 import { format } from "date-fns";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
+import { ChartFrame } from "./chart-frame";
 import { ChartTooltipRow, ChartTooltipShell, ChartTooltipTitle } from "./chart-tooltip";
 import type { EquityPointDTO } from "@/lib/queries/analytics";
 
@@ -56,70 +57,80 @@ export function EquityChart({
   const domain: [number, number] = [points[0].t, points[points.length - 1].t];
 
   return (
-    <ResponsiveContainer width="100%" height="100%" minHeight={180}>
-      <ComposedChart data={points} margin={{ top: 8, right: 10, left: 10, bottom: 0 }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={tone} stopOpacity={0.16} />
-            <stop offset="100%" stopColor={tone} stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <XAxis
-          dataKey="t"
-          type="number"
-          domain={domain}
-          hide={!showXAxis}
-          axisLine={{ stroke: "var(--chart-grid)" }}
-          tickLine={false}
-          tick={{ fill: "var(--ink-3)", fontSize: 11 }}
-          tickFormatter={(t: number) => format(new Date(t), "MMM d")}
-          minTickGap={40}
-        />
-        <YAxis
-          hide
-          domain={[
-            (dataMin: number) => Math.min(dataMin, startBalance),
-            (dataMax: number) => Math.max(dataMax, startBalance),
-          ]}
-        />
-        <ReferenceLine
-          y={startBalance}
-          stroke="var(--ink-3)"
-          strokeDasharray="3 3"
-          strokeWidth={1}
-          ifOverflow="extendDomain"
-        />
-        <Tooltip
-          cursor={{ stroke: "var(--chart-grid)", strokeWidth: 1 }}
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null;
-            const p = payload[0].payload as (typeof points)[number];
-            const cashLabel = p.kind === "TRADE" ? null : CASH_LABEL[p.kind];
-            return (
-              <ChartTooltipShell>
-                <ChartTooltipTitle>{format(new Date(p.t), "EEE, MMM d yyyy HH:mm")}</ChartTooltipTitle>
-                <ChartTooltipRow label="Balance" value={formatMoney(p.balance, currency)} />
-                <ChartTooltipRow
-                  label={cashLabel ?? "Trade close"}
-                  value={`${p.change >= 0 ? "+" : ""}${formatMoney(p.change, currency)}`}
-                  tone={p.change > 0 ? "profit" : p.change < 0 ? "loss" : "neutral"}
-                />
-              </ChartTooltipShell>
-            );
-          }}
-        />
-        <Area type="monotone" dataKey="balance" stroke="none" fill={`url(#${gradientId})`} isAnimationActive={false} />
-        <Line
-          type="monotone"
-          dataKey="balance"
-          stroke={tone}
-          strokeWidth={2}
-          dot={<CashMarker />}
-          activeDot={{ r: 3, fill: tone, strokeWidth: 0 }}
-          isAnimationActive={false}
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
+    <ChartFrame
+      label={`Equity from ${formatMoney(startBalance, currency)} to ${formatMoney(last, currency)} over ${points.length} change(s).`}
+    >
+      <ResponsiveContainer width="100%" height="100%" minHeight={180}>
+        <ComposedChart data={points} margin={{ top: 8, right: 10, left: 10, bottom: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={tone} stopOpacity={0.16} />
+              <stop offset="100%" stopColor={tone} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis
+            dataKey="t"
+            type="number"
+            domain={domain}
+            hide={!showXAxis}
+            axisLine={{ stroke: "var(--chart-grid)" }}
+            tickLine={false}
+            tick={{ fill: "var(--ink-3)", fontSize: 11 }}
+            tickFormatter={(t: number) => format(new Date(t), "MMM d")}
+            minTickGap={40}
+          />
+          <YAxis
+            hide
+            domain={[
+              (dataMin: number) => Math.min(dataMin, startBalance),
+              (dataMax: number) => Math.max(dataMax, startBalance),
+            ]}
+          />
+          <ReferenceLine
+            y={startBalance}
+            stroke="var(--ink-3)"
+            strokeDasharray="3 3"
+            strokeWidth={1}
+            ifOverflow="extendDomain"
+          />
+          <Tooltip
+            cursor={{ stroke: "var(--chart-grid)", strokeWidth: 1 }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const p = payload[0].payload as (typeof points)[number];
+              const cashLabel = p.kind === "TRADE" ? null : CASH_LABEL[p.kind];
+              return (
+                <ChartTooltipShell>
+                  <ChartTooltipTitle>{format(new Date(p.t), "EEE, MMM d yyyy HH:mm")}</ChartTooltipTitle>
+                  <ChartTooltipRow label="Balance" value={formatMoney(p.balance, currency)} />
+                  <ChartTooltipRow
+                    label={cashLabel ?? "Trade close"}
+                    value={`${p.change >= 0 ? "+" : ""}${formatMoney(p.change, currency)}`}
+                    tone={p.change > 0 ? "profit" : p.change < 0 ? "loss" : "neutral"}
+                  />
+                </ChartTooltipShell>
+              );
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="balance"
+            stroke="none"
+            fill={`url(#${gradientId})`}
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="balance"
+            stroke={tone}
+            strokeWidth={2}
+            dot={<CashMarker />}
+            activeDot={{ r: 3, fill: tone, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 

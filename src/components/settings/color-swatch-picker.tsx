@@ -66,7 +66,7 @@ export function ColorSwatchPicker({
           maxLength={7}
           aria-label="Custom hex colour"
           className={cn(
-            "mono h-7 w-28 rounded-[var(--radius-control)] border border-line bg-panel px-2 text-xs text-ink outline-none",
+            "mono h-7 w-28 rounded-control border border-line bg-panel px-2 text-xs text-ink outline-none",
             "focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-weak",
           )}
         />

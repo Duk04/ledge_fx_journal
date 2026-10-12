@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TagChip } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
+import { Kbd, useModKey } from "@/components/ui/kbd";
 
 import { buildTradeFormSchema } from "@/lib/schemas/trade";
 import { createTrade, updateTrade } from "@/lib/actions/trades";
@@ -83,6 +84,8 @@ export function TradeForm({
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const advancedId = React.useId();
   const online = useOnlineStatus();
+  // The save hint said "⌘⏎" on Windows too, where it is Ctrl+Enter.
+  const modKey = useModKey();
 
   const validSymbols = React.useMemo(() => new Set(instruments.map((i) => i.symbol)), [instruments]);
   const schema = React.useMemo(() => buildTradeFormSchema(validSymbols), [validSymbols]);
@@ -196,7 +199,7 @@ export function TradeForm({
       <Panel>
         <PanelBody className="flex flex-col gap-4">
           {fillsLocked ? (
-            <p className="rounded-[var(--radius-control)] border border-line bg-panel-sunken px-3 py-2 text-xs text-ink-2">
+            <p className="rounded-control border border-line bg-panel-sunken px-3 py-2 text-xs text-ink-2">
               This trade was scaled in or partly closed. Its symbol, prices, size, times and status come from its fills
               — change those in the Fills panel on the trade page.
             </p>
@@ -244,6 +247,17 @@ export function TradeForm({
                 />
               </Field>
             </FieldRow>
+
+            <Field>
+              <FieldLabel>Opened at</FieldLabel>
+              <Input
+                type="datetime-local"
+                className={cn(RESPONSIVE_HEIGHT, "max-w-xs")}
+                aria-invalid={!!errors.openedAt}
+                {...form.register("openedAt")}
+              />
+              <FieldError>{errors.openedAt?.message}</FieldError>
+            </Field>
 
             <FieldRow>
               <Field>
@@ -314,7 +328,7 @@ export function TradeForm({
           </FieldRow>
 
           {geometryWarnings.length > 0 ? (
-            <div className="flex flex-col gap-1 rounded-[var(--radius-control)] border border-warn/30 bg-warn-weak px-3 py-2 text-xs text-warn">
+            <div className="flex flex-col gap-1 rounded-control border border-warn/30 bg-warn-weak px-3 py-2 text-xs text-warn">
               {geometryWarnings.map((w) => (
                 <p key={w.code}>{w.message}</p>
               ))}
@@ -337,40 +351,35 @@ export function TradeForm({
               />
             </Field>
 
-            <FieldRow>
-              <Field>
-                <FieldLabel optional={status !== "CLOSED"}>Exit price</FieldLabel>
-                <NumberInput
-                  className={RESPONSIVE_HEIGHT}
-                  placeholder="0.00000"
-                  aria-invalid={!!errors.exitPrice}
-                  {...form.register("exitPrice")}
-                />
-                <FieldError>{errors.exitPrice?.message}</FieldError>
-              </Field>
+            {/* The order a trade happens in: what and which way, when and how big,
+                the plan, what became of it — and the exit only once there is one. An
+                open trade used to show two "optional" exit fields that only invited a
+                half-filled close. */}
+            {status === "CLOSED" ? (
+              <FieldRow>
+                <Field>
+                  <FieldLabel>Exit price</FieldLabel>
+                  <NumberInput
+                    className={RESPONSIVE_HEIGHT}
+                    placeholder="0.00000"
+                    aria-invalid={!!errors.exitPrice}
+                    {...form.register("exitPrice")}
+                  />
+                  <FieldError>{errors.exitPrice?.message}</FieldError>
+                </Field>
 
-              <Field>
-                <FieldLabel optional={status !== "CLOSED"}>Closed at</FieldLabel>
-                <Input
-                  type="datetime-local"
-                  className={RESPONSIVE_HEIGHT}
-                  aria-invalid={!!errors.closedAt}
-                  {...form.register("closedAt")}
-                />
-                <FieldError>{errors.closedAt?.message}</FieldError>
-              </Field>
-            </FieldRow>
-
-            <Field>
-              <FieldLabel>Opened at</FieldLabel>
-              <Input
-                type="datetime-local"
-                className={cn(RESPONSIVE_HEIGHT, "max-w-xs")}
-                aria-invalid={!!errors.openedAt}
-                {...form.register("openedAt")}
-              />
-              <FieldError>{errors.openedAt?.message}</FieldError>
-            </Field>
+                <Field>
+                  <FieldLabel>Closed at</FieldLabel>
+                  <Input
+                    type="datetime-local"
+                    className={RESPONSIVE_HEIGHT}
+                    aria-invalid={!!errors.closedAt}
+                    {...form.register("closedAt")}
+                  />
+                  <FieldError>{errors.closedAt?.message}</FieldError>
+                </Field>
+              </FieldRow>
+            ) : null}
           </fieldset>
 
           {playbooks.length ? (
@@ -567,7 +576,7 @@ export function TradeForm({
           title={online ? undefined : "You're offline — this can't be saved until you reconnect."}
         >
           {form.formState.isSubmitting ? "Saving…" : mode === "create" ? "Log trade" : "Save changes"}
-          <kbd className="ml-1 hidden rounded-[3px] bg-black/15 px-1 text-2xs font-normal md:inline">⌘⏎</kbd>
+          <Kbd className="ml-1 hidden md:inline-flex">{modKey}⏎</Kbd>
         </Button>
       </div>
     </form>

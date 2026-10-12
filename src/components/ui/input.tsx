@@ -8,7 +8,7 @@ import { useFieldControlProps } from "./field";
 /** Shared skin for anything that looks like a text field — kept in one place
  * so Input, NumberInput and Select's trigger can never drift apart. */
 export const fieldSkin =
-  "flex w-full items-center rounded-[var(--radius-control)] border border-line bg-panel text-ink " +
+  "flex w-full items-center rounded-control border border-line bg-panel text-ink " +
   "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)] " +
   "placeholder:text-ink-3 " +
   "hover:border-line-strong " +
@@ -21,7 +21,7 @@ export function Input({ className, ...props }: React.ComponentProps<"input">) {
     <input
       {...fieldProps}
       className={cn(
-        "h-control w-full rounded-[var(--radius-control)] border border-line bg-panel px-2.5 text-sm text-ink",
+        "h-control w-full rounded-control border border-line bg-panel px-2.5 text-sm text-ink",
         "placeholder:text-ink-3",
         "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         "hover:border-line-strong",
@@ -46,7 +46,7 @@ export function NumberInput({ className, unit, ...props }: React.ComponentProps<
   return (
     <div
       className={cn(
-        "flex h-control items-center gap-1 rounded-[var(--radius-control)] border border-line bg-panel pr-2.5 pl-2.5",
+        "flex h-control items-center gap-1 rounded-control border border-line bg-panel pr-2.5 pl-2.5",
         "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         "hover:border-line-strong",
         "has-[input:focus-visible]:border-brand has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-weak",
@@ -75,7 +75,7 @@ export function Textarea({ className, ...props }: React.ComponentProps<"textarea
     <textarea
       {...fieldProps}
       className={cn(
-        "min-h-20 w-full resize-y rounded-[var(--radius-control)] border border-line bg-panel px-2.5 py-2 text-sm text-ink",
+        "min-h-20 w-full resize-y rounded-control border border-line bg-panel px-2.5 py-2 text-sm text-ink",
         "placeholder:text-ink-3",
         "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         "hover:border-line-strong",
@@ -103,7 +103,7 @@ export function SearchInput({
   return (
     <div
       className={cn(
-        "flex h-control w-full items-center gap-1.5 rounded-[var(--radius-control)] border border-line bg-panel pr-1.5 pl-2.5",
+        "flex h-control w-full items-center gap-1.5 rounded-control border border-line bg-panel pr-1.5 pl-2.5",
         "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         "hover:border-line-strong",
         "has-[input:focus-visible]:border-brand has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-weak",
@@ -123,7 +123,7 @@ export function SearchInput({
           type="button"
           onClick={onClear}
           aria-label="Clear search"
-          className="grid size-5 shrink-0 place-items-center rounded-[3px] text-ink-3 hover:bg-hover hover:text-ink"
+          className="grid size-5 shrink-0 place-items-center rounded-inner text-ink-3 hover:bg-hover hover:text-ink"
         >
           <X className="size-3.5" aria-hidden />
         </button>

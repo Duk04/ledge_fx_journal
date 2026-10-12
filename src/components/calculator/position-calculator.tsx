@@ -162,7 +162,7 @@ export function PositionCalculator({
           {warnings.map((w) => (
             <p
               key={w}
-              className="flex gap-2 rounded-[var(--radius-control)] border border-warn/30 bg-warn-weak px-2.5 py-2 text-xs text-warn"
+              className="flex gap-2 rounded-control border border-warn/30 bg-warn-weak px-2.5 py-2 text-xs text-warn"
             >
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               {w}

@@ -24,3 +24,4 @@ export * from "./table";
 export * from "./empty";
 export * from "./skeleton";
 export * from "./pagination";
+export * from "./kbd";

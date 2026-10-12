@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatInZone } from "./formatters";
+import { formatInZone, formatMoneyCompact } from "./formatters";
 
 describe("formatInZone", () => {
   // 2026-03-02T20:30Z is already Tuesday morning in Ulaanbaatar (UTC+8) but
@@ -15,5 +15,13 @@ describe("formatInZone", () => {
 
   it("accepts a Date as well as an ISO string", () => {
     expect(formatInZone(new Date(at), "Asia/Ulaanbaatar", "MMM d")).toBe("Mar 3");
+  });
+});
+
+describe("formatMoneyCompact", () => {
+  it("abbreviates and always signs", () => {
+    expect(formatMoneyCompact(1234, "USD")).toBe("+$1.2K");
+    expect(formatMoneyCompact(-340, "USD")).toBe("−$340");
+    expect(formatMoneyCompact(0, "USD")).toBe("$0");
   });
 });

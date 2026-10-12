@@ -273,7 +273,7 @@ function FileDropZone({
         const dropped = e.dataTransfer.files?.[0];
         if (dropped) onFile(dropped);
       }}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] border border-dashed px-4 py-8 text-center transition-colors duration-[var(--dur-fast)] ${
+      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-control border border-dashed px-4 py-8 text-center transition-colors duration-[var(--dur-fast)] ${
         dragging ? "border-brand bg-brand-weak" : "border-line hover:border-line-strong"
       }`}
     >
@@ -306,7 +306,7 @@ function FileDropZone({
 function ParsePreview({ preview }: { preview: ParseCandleCsvResult }) {
   const sample = preview.rows.slice(0, 5);
   return (
-    <div className="flex flex-col gap-2 rounded-[var(--radius-control)] border border-line bg-panel-sunken p-3">
+    <div className="flex flex-col gap-2 rounded-control border border-line bg-panel-sunken p-3">
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink-2">
         <Badge tone="brand">{preview.format === "MT5" ? "MT5 export" : "Generic OHLCV"}</Badge>
         <span>{preview.rows.length.toLocaleString()} valid row(s) parsed</span>
@@ -366,14 +366,14 @@ function ParsePreview({ preview }: { preview: ParseCandleCsvResult }) {
 function ImportSummary({ result }: { result: ActionResult<ImportReport> }) {
   if (!result.ok) {
     return (
-      <p className="rounded-[var(--radius-control)] border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
+      <p className="rounded-control border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
         {result.formError}
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1 rounded-[var(--radius-control)] border border-profit/25 bg-profit-weak px-2.5 py-2 text-xs text-profit">
+    <div className="flex flex-col gap-1 rounded-control border border-profit/25 bg-profit-weak px-2.5 py-2 text-xs text-profit">
       <span>
         {result.inserted.toLocaleString()} inserted, {result.updated.toLocaleString()} updated
         {result.skipped > 0 ? `, ${result.skipped.toLocaleString()} skipped` : ""}.

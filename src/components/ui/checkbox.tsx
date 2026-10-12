@@ -9,7 +9,7 @@ export function Checkbox({ className, ...props }: React.ComponentProps<typeof Ch
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "flex size-4 shrink-0 items-center justify-center rounded-[3px] border border-line-strong bg-panel",
+        "flex size-4 shrink-0 items-center justify-center rounded-inner border border-line-strong bg-panel",
         "transition-[background-color,border-color] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         "data-[state=checked]:border-brand data-[state=checked]:bg-brand",
         "disabled:pointer-events-none disabled:opacity-45",

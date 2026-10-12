@@ -279,8 +279,15 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     />
                   </Th>
                   <Th>Dir</Th>
-                  <Th numeric>Entry → Exit</Th>
-                  <Th numeric sortable sortDirection={sortField === "volumeLots" ? sortDirection : false}>
+                  <Th numeric className="hidden md:table-cell">
+                    Entry → Exit
+                  </Th>
+                  <Th
+                    numeric
+                    className="hidden md:table-cell"
+                    sortable
+                    sortDirection={sortField === "volumeLots" ? sortDirection : false}
+                  >
                     <SortLink
                       numeric
                       field="volumeLots"
@@ -290,7 +297,12 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       buildHref={buildSortHref}
                     />
                   </Th>
-                  <Th numeric sortable sortDirection={sortField === "pips" ? sortDirection : false}>
+                  <Th
+                    numeric
+                    className="hidden md:table-cell"
+                    sortable
+                    sortDirection={sortField === "pips" ? sortDirection : false}
+                  >
                     <SortLink
                       numeric
                       field="pips"
@@ -320,8 +332,8 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       buildHref={buildSortHref}
                     />
                   </Th>
-                  <Th aria-label="R, drawn to scale" />
-                  <Th>Tags</Th>
+                  <Th aria-label="R, drawn to scale" className="hidden md:table-cell" />
+                  <Th className="hidden md:table-cell">Tags</Th>
                   <Th aria-label="Actions" />
                 </tr>
               </thead>
@@ -375,7 +387,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       <Td>
                         <DirectionBadge direction={row.direction} />
                       </Td>
-                      <Td numeric>
+                      {/* Below md the table drops to what a phone needs to scan:
+                          when, what, which way, money, R. */}
+                      <Td numeric className="hidden md:table-cell">
                         {formatPrice(Number(row.entryPrice), row.digits)}
                         <span className="text-ink-3"> → </span>
                         {row.exitPrice !== null ? (
@@ -384,22 +398,24 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                           <span className="text-ink-3">—</span>
                         )}
                       </Td>
-                      <Td numeric>{Number(row.volumeLots).toFixed(2)}</Td>
-                      <Td numeric>
+                      <Td numeric className="hidden md:table-cell">
+                        {Number(row.volumeLots).toFixed(2)}
+                      </Td>
+                      <Td numeric className="hidden md:table-cell">
                         <Pips value={row.pips} />
                       </Td>
                       <Td numeric>
-                        <Money value={row.netPnl} currency={account.currency} />
+                        <Money value={row.netPnl} currency={account.currency} signed />
                       </Td>
                       <Td numeric>
                         <RValue value={row.rMultiple} />
                       </Td>
-                      <Td>
+                      <Td className="hidden md:table-cell">
                         <div className="flex justify-end">
                           <RBar value={row.rMultiple} scale={scale} />
                         </div>
                       </Td>
-                      <Td>
+                      <Td className="hidden md:table-cell">
                         <div className="flex items-center gap-1">
                           {row.tags.slice(0, 2).map((t) => (
                             <TagChip key={t.id} name={t.name} color={t.color} />

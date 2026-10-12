@@ -236,8 +236,10 @@ export function ReplaySession({
               >
                 <StepBack />
               </Button>
+              {/* Placing orders is the primary action here; the transport and
+                  "save" are secondary (docs/DESIGN-SYSTEM.md rule 1). */}
               <Button
-                variant="primary"
+                variant="default"
                 size="icon-sm"
                 onClick={togglePlaying}
                 disabled={atEnd}
@@ -436,7 +438,7 @@ export function ReplaySession({
           </PanelBody>
           <PanelFooter>
             <span className="text-2xs text-ink-3">{pendingSaves > 0 ? "Saving…" : "Up to date"}</span>
-            <Button variant="primary" size="sm" onClick={handleSaveToJournal} disabled={finishing}>
+            <Button variant="default" size="sm" onClick={handleSaveToJournal} disabled={finishing}>
               {finishing ? "Saving…" : "Save to journal"}
             </Button>
           </PanelFooter>

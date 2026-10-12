@@ -145,7 +145,7 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
       <li className="flex flex-col gap-2 px-3 py-3">
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-56" autoFocus />
-          <Button size="sm" variant="primary" onClick={saveEdit} disabled={pending || !name.trim()}>
+          <Button size="sm" variant="default" onClick={saveEdit} disabled={pending || !name.trim()}>
             Save
           </Button>
           <Button

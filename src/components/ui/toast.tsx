@@ -129,7 +129,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="grid size-5 shrink-0 place-items-center self-start rounded-[3px] text-ink-3 hover:bg-hover hover:text-ink"
+          className="grid size-5 shrink-0 place-items-center self-start rounded-inner text-ink-3 hover:bg-hover hover:text-ink"
         >
           <svg viewBox="0 0 8 8" className="size-2" aria-hidden>
             <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.4" fill="none" />

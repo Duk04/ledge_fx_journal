@@ -18,7 +18,7 @@ export function SelectTrigger({ className, children, ...props }: React.Component
     <SelectPrimitive.Trigger
       {...fieldProps}
       className={cn(
-        "flex h-control w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line bg-panel px-2.5 text-sm text-ink",
+        "flex h-control w-full items-center justify-between gap-2 rounded-control border border-line bg-panel px-2.5 text-sm text-ink",
         "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         "hover:border-line-strong",
         "focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-weak",
@@ -66,7 +66,7 @@ export function SelectItem({ className, children, ...props }: React.ComponentPro
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex h-8 w-full cursor-default select-none items-center rounded-[3px] px-2 pr-7 text-sm text-ink outline-none",
+        "relative flex h-8 w-full cursor-default select-none items-center rounded-inner px-2 pr-7 text-sm text-ink outline-none",
         "data-[highlighted]:bg-hover",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-45",
         className,

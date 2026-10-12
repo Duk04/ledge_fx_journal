@@ -248,7 +248,7 @@ export function AttachmentUploader({
   return (
     <div ref={containerRef} className="flex flex-col gap-3">
       {!online ? (
-        <div className="flex items-center gap-2 rounded-[var(--radius-control)] border border-warn/30 bg-warn-weak px-2.5 py-1.5 text-xs text-warn">
+        <div className="flex items-center gap-2 rounded-control border border-warn/30 bg-warn-weak px-2.5 py-1.5 text-xs text-warn">
           <AlertTriangle className="size-3.5 shrink-0" />
           You&rsquo;re offline — screenshots will queue in the picker but won&rsquo;t upload until you&rsquo;re back.
         </div>
@@ -315,7 +315,7 @@ export function AttachmentUploader({
           {uploads.map((u) => (
             <div
               key={u.tempId}
-              className="relative flex aspect-video flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[var(--radius-control)] border border-line bg-panel-sunken px-2 text-center"
+              className="relative flex aspect-video flex-col items-center justify-center gap-1.5 overflow-hidden rounded-control border border-line bg-panel-sunken px-2 text-center"
             >
               {u.status === "uploading" ? (
                 <>
@@ -418,7 +418,7 @@ function AttachmentTile({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="group relative aspect-video overflow-hidden rounded-[var(--radius-control)] border border-line bg-panel-sunken">
+      <div className="group relative aspect-video overflow-hidden rounded-control border border-line bg-panel-sunken">
         {src ? (
           <button type="button" className="block size-full cursor-zoom-in" onClick={() => setOpen(true)}>
             {/* eslint-disable-next-line @next/next/no-img-element -- attachment bytes come from our own authenticated route or an arbitrary https URL, neither of which next/image can optimise */}
@@ -441,7 +441,7 @@ function AttachmentTile({
           type="button"
           onClick={onDelete}
           aria-label="Delete screenshot"
-          className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-[3px] bg-panel/90 text-ink-3 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:text-loss"
+          className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-inner bg-panel/90 text-ink-3 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:text-loss"
         >
           <Trash2 className="size-3.5" />
         </button>

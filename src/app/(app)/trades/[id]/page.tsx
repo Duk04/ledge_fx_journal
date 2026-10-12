@@ -72,7 +72,7 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
             <p className="font-medium">Stored numbers don&apos;t match a fresh recompute.</p>
             <p className="mt-0.5 text-warn/90">
               This can happen after a formula change or a manual database edit. Run{" "}
-              <code className="mono rounded-[3px] bg-black/10 px-1 py-0.5">npm run backfill</code> to bring every
+              <code className="mono rounded-inner bg-black/10 px-1 py-0.5">npm run backfill</code> to bring every
               trade&apos;s derived columns back in sync. Recomputed values are shown in parentheses below.
             </p>
           </div>

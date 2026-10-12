@@ -11,7 +11,7 @@ export function ChartTooltipShell({ children, className }: { children: ReactNode
   return (
     <div
       className={cn(
-        "min-w-36 rounded-[var(--radius-control)] border border-line bg-panel-raised px-2.5 py-1.5 text-xs text-ink shadow-overlay",
+        "min-w-36 rounded-control border border-line bg-panel-raised px-2.5 py-1.5 text-xs text-ink shadow-overlay",
         className,
       )}
     >

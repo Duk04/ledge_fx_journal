@@ -281,7 +281,8 @@ export function StrategyWorkbench({
                   <Trash2 /> Delete
                 </Button>
               ) : null}
-              <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
+              {/* Run is this page's primary action; saving is secondary. */}
+              <Button variant="default" size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
                 <Save /> {saving ? "Saving…" : "Save"}
               </Button>
             </div>

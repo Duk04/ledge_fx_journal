@@ -214,7 +214,7 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
             type="date"
             value={current.from}
             onChange={(e) => update({ from: e.target.value || null })}
-            className="h-control rounded-[var(--radius-control)] border border-line bg-panel px-2 text-xs text-ink"
+            className="h-control rounded-control border border-line bg-panel px-2 text-xs text-ink"
             aria-label="From date"
           />
           <span className="text-ink-3">–</span>
@@ -222,7 +222,7 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
             type="date"
             value={current.to}
             onChange={(e) => update({ to: e.target.value || null })}
-            className="h-control rounded-[var(--radius-control)] border border-line bg-panel px-2 text-xs text-ink"
+            className="h-control rounded-control border border-line bg-panel px-2 text-xs text-ink"
             aria-label="To date"
           />
         </div>

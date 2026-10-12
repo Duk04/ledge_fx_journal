@@ -8,6 +8,9 @@ import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, User } from "lucide-
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Tip } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
+import { CommandPalette, ShortcutsDialog } from "./command-palette";
 import {
   Dropdown,
   DropdownContent,
@@ -44,17 +47,29 @@ export function AppShell({
   const [rail, setRail] = useStoredState(RAIL_KEY, "0" as const, isRailValue);
   const collapsed = rail === "1";
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const navButtonRef = React.useRef<HTMLButtonElement>(null);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
 
-  // "n" opens the new-trade form from anywhere. A journal is only useful if
-  // logging a trade is faster than not bothering.
+  // Keyboard: "n" opens the new-trade form from anywhere (a journal is only
+  // useful if logging a trade is faster than not bothering), ⌘K / Ctrl+K the
+  // command palette — even from inside a field — and "?" the shortcut list.
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
       const t = e.target as HTMLElement | null;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (e.key === "n") {
         e.preventDefault();
         router.push("/trades/new");
+      } else if (e.key === "?") {
+        e.preventDefault();
+        setShortcutsOpen(true);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -66,6 +81,7 @@ export function AppShell({
       {/* ---------------------------------------------------------------- top */}
       <header className="sticky top-0 z-30 flex h-topbar shrink-0 items-center gap-2 border-b border-line bg-panel/95 px-2.5 backdrop-blur-sm sm:px-3">
         <Button
+          ref={navButtonRef}
           variant="ghost"
           size="icon-sm"
           className="lg:hidden"
@@ -88,7 +104,7 @@ export function AppShell({
         <Button asChild variant="primary" size="md" className="hidden sm:inline-flex">
           <Link href="/trades/new">
             <Plus /> Log trade
-            <kbd className="ml-1 hidden rounded-[3px] bg-black/15 px-1 text-2xs font-normal md:inline">N</kbd>
+            <Kbd className="ml-1 hidden md:inline-flex">N</Kbd>
           </Link>
         </Button>
 
@@ -168,7 +184,7 @@ export function AppShell({
             type="button"
             onClick={() => setRail(collapsed ? "0" : "1")}
             className={cn(
-              "flex h-8 items-center gap-2 rounded-[var(--radius-control)] px-2 text-ink-3",
+              "flex h-8 items-center gap-2 rounded-control px-2 text-ink-3",
               "hover:bg-hover hover:text-ink-2",
             )}
             aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
@@ -185,18 +201,19 @@ export function AppShell({
         </nav>
 
         {/* ------------------------------------------------------ mobile drawer */}
-        {mobileOpen ? (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <button
-              type="button"
-              aria-label="Close navigation"
-              className="absolute inset-0 bg-scrim"
-              onClick={() => setMobileOpen(false)}
-            />
-            <nav
-              aria-label="Main"
-              className="absolute inset-y-0 left-0 flex w-64 flex-col gap-4 border-r border-line bg-panel px-2 py-3"
-            >
+        <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
+          <DialogContent
+            variant="drawer"
+            className="lg:hidden"
+            // Opened from state, not a Radix Trigger, so Radix has no trigger
+            // to hand focus back to; do it explicitly.
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              navButtonRef.current?.focus();
+            }}
+          >
+            <DialogTitle className="sr-only">Navigation</DialogTitle>
+            <nav aria-label="Main" className="flex flex-col gap-4 overflow-y-auto px-2 py-3">
               {NAV_GROUPS.map((group) => (
                 <div key={group.label} className="flex flex-col gap-0.5">
                   <span className="label px-2 pb-1">{group.label}</span>
@@ -211,8 +228,10 @@ export function AppShell({
                 </div>
               ))}
             </nav>
-          </div>
-        ) : null}
+          </DialogContent>
+        </Dialog>
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
         {/* ------------------------------------------------------------ content */}
         <main className="min-w-0 flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
@@ -243,7 +262,7 @@ export function AppShell({
         <Link
           href="/trades/new"
           aria-label="Log trade"
-          className="mx-2 mt-2 grid size-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-brand text-brand-ink"
+          className="mx-2 mt-2 grid size-10 shrink-0 place-items-center rounded-control bg-brand text-brand-ink"
         >
           <Plus className="size-5" />
         </Link>
@@ -274,7 +293,7 @@ function RailLink({
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex h-8 items-center gap-2.5 rounded-[var(--radius-control)] px-2 text-sm",
+        "relative flex h-8 items-center gap-2.5 rounded-control px-2 text-sm",
         "transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out)]",
         active ? "bg-brand-weak text-ink" : "text-ink-2 hover:bg-hover hover:text-ink",
         collapsed && "justify-center px-0",

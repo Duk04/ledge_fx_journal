@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Money } from "@/components/ui";
+import { formatMoneyCompact } from "@/lib/metrics/formatters";
 import type { CalendarDay } from "@/lib/queries/journal";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -92,7 +93,18 @@ function DayCell({ day, currency, isToday }: { day: CalendarDay; currency: strin
 
       {hasTrades ? (
         <div className="mt-auto flex flex-col gap-0.5">
-          <Money value={netPnl} currency={currency} signed className="text-xs font-medium" />
+          {/* A day cell is ~50px wide on a phone: a full "+$1,234.56"
+              overflowed it. The compact form is shown there, the exact
+              figure from sm up. */}
+          <span
+            className={cn(
+              "mono text-xs font-medium sm:hidden",
+              (netPnl ?? 0) > 0.005 ? "val-pos" : (netPnl ?? 0) < -0.005 ? "val-neg" : "val-flat",
+            )}
+          >
+            {formatMoneyCompact(netPnl, currency)}
+          </span>
+          <Money value={netPnl} currency={currency} signed className="hidden text-xs font-medium sm:inline" />
           <span className="text-2xs text-ink-3">
             {day.tradeCount} trade{day.tradeCount === 1 ? "" : "s"}
           </span>

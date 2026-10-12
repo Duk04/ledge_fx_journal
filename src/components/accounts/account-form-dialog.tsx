@@ -167,7 +167,7 @@ export function AccountFormDialog({
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogBody className="flex flex-col gap-3">
             {errors.root?.message ? (
-              <p className="rounded-[var(--radius-control)] border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
+              <p className="rounded-control border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
                 {errors.root.message}
               </p>
             ) : null}

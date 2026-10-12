@@ -63,7 +63,7 @@ export function RunTradeTable({ trades, currency }: { trades: RunTradeRow[]; cur
                   <Pips value={t.pips} />
                 </Td>
                 <Td numeric>
-                  <Money value={t.netPnl} currency={currency} />
+                  <Money value={t.netPnl} currency={currency} signed />
                 </Td>
                 <Td numeric>
                   <RValue value={t.rMultiple} />

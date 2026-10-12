@@ -5,9 +5,9 @@ import {
   Panel,
   PanelHeader,
   PanelBody,
-  Tabs,
   TabsList,
   TabsTrigger,
+  UrlTabs,
   TabsContent,
   Stat,
   StatRow,
@@ -40,8 +40,15 @@ function toneOf(n: number | null): "profit" | "loss" | "neutral" {
   return n > 0 ? "profit" : "loss";
 }
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  const { range: rangeParam } = await searchParams;
+const TABS = ["breakdowns", "distribution", "timing", "periods"] as const;
+
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; tab?: string }>;
+}) {
+  const { range: rangeParam, tab: tabParam } = await searchParams;
+  const tab = TABS.find((t) => t === tabParam) ?? "breakdowns";
   const user = await requireUser();
 
   const accountId = await resolveActiveAccountId(user.id);
@@ -72,7 +79,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     <Page>
       <SectionHead title="Analytics" hint={account.label} actions={<RangeControl value={range} />} />
 
-      <Tabs defaultValue="breakdowns">
+      <UrlTabs value={tab}>
         <TabsList>
           <TabsTrigger value="breakdowns">Breakdowns</TabsTrigger>
           <TabsTrigger value="distribution">Distribution</TabsTrigger>
@@ -193,7 +200,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <TabsContent value="periods" className="flex flex-col gap-4 pt-4">
           <PeriodsView data={pd} currency={currency} />
         </TabsContent>
-      </Tabs>
+      </UrlTabs>
     </Page>
   );
 }

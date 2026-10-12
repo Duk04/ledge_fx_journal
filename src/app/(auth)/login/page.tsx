@@ -66,19 +66,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
 
         {error ? (
-          <div
-            role="alert"
-            className="rounded-[var(--radius-control)] border border-loss/35 bg-loss-weak px-3 py-2 text-sm text-loss"
-          >
+          <div role="alert" className="rounded-control border border-loss/35 bg-loss-weak px-3 py-2 text-sm text-loss">
             {error}
           </div>
         ) : null}
 
         {justRegistered ? (
-          <div
-            role="status"
-            className="rounded-[var(--radius-control)] border border-line bg-panel px-3 py-2 text-sm text-ink-2"
-          >
+          <div role="status" className="rounded-control border border-line bg-panel px-3 py-2 text-sm text-ink-2">
             Account created. Sign in below.
           </div>
         ) : null}
@@ -95,7 +89,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               type="email"
               autoComplete="email"
               required
-              className="bg-panel border border-line rounded-[var(--radius-control)] h-control px-2.5 text-sm w-full"
+              className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
             />
           </div>
           <div className="space-y-1">
@@ -108,7 +102,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               type="password"
               autoComplete="current-password"
               required
-              className="bg-panel border border-line rounded-[var(--radius-control)] h-control px-2.5 text-sm w-full"
+              className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
             />
           </div>
           <Button type="submit" variant="primary" className="w-full">
@@ -139,7 +133,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                   type="text"
                   autoComplete="name"
                   required
-                  className="bg-panel border border-line rounded-[var(--radius-control)] h-control px-2.5 text-sm w-full"
+                  className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
                 />
               </div>
               <div className="space-y-1">
@@ -152,7 +146,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                   type="email"
                   autoComplete="email"
                   required
-                  className="bg-panel border border-line rounded-[var(--radius-control)] h-control px-2.5 text-sm w-full"
+                  className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
                 />
               </div>
               <div className="space-y-1">
@@ -166,7 +160,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                   autoComplete="new-password"
                   minLength={8}
                   required
-                  className="bg-panel border border-line rounded-[var(--radius-control)] h-control px-2.5 text-sm w-full"
+                  className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
                 />
               </div>
               <Button type="submit" variant="default" className="w-full">

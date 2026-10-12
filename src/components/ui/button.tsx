@@ -8,7 +8,7 @@ type Variant = "primary" | "default" | "ghost" | "danger" | "link";
 type Size = "sm" | "md" | "lg" | "icon" | "icon-sm";
 
 const base =
-  "relative inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-control)] " +
+  "relative inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control " +
   "font-medium transition-[background-color,border-color,color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)] " +
   "disabled:pointer-events-none disabled:opacity-45 [&_svg]:shrink-0";
 

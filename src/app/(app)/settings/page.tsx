@@ -1,5 +1,5 @@
 import { Page } from "@/components/shell/page";
-import { SectionHead, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
+import { SectionHead, UrlTabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { canWriteSharedData, requireUser } from "@/lib/session";
 import { getProfile, listTagsGrouped, listInstruments } from "@/lib/queries/settings";
 import { ProfileTab } from "@/components/settings/profile-tab";
@@ -7,7 +7,11 @@ import { TagsTab } from "@/components/settings/tags-tab";
 import { InstrumentsTab } from "@/components/settings/instruments-tab";
 import { DataTab } from "@/components/settings/data-tab";
 
-export default async function SettingsPage() {
+const TABS = ["profile", "tags", "instruments", "data"] as const;
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab: tabParam } = await searchParams;
+  const tab = TABS.find((t) => t === tabParam) ?? "profile";
   const user = await requireUser();
   // Resolved here rather than in the client component: the role lives in the
   // database (see lib/session.ts on where authority lives), and a client has
@@ -22,7 +26,7 @@ export default async function SettingsPage() {
   return (
     <Page width="reading">
       <SectionHead title="Settings" hint="Profile, tags, instrument contracts, and your data." />
-      <Tabs defaultValue="profile">
+      <UrlTabs value={tab}>
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="tags">Tags</TabsTrigger>
@@ -41,7 +45,7 @@ export default async function SettingsPage() {
         <TabsContent value="data" className="pt-4">
           <DataTab />
         </TabsContent>
-      </Tabs>
+      </UrlTabs>
     </Page>
   );
 }

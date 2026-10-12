@@ -51,9 +51,7 @@ export function DeleteAccountDialog({
         <DialogHeader title="Delete account" description={`Permanently delete "${label}"? This cannot be undone.`} />
         <DialogBody>
           {error ? (
-            <p className="rounded-[var(--radius-control)] border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
-              {error}
-            </p>
+            <p className="rounded-control border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">{error}</p>
           ) : (
             <p className="text-xs text-ink-3">
               This only works for accounts with no trades. Accounts with trading history should be archived instead, so

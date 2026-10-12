@@ -30,7 +30,9 @@ export default async function BacktestPage() {
                 <Play /> New replay
               </Link>
             </Button>
-            <Button asChild variant="primary" size="sm">
+            {/* Primary only once there is data to run on; until then the
+                empty state's "Go to Market data" is the one next step. */}
+            <Button asChild variant={hasAnyCandles ? "primary" : "default"} size="sm">
               <Link href="/backtest/strategies">
                 <FlaskConical /> New strategy run
               </Link>

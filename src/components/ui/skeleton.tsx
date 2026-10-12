@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 export function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("animate-pulse rounded-[3px] bg-inset", className)}
+      className={cn("animate-pulse rounded-inner bg-inset", className)}
       style={{ animationDuration: "1.4s" }}
       {...props}
     />

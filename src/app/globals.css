@@ -71,6 +71,10 @@
   --font-jetbrains-mono: "JetBrains Mono";
 
   --radius-control: 4px;
+  /* For things nested inside a control (a key hint, a segment): one step
+     tighter, so the inner corner sits inside the outer one. Replaces a
+     scatter of rounded-[3px]/[2px]/[1px] literals. */
+  --radius-inner: 3px;
   --radius-panel: 6px;
   --radius-overlay: 10px;
   --radius-pill: 999px;
@@ -300,6 +304,7 @@
   --text-2xl--line-height: 1.05;
 
   --radius-control: var(--radius-control);
+  --radius-inner: var(--radius-inner);
   --radius-panel: var(--radius-panel);
   --radius-overlay: var(--radius-overlay);
 

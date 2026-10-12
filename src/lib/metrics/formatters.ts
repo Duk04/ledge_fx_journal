@@ -86,3 +86,24 @@ export function formatPrice(value: Numeric, digits: number): string {
 export function formatInZone(at: Date | string, timezone: string, pattern: string): string {
   return format(new TZDate(new Date(at).getTime(), timezone), pattern);
 }
+
+/**
+ * Money in the fewest characters — "+$1.2K", "−$340" — for cells too narrow
+ * for the full figure (the journal calendar on a phone). Always signed. Never
+ * use it where the exact amount matters; it rounds.
+ */
+export function formatMoneyCompact(value: Numeric, currency: string): string {
+  const n = toNumber(value);
+  if (n === null) return "—";
+  try {
+    const s = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(Math.abs(n));
+    return `${n > 0.005 ? "+" : n < -0.005 ? "−" : ""}${s}`;
+  } catch {
+    return formatMoney(n, currency);
+  }
+}

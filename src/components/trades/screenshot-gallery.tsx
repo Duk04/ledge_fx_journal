@@ -48,7 +48,7 @@ export function ScreenshotGallery({ attachments }: { attachments: AttachmentView
             type="button"
             onClick={() => a.externalUrl && setOpenId(a.id)}
             className={cn(
-              "group relative flex aspect-video items-center justify-center overflow-hidden rounded-[var(--radius-control)] border border-line bg-panel-sunken",
+              "group relative flex aspect-video items-center justify-center overflow-hidden rounded-control border border-line bg-panel-sunken",
               a.externalUrl && "cursor-zoom-in",
             )}
           >

@@ -1,8 +1,9 @@
 "use client";
 
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
+import { ChartFrame } from "./chart-frame";
 import { ChartTooltipRow, ChartTooltipShell, ChartTooltipTitle } from "./chart-tooltip";
 import type { BreakdownRow } from "@/lib/queries/analytics";
 
@@ -21,40 +22,50 @@ export function HourOfDayChart({ rows, currency }: { rows: BreakdownRow[]; curre
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%" minHeight={160}>
-      <BarChart data={rows} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="20%">
-        <XAxis
-          dataKey="label"
-          axisLine={{ stroke: "var(--chart-grid)" }}
-          tickLine={false}
-          tick={{ fill: "var(--ink-3)", fontSize: 11 }}
-          interval="preserveStartEnd"
-        />
-        <YAxis hide />
-        <Tooltip
-          cursor={{ fill: "var(--hover)" }}
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null;
-            const r = payload[0].payload as BreakdownRow;
-            return (
-              <ChartTooltipShell>
-                <ChartTooltipTitle>{r.label}</ChartTooltipTitle>
-                <ChartTooltipRow
-                  label="Net P&L"
-                  value={formatMoney(r.netPnl, currency)}
-                  tone={r.netPnl > 0 ? "profit" : r.netPnl < 0 ? "loss" : "neutral"}
-                />
-                <ChartTooltipRow label="Trades" value={r.count} />
-              </ChartTooltipShell>
-            );
-          }}
-        />
-        <Bar dataKey="netPnl" radius={[2, 2, 2, 2]} isAnimationActive={false} maxBarSize={18}>
-          {rows.map((r, i) => (
-            <Cell key={i} fill={r.netPnl >= 0 ? "var(--profit)" : "var(--loss)"} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ChartFrame label={hourLabel(withData, currency)}>
+      <ResponsiveContainer width="100%" height="100%" minHeight={160}>
+        <BarChart data={rows} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="20%">
+          <XAxis
+            dataKey="label"
+            axisLine={{ stroke: "var(--chart-grid)" }}
+            tickLine={false}
+            tick={{ fill: "var(--ink-3)", fontSize: 11 }}
+            interval="preserveStartEnd"
+          />
+          <YAxis hide />
+          <Tooltip
+            cursor={{ fill: "var(--hover)" }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const r = payload[0].payload as BreakdownRow;
+              return (
+                <ChartTooltipShell>
+                  <ChartTooltipTitle>{r.label}</ChartTooltipTitle>
+                  <ChartTooltipRow
+                    label="Net P&L"
+                    value={formatMoney(r.netPnl, currency)}
+                    tone={r.netPnl > 0 ? "profit" : r.netPnl < 0 ? "loss" : "neutral"}
+                  />
+                  <ChartTooltipRow label="Trades" value={r.count} />
+                </ChartTooltipShell>
+              );
+            }}
+          />
+          <ReferenceLine y={0} stroke="var(--chart-grid)" />
+          <Bar dataKey="netPnl" radius={[2, 2, 2, 2]} isAnimationActive={false} maxBarSize={18}>
+            {rows.map((r, i) => (
+              <Cell key={i} fill={r.netPnl >= 0 ? "var(--profit)" : "var(--loss)"} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
+}
+
+function hourLabel(rows: BreakdownRow[], currency: string) {
+  if (!rows.length) return "Net P&L by hour: no trades.";
+  const best = rows.reduce((a, b) => (b.netPnl > a.netPnl ? b : a));
+  const worst = rows.reduce((a, b) => (b.netPnl < a.netPnl ? b : a));
+  return `Net P&L by hour of day. Best ${best.label} ${formatMoney(best.netPnl, currency)}, worst ${worst.label} ${formatMoney(worst.netPnl, currency)}.`;
 }

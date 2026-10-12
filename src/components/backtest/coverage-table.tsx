@@ -195,9 +195,7 @@ function DeleteCoverageDialog({
         />
         <DialogBody>
           {error ? (
-            <p className="rounded-[var(--radius-control)] border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
-              {error}
-            </p>
+            <p className="rounded-control border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">{error}</p>
           ) : null}
         </DialogBody>
         <DialogFooter>

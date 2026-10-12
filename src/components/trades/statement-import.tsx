@@ -287,7 +287,7 @@ function Preview({
         ) : null}
 
         {report.unmappedSymbols.length ? (
-          <div className="flex flex-col gap-2 rounded-[var(--radius-control)] border border-warn/30 bg-warn-weak p-3">
+          <div className="flex flex-col gap-2 rounded-control border border-warn/30 bg-warn-weak p-3">
             <p className="text-xs text-ink">
               Which instrument is each of these? Your answer is remembered for next time.
             </p>
@@ -412,7 +412,7 @@ function DropZone({
         const dropped = e.dataTransfer.files?.[0];
         if (dropped) onFile(dropped);
       }}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--radius-control)] border border-dashed px-4 py-8 text-center transition-colors duration-[var(--dur-fast)] ${
+      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-control border border-dashed px-4 py-8 text-center transition-colors duration-[var(--dur-fast)] ${
         dragging ? "border-brand bg-brand-weak" : "border-line hover:border-line-strong"
       }`}
     >

@@ -8,9 +8,10 @@ import { cn } from "@/lib/cn";
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
+export const DialogTitle = DialogPrimitive.Title;
 
 type Size = "sm" | "md" | "lg";
-type Variant = "dialog" | "sheet";
+type Variant = "dialog" | "sheet" | "drawer";
 
 const sizes: Record<Size, string> = {
   sm: "max-w-sm",
@@ -48,19 +49,27 @@ export function DialogContent({
       <DialogPrimitive.Content
         className={cn(
           "fixed z-50 flex flex-col border border-line bg-panel text-ink shadow-overlay outline-none",
-          variant === "sheet"
+          variant === "drawer"
             ? cn(
-                "inset-x-0 bottom-0 max-h-[85vh] w-full rounded-t-[var(--radius-overlay)]",
-                "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
-                "data-[state=open]:animate-[sheet-in_var(--dur)_var(--ease-out)]",
-                "sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-full sm:max-h-[70vh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[var(--radius-overlay)] sm:pb-0",
-                sizes[size],
+                // Left-edge panel: the mobile navigation. Radix supplies the
+                // focus trap, Esc, scroll lock and focus return the hand-built
+                // drawer it replaced had none of.
+                "inset-y-0 left-0 h-full w-64 max-w-[85vw] border-y-0 border-l-0",
+                "data-[state=open]:animate-[drawer-in_var(--dur)_var(--ease-out)]",
               )
-            : cn(
-                "top-1/2 left-1/2 max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-overlay)]",
-                "data-[state=open]:animate-[dialog-in_var(--dur)_var(--ease-out)]",
-                sizes[size],
-              ),
+            : variant === "sheet"
+              ? cn(
+                  "inset-x-0 bottom-0 max-h-[85vh] w-full rounded-t-[var(--radius-overlay)]",
+                  "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+                  "data-[state=open]:animate-[sheet-in_var(--dur)_var(--ease-out)]",
+                  "sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-full sm:max-h-[70vh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[var(--radius-overlay)] sm:pb-0",
+                  sizes[size],
+                )
+              : cn(
+                  "top-1/2 left-1/2 max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-overlay)]",
+                  "data-[state=open]:animate-[dialog-in_var(--dur)_var(--ease-out)]",
+                  sizes[size],
+                ),
           className,
         )}
         {...props}
@@ -69,7 +78,7 @@ export function DialogContent({
         {showClose ? (
           <DialogPrimitive.Close
             className={cn(
-              "absolute top-3 right-3 grid size-7 place-items-center rounded-[var(--radius-control)] text-ink-3",
+              "absolute top-3 right-3 grid size-7 place-items-center rounded-control text-ink-3",
               "transition-[background-color,color] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
               "hover:bg-hover hover:text-ink",
             )}
@@ -87,6 +96,7 @@ export function DialogContent({
         @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
         @keyframes dialog-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 2px)) } to { opacity: 1; transform: translate(-50%, -50%) } }
         @keyframes sheet-in { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes drawer-in { from { opacity: 0; transform: translateX(-12px) } to { opacity: 1; transform: translateX(0) } }
       `}</style>
     </DialogPrimitive.Portal>
   );

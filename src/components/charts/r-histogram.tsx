@@ -3,6 +3,7 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
+import { ChartFrame } from "./chart-frame";
 import { ChartTooltipRow, ChartTooltipShell, ChartTooltipTitle } from "./chart-tooltip";
 import type { RHistogramBucket } from "@/lib/queries/analytics";
 
@@ -30,48 +31,60 @@ export function RHistogram({ buckets, currency }: { buckets: RHistogramBucket[];
   }));
 
   return (
-    <ResponsiveContainer width="100%" height="100%" minHeight={180}>
-      <BarChart data={data} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="18%">
-        <XAxis
-          dataKey="label"
-          axisLine={{ stroke: "var(--chart-grid)" }}
-          tickLine={false}
-          tick={{ fill: "var(--ink-3)", fontSize: 11 }}
-          interval="preserveStartEnd"
-        />
-        <YAxis hide />
-        <Tooltip
-          cursor={{ fill: "var(--hover)" }}
-          content={({ active, payload }) => {
-            if (!active || !payload?.length) return null;
-            const b = payload[0].payload as (typeof data)[number];
-            return (
-              <ChartTooltipShell>
-                <ChartTooltipTitle>
-                  {b.from === null
-                    ? "No stop loss recorded"
-                    : `${formatBoundary(b.from)}R to ${formatBoundary(b.to!)}R`}
-                </ChartTooltipTitle>
-                <ChartTooltipRow label="Trades" value={b.count} />
-                <ChartTooltipRow
-                  label="Net P&L"
-                  value={formatMoney(b.netPnl, currency)}
-                  tone={b.netPnl > 0 ? "profit" : b.netPnl < 0 ? "loss" : "neutral"}
-                />
-              </ChartTooltipShell>
-            );
-          }}
-        />
-        <Bar dataKey="count" radius={[2, 2, 0, 0]} isAnimationActive={false} maxBarSize={36}>
-          {data.map((b, i) => (
-            <Cell key={i} fill={b.isNoR ? "var(--ink-3)" : b.isLoss ? "var(--loss)" : "var(--profit)"} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <ChartFrame label={histogramLabel(withData)}>
+      <ResponsiveContainer width="100%" height="100%" minHeight={180}>
+        <BarChart data={data} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="18%">
+          <XAxis
+            dataKey="label"
+            axisLine={{ stroke: "var(--chart-grid)" }}
+            tickLine={false}
+            tick={{ fill: "var(--ink-3)", fontSize: 11 }}
+            interval="preserveStartEnd"
+          />
+          <YAxis hide />
+          <Tooltip
+            cursor={{ fill: "var(--hover)" }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const b = payload[0].payload as (typeof data)[number];
+              return (
+                <ChartTooltipShell>
+                  <ChartTooltipTitle>
+                    {b.from === null
+                      ? "No stop loss recorded"
+                      : `${formatBoundary(b.from)}R to ${formatBoundary(b.to!)}R`}
+                  </ChartTooltipTitle>
+                  <ChartTooltipRow label="Trades" value={b.count} />
+                  <ChartTooltipRow
+                    label="Net P&L"
+                    value={formatMoney(b.netPnl, currency)}
+                    tone={b.netPnl > 0 ? "profit" : b.netPnl < 0 ? "loss" : "neutral"}
+                  />
+                </ChartTooltipShell>
+              );
+            }}
+          />
+          <Bar dataKey="count" radius={[2, 2, 0, 0]} isAnimationActive={false} maxBarSize={36}>
+            {data.map((b, i) => (
+              <Cell key={i} fill={b.isNoR ? "var(--ink-3)" : b.isLoss ? "var(--loss)" : "var(--profit)"} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartFrame>
   );
 }
 
 function formatBoundary(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function histogramLabel(buckets: RHistogramBucket[]) {
+  const total = buckets.reduce((a, b) => a + b.count, 0);
+  const winners = buckets.filter((b) => b.from !== null && b.from >= 0).reduce((a, b) => a + b.count, 0);
+  const top = [...buckets].sort((a, b) => b.count - a.count)[0];
+  const range = (b: RHistogramBucket) => (b.from === null ? "no stop" : `${b.from}R to ${b.to ?? "∞"}R`);
+  return total
+    ? `R multiples of ${total} trade(s): ${winners} at 0R or better; most common ${top ? range(top) : "none"}.`
+    : "R distribution: no trades.";
 }

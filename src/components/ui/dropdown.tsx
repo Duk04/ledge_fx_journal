@@ -39,7 +39,7 @@ export function DropdownItem({
   return (
     <DropdownPrimitive.Item
       className={cn(
-        "flex h-8 cursor-default select-none items-center gap-2 rounded-[3px] px-2 text-sm outline-none",
+        "flex h-8 cursor-default select-none items-center gap-2 rounded-inner px-2 text-sm outline-none",
         tone === "danger" ? "text-loss data-[highlighted]:bg-loss-weak" : "text-ink data-[highlighted]:bg-hover",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-45",
         className,
@@ -59,7 +59,7 @@ export function DropdownCheckboxItem({
     <DropdownPrimitive.CheckboxItem
       checked={checked}
       className={cn(
-        "relative flex h-8 cursor-default select-none items-center rounded-[3px] py-0 pl-7 pr-2 text-sm text-ink outline-none",
+        "relative flex h-8 cursor-default select-none items-center rounded-inner py-0 pl-7 pr-2 text-sm text-ink outline-none",
         "data-[highlighted]:bg-hover",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-45",
         className,

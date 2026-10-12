@@ -49,7 +49,7 @@ function Chip({ pressed, onToggle, children }: { pressed: boolean; onToggle: () 
       aria-pressed={pressed}
       onClick={onToggle}
       className={cn(
-        "h-7 rounded-[var(--radius-control)] border px-2.5 text-xs transition-colors duration-[var(--dur-fast)]",
+        "h-7 rounded-control border px-2.5 text-xs transition-colors duration-[var(--dur-fast)]",
         pressed ? "border-brand-line bg-brand-weak text-brand" : "border-line text-ink-2 hover:text-ink",
       )}
     >

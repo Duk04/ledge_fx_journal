@@ -47,7 +47,7 @@ export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOptio
     return (
       <Link
         href="/accounts"
-        className="flex h-control items-center gap-1.5 rounded-[var(--radius-control)] border border-dashed border-line-strong px-2.5 text-xs text-ink-2 hover:bg-hover"
+        className="flex h-control items-center gap-1.5 rounded-control border border-dashed border-line-strong px-2.5 text-xs text-ink-2 hover:bg-hover"
       >
         <Plus className="size-3.5" /> Add an account
       </Link>
@@ -60,7 +60,7 @@ export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOptio
     <Dropdown>
       <DropdownTrigger
         className={cn(
-          "group flex h-control min-w-0 items-center gap-2.5 rounded-[var(--radius-control)] border border-line",
+          "group flex h-control min-w-0 items-center gap-2.5 rounded-control border border-line",
           "bg-panel pl-2.5 pr-2 text-left transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out)]",
           "hover:border-line-strong hover:bg-hover",
         )}

@@ -299,11 +299,7 @@ function ColorTokens() {
 function Swatch({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div
-        className="h-12 rounded-[var(--radius-control)] border border-line"
-        style={{ background: `var(${token})` }}
-        aria-hidden
-      />
+      <div className="h-12 rounded-control border border-line" style={{ background: `var(${token})` }} aria-hidden />
       <span className="truncate font-mono text-2xs text-ink-3">{token}</span>
     </div>
   );
@@ -569,7 +565,7 @@ function SparklineShowcase() {
   return (
     <div className="grid grid-cols-2 gap-4">
       {SPARK_SERIES.map((s) => (
-        <div key={s.label} className="flex flex-col gap-1.5 rounded-[var(--radius-control)] border border-line p-3">
+        <div key={s.label} className="flex flex-col gap-1.5 rounded-control border border-line p-3">
           <span className="text-xs text-ink-2">{s.label}</span>
           <Sparkline values={s.values} width={160} height={32} tone={s.tone} />
         </div>
