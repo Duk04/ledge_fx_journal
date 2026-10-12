@@ -47,15 +47,21 @@ export interface RenderedEmail {
 
 function layout(
   body: string,
-  footer: { why: string; unsubscribe: string; unsubscribeUrl: string; settings: string; settingsUrl: string },
+  footer: { why: string; unsubscribe?: string; unsubscribeUrl?: string; settings?: string; settingsUrl?: string },
 ) {
+  // A transactional mail (a password reset) has no unsubscribe: it is sent
+  // because someone asked for it, once.
+  const links =
+    footer.unsubscribe && footer.unsubscribeUrl && footer.settings && footer.settingsUrl
+      ? `<br>
+<a href="${esc(footer.unsubscribeUrl)}" style="color:${C.ink3}">${esc(footer.unsubscribe)}</a> · <a href="${esc(footer.settingsUrl)}" style="color:${C.ink3}">${esc(footer.settings)}</a>`
+      : "";
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f6f7f9;font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;color:${C.ink}">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ${C.line};border-radius:10px;padding:24px">
 <div style="font-weight:600;font-size:14px;color:${C.brand};margin-bottom:16px">Ledger</div>
 ${body}
 </div>
-<p style="max-width:560px;margin:16px auto 0;font-size:12px;color:${C.ink3};line-height:1.5">${esc(footer.why)}<br>
-<a href="${esc(footer.unsubscribeUrl)}" style="color:${C.ink3}">${esc(footer.unsubscribe)}</a> · <a href="${esc(footer.settingsUrl)}" style="color:${C.ink3}">${esc(footer.settings)}</a></p>
+<p style="max-width:560px;margin:16px auto 0;font-size:12px;color:${C.ink3};line-height:1.5">${esc(footer.why)}${links}</p>
 </body></html>`;
 }
 
@@ -190,4 +196,19 @@ ${button(t("summary.cta"), input.appUrl)}`,
     .join("\n");
 
   return { subject: t("summary.subject", { week: input.week }), html, text };
+}
+
+export function passwordResetEmail(input: { locale: string; resetUrl: string; minutes: number }): RenderedEmail {
+  const t = translator(input.locale);
+  const body = t("reset.body", { minutes: String(input.minutes) });
+  const html = layout(
+    `<h1 style="font-size:18px;margin:0 0 8px">${esc(t("reset.heading"))}</h1>
+<p style="font-size:14px;line-height:1.55;color:${C.ink2};margin:0">${esc(body)}</p>
+${button(t("reset.cta"), input.resetUrl)}`,
+    { why: t("reset.why") },
+  );
+  const text = [t("reset.heading"), "", body, "", `${t("reset.cta")}: ${input.resetUrl}`, "", t("reset.why")].join(
+    "\n",
+  );
+  return { subject: t("reset.subject"), html, text };
 }

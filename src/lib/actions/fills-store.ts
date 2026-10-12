@@ -1,5 +1,5 @@
 import "server-only";
-import { Prisma, type Execution, type ExecutionKind } from "@prisma/client";
+import { Prisma, type Execution, type ExecutionKind, type Instrument } from "@prisma/client";
 import { aggregateFills, simpleFills, type Fill } from "@/lib/metrics/fills";
 import { derivedColumns, tradeInput } from "@/lib/trade-service";
 
@@ -44,9 +44,44 @@ export function hasMultipleFills(executions: Pick<Execution, "kind">[]): boolean
 }
 
 /**
- * Re-derive a trade from its executions: the aggregate columns (entry, exit,
+ * The columns a trade gets from its fills: the aggregate (entry, exit,
  * volume, opened, closed, status) and then every derived analytics column,
- * through the same trade-service path a hand-entered trade takes. Call after
+ * through the same trade-service path a hand-entered trade takes.
+ *
+ * Split out of `syncTradeFromFills` so a bulk writer (restore,
+ * actions/restore-store.ts) can compute a trade BEFORE inserting it, rather
+ * than insert, read back and update each row — while still producing the
+ * numbers through exactly this code. Throws on invalid fills, like
+ * `aggregateFills`; validate untrusted fills first.
+ */
+export function columnsFromFills(
+  trade: Parameters<typeof tradeInput>[0],
+  fills: readonly Fill[],
+  instrument: Instrument,
+  accountCurrency: string,
+) {
+  const agg = aggregateFills(fills);
+  const next = {
+    ...trade,
+    entryPrice: new Prisma.Decimal(agg.entryPrice.toString()),
+    exitPrice: agg.exitPrice ? new Prisma.Decimal(agg.exitPrice.toString()) : null,
+    volumeLots: new Prisma.Decimal(agg.volumeLots.toString()),
+    openedAt: agg.openedAt,
+    closedAt: agg.closedAt,
+  };
+  return {
+    entryPrice: next.entryPrice,
+    exitPrice: next.exitPrice,
+    volumeLots: next.volumeLots,
+    openedAt: next.openedAt,
+    closedAt: next.closedAt,
+    status: agg.status,
+    ...derivedColumns(tradeInput(next, instrument, accountCurrency)),
+  };
+}
+
+/**
+ * Re-derive a trade from its executions (see `columnsFromFills`). Call after
  * any change to a trade's executions, inside the same transaction.
  */
 export async function syncTradeFromFills(tx: Tx, tradeId: string, accountCurrency: string) {
@@ -56,26 +91,8 @@ export async function syncTradeFromFills(tx: Tx, tradeId: string, accountCurrenc
   });
   if (trade.status === "CANCELLED" || trade.executions.length === 0) return trade;
 
-  const agg = aggregateFills(trade.executions.map(toFill));
-  const next = {
-    ...trade,
-    entryPrice: new Prisma.Decimal(agg.entryPrice.toString()),
-    exitPrice: agg.exitPrice ? new Prisma.Decimal(agg.exitPrice.toString()) : null,
-    volumeLots: new Prisma.Decimal(agg.volumeLots.toString()),
-    openedAt: agg.openedAt,
-    closedAt: agg.closedAt,
-    status: agg.status,
-  };
   return tx.trade.update({
     where: { id: tradeId },
-    data: {
-      entryPrice: next.entryPrice,
-      exitPrice: next.exitPrice,
-      volumeLots: next.volumeLots,
-      openedAt: next.openedAt,
-      closedAt: next.closedAt,
-      status: next.status,
-      ...derivedColumns(tradeInput(next, trade.instrument, accountCurrency)),
-    },
+    data: columnsFromFills(trade, trade.executions.map(toFill), trade.instrument, accountCurrency),
   });
 }

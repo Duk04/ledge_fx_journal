@@ -62,6 +62,8 @@ const UNAUTHENTICATED_BY_DESIGN = new Set([
   "signInWithPassword", // pre-session by definition
   "registerUser", // creates the session
   "signOutAction", // tearing a session down needs no session
+  "requestPasswordReset", // the user is signed out by definition; answers the same for any address
+  "resetPassword", // authorized by the emailed one-time token instead of a session
 ]);
 
 /**

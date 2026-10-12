@@ -16,13 +16,18 @@ export type ProfileView = {
   email: string;
   timezone: string;
   locale: string;
+  /** Whether deleting the account asks for a password (see
+   * actions/account-deletion.ts). A boolean, never the hash: this object is
+   * passed to a client component. */
+  hasPassword: boolean;
 };
 
 export async function getProfile(userId: string): Promise<ProfileView> {
-  return prisma.user.findUniqueOrThrow({
+  const { passwordHash, ...row } = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, name: true, email: true, timezone: true, locale: true },
+    select: { id: true, name: true, email: true, timezone: true, locale: true, passwordHash: true },
   });
+  return { ...row, hasPassword: passwordHash !== null };
 }
 
 export type TagRow = {

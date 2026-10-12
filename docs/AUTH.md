@@ -295,27 +295,47 @@ at once rather than one per run.
 `SKIP_ENV_VALIDATION=1` exists for a CI build with no real database URL, since
 `next build` evaluates module scope while collecting pages.
 
+## Password reset
+
+`/forgot-password` → mail → `/reset-password?token=…` (`lib/actions/password-reset.ts`, `lib/auth/reset-token.ts`).
+It is available only when password sign-in is on **and** a mail provider is configured. Otherwise both pages say so instead of offering a form that cannot work.
+
+- **No account enumeration.** The request answers the same for every address, whether or not it has an account and whether or not the mail went out. Every request spends from the `PASSWORD_RESET` budget (3 per address and 10 per IP an hour), existing address or not. A budget that only drained for real accounts would itself be the leak.
+- **The token:**
+  - It is 32 random bytes, emailed raw.
+  - Only its SHA-256 is stored, in `verification_tokens` under the identifier `pwreset:<userId>`.
+  - It lives 30 minutes, works once, and issuing a new one deletes the old.
+  - A plain hash is enough: there is nothing to brute-force in 256 random bits.
+- **The namespace closes a trap.** The Resend provider redeems magic-link rows by `identifier === email`, so a reset row stored under a bare email could be redeemed at `/api/auth/callback/resend` to *sign in*. The `pwreset:` prefix can never equal an address.
+- **Order of checks.** The token is peeked, the new password is validated against the policy and the confirmation, and only then is the token consumed. Consuming is a `deleteMany` that must remove exactly one row, so two concurrent submits of one link cannot both win. A short password costs a retype, not a new email.
+- **Effect.** The hash is replaced, `sessionsValidFrom` is stamped (every session everywhere is dead, see "Session revocation"), and the address's login-failure bucket is cleared. The user lands on `/login?reset=1`.
+- **Tests.** `account-lifecycle.db.test.ts` reads the link out of the faked mail, as a user would. Dropping the `sessionsValidFrom` stamp fails it (mutation-checked).
+
+## Deleting an account
+
+Settings → Profile → Delete account (`lib/actions/account-deletion.ts`). The action needs:
+
+- **The account's email, typed back.** This makes the deletion deliberate.
+- **Proof beyond the session:**
+  - the password, for an account that has one;
+  - otherwise a sign-in within the last ten minutes, read from the token's `authAt`.
+
+  A session alone is what a borrowed laptop or a stolen cookie has.
+- **Not being the last OWNER while other users remain.** Somebody has to be able to fix the shared instrument table. Alone on an instance, an owner can delete freely.
+
+All user data cascades from `users` (`auth_attempts` keeps its audit rows with the user nulled), so one `DELETE` removes everything atomically. Attachment bytes live outside the database. They are deleted *after* the rows, so a storage failure leaves a reported orphan file rather than a row pointing at nothing. The session is then signed out to `/login?deleted=1`.
+
 ## What is not built yet
 
 Named rather than left to be discovered:
 
-- **Password reset.** A forgotten password currently needs database access to
-  recover. `sessionsValidFrom` and the `VerificationToken` model are both in
-  place for it. When it is built, note the trap: the Resend provider looks
-  tokens up by `identifier === email`, so a reset token stored under a bare
-  email identifier could be redeemed at `/api/auth/callback/resend` to sign in
-  as that user. Namespace the identifier (`pwreset:` / `verify:`) and store
-  only a hash of the token.
 - **Email verification enforcement.** The column, the `signIn` gate and
   `requireVerifiedUser()` all exist and honour
   `REQUIRE_EMAIL_VERIFICATION`, but nothing sends the mail yet, so turning it
   on would lock everyone out. `env.ts` refuses that combination without a
   Resend key.
-- **Database-backed tests.** The rules are unit-tested — `safe-next`,
-  `password`, `throttle-policy`, `roles`, `env`, `auth-config` — but the
-  wiring is not: nothing exercises `requireAccountAccess` against a real
-  database, or asserts that a MEMBER's `deleteCandles` writes nothing. That
-  needs a Postgres-backed vitest project.
+- **Changing a password while signed in.** Only the reset flow sets one;
+  a signed-in user who knows their password uses it too.
 
 ## Before production
 
@@ -330,8 +350,9 @@ Named rather than left to be discovered:
       is why the DAL check is not optional.
 - [ ] If Google/Resend are configured, confirm the redirect URI and sending
       domain are the production ones.
-- [ ] Read "What is not built yet" and decide whether the absence of password
-      reset is acceptable for your users.
+- [ ] Configure a mail provider (`RESEND_API_KEY` or `AUTH_RESEND_KEY`) if
+      users should be able to reset a forgotten password; without one, a
+      forgotten password needs database access.
 
 ## Verification performed
 

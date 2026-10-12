@@ -8,6 +8,7 @@ import { TagsTab } from "@/components/settings/tags-tab";
 import { InstrumentsTab } from "@/components/settings/instruments-tab";
 import { DataTab } from "@/components/settings/data-tab";
 import { NotificationsTab } from "@/components/settings/notifications-tab";
+import { DeleteMeSection } from "@/components/settings/delete-me-dialog";
 import { getNotificationPrefs } from "@/lib/queries/notifications";
 import { emailConfigured } from "@/lib/email";
 
@@ -41,7 +42,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <TabsTrigger value="data">{t("tabs.data")}</TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="pt-4">
-          <ProfileTab profile={profile} />
+          <div className="flex flex-col gap-4">
+            <ProfileTab profile={profile} />
+            <DeleteMeSection email={profile.email} hasPassword={profile.hasPassword} />
+          </div>
         </TabsContent>
         <TabsContent value="notifications" className="pt-4">
           <NotificationsTab

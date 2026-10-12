@@ -2,7 +2,8 @@
 
 Covers the four areas owned by this agent: the trading journal
 (`src/app/(app)/journal`), trading accounts (`src/app/(app)/accounts`),
-settings (`src/app/(app)/settings`), and data export (`src/app/api/export`).
+settings (`src/app/(app)/settings`), data export (`src/app/api/export`) and
+restore (`src/lib/actions/restore.ts`).
 
 ## The calendar's timezone rule
 
@@ -107,8 +108,9 @@ symptoms are worth recognising:
 
 ## Export format
 
-Settings → Data offers two downloads, both streamed from
-`src/app/api/export/**` and scoped to the signed-in user.
+Settings → Data offers two downloads, both served from
+`src/app/api/export/**` and scoped to the signed-in user, and a restore that
+reads the JSON one back (below).
 
 ### CSV — `GET /api/export/trades`
 
@@ -137,14 +139,86 @@ empty CSV field, not the literal word "null".
 ### JSON — `GET /api/export/data`
 
 Everything the user owns, as one JSON document: profile (minus password
-hash), every trading account with its balance events and trades (each
-trade including its tags, attachment metadata and fills), all tags, and all
-journal entries. `schemaVersion` is 2 since fills and `initialStopLoss` were
-added; a version-1 file has neither, and each of its trades should be read as
-one entry (and one exit if closed) at the trade's own prices and times. A top-level `notIncluded` array documents what's
-deliberately left out — the password hash, other users' data, the shared
-instrument reference table, and attachment file bytes (only the stored URL
-or storage key travels with the export, never the underlying file).
+hash), every trading account with its challenge rules, balance events and
+trades (each trade including its tags, playbook, checklist answers,
+MAE/MFE, attachment metadata and fills), all tags, playbooks with their
+rules, journal entries, coded strategies, symbol aliases and notification
+preferences. A top-level `notIncluded` array documents what's deliberately
+left out — the password hash, other users' data, the shared instrument
+reference table, and attachment file bytes (only the stored URL or storage
+key travels with the export, never the underlying file).
+
+The file's shape is a zod schema, `src/lib/export-schema.ts`, shared by the
+route and by Restore. The route builds its payload as a value of the
+schema's input type, so a column added to one and not the other is a tsc
+error rather than a restore that silently drops it — challenge rules, MAE/MFE
+and strategies were all missing from the export before that existed.
+
+**Versions.** `schemaVersion` is 2 since fills and `initialStopLoss` were
+added; a version-1 file has neither, and each of its trades is read as one
+entry (and one exit if closed) at the trade's own prices and times
+(`normalizeExport`). Fields added to version 2 since it shipped — account
+challenge rules, `maePrice`/`mfePrice`, `tagRefs` (a tag is unique by kind
+*and* name, so `tags`, names only, is ambiguous), attachment dimensions,
+balance-event tickets, `strategies`, `symbolAliases`, `notificationPrefs` —
+are additive, and the reader treats every one as optional so an earlier v2
+file still restores. Unknown fields are ignored; a *higher* `schemaVersion`
+is refused, because a bump means a field changed meaning.
+
+Still not exported, on purpose: backtest runs (reproducible from a strategy
+plus candles, and candles are shared reference data), statement- and
+candle-import history (audit rows pointing at ids that would not exist after
+a restore), notification send logs, sign-in attempts and sessions. There is
+no per-fill commission to export: `Execution` has no such column —
+commission and swap are per trade.
+
+### Restore — Settings → Data → Restore
+
+`restoreFromExport` (`src/lib/actions/restore.ts`, the endpoint) reads an
+uploaded export back into the **signed-in** user; `restore-store.ts` does the
+writing and states the rules. In short:
+
+- **Every account becomes a new account**, labelled `<label> (restored)` in
+  the reader's language (`settings.restore.labelSuffix`, trimmed to the
+  80-character label limit). Nothing is ever merged: there is no reliable
+  "same trade" across two journals (hand-entered trades have no ticket), and
+  a duplicate account is easy to delete where a wrong merge is not. Restoring
+  the same file twice gives two copies.
+- **BACKTEST accounts are skipped**: their runs and fill settings are not in
+  the export, so the trades would belong to no run.
+- **Tags** are reused when this user already has one of the same kind and
+  name, otherwise created with the file's colour and order. **Playbooks**
+  are reused by name (and left unchanged), otherwise created with their
+  rules. Checklist answers map by rule text; an answer for a rule a reused
+  playbook doesn't have is skipped.
+- **Derived columns are recomputed, never copied.** netPnl, grossPnl, pips,
+  rMultiple, riskAmount, holdingMinutes and marketSession in the file are
+  ignored; each trade's aggregate and derived columns come from its fills
+  through `columnsFromFills` (`actions/fills-store.ts`) — the body of
+  `syncTradeFromFills`, so the same code every fill edit runs. A cancelled
+  trade has no fills and is computed from its own row, as `createTrade` does.
+- **Fills** come from the file (v2) or are synthesized (v1). A trade whose
+  fills cannot describe a position (`validateFills`) is skipped, as is a
+  trade on a symbol missing from the shared Instrument table — the summary
+  lists those symbols, since the owner can add them and the file can be
+  restored again.
+- **Journal days** this user has already written are kept; the file's entry
+  for that date is skipped.
+- **Attachments**: only https `externalUrl` links are restored. An upload's
+  storage key is never copied — it points at another user's bytes, and
+  copying it would grant read access to them.
+- **Strategies** and **symbol aliases** are added unless the name / broker
+  symbol is already in use. Profile and notification preferences are not
+  applied: they belong to the login being restored into.
+- **One transaction for the whole file**, so a failure at any row leaves
+  nothing behind. Every table is written set-based (`createMany` with
+  client-generated ids, chunked), a handful of statements however large the
+  file, which is what keeps one transaction inside its timeout. Uploads are
+  capped at 20 MB.
+
+The action returns the counts created and a `skipped` breakdown, which the
+panel shows until the next restore — the toast alone would be gone before
+anyone read why something was skipped.
 
 ## Curated timezone list
 

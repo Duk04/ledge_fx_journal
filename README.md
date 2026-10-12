@@ -40,6 +40,10 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
 - **Reminders** — a dashboard nudge on a day you traded but didn't journal,
   plus opt-in email: the same reminder at an hour you pick, and a Monday
   summary of last week. See `docs/NOTIFICATIONS.md`.
+- **Your account, end to end** — reset a forgotten password by email (one-use,
+  30-minute link that signs every other session out), export everything as
+  JSON and restore it into fresh accounts, or delete the account and all of its
+  data. See `docs/AUTH.md`.
 - **English and Mongolian** — pick the language in Settings; it follows you
   to other devices at sign-in. See `docs/I18N.md`.
 - **A same-day risk guard** — a plain-language strip that appears only when

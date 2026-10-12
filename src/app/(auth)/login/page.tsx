@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { signIn } from "@/lib/auth";
 import { signInWithPassword, registerUser } from "@/lib/actions/auth";
 import { authFeatures } from "@/lib/auth-features";
 import { safeNext } from "@/lib/auth/safe-next";
+import { MIN_PASSWORD_CHARS } from "@/lib/auth/password";
 import { redirectIfAuthenticated } from "@/lib/session";
 
 // Deliberately minimal markup — another agent owns the design system.
@@ -12,7 +14,7 @@ import { redirectIfAuthenticated } from "@/lib/session";
 // uses for bare inputs (bg-panel / border-line / etc).
 
 interface LoginPageProps {
-  searchParams: Promise<{ next?: string; error?: string; registered?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; registered?: string; reset?: string; deleted?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -26,6 +28,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const next = safeNext(params.next);
   const error = params.error;
   const justRegistered = params.registered === "1";
+  // Arrivals from the reset and account-deletion flows; both land here
+  // signed out, and both deserve a sentence saying what just happened.
+  const notice = params.reset === "1" ? t("resetDone") : params.deleted === "1" ? t("deleted") : null;
 
   const googleEnabled = authFeatures.google;
   const registrationEnabled = authFeatures.registration;
@@ -77,6 +82,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
         ) : null}
 
+        {notice ? (
+          <div role="status" className="rounded-control border border-line bg-panel px-3 py-2 text-sm text-ink-2">
+            {notice}
+          </div>
+        ) : null}
+
         {justRegistered ? (
           <div role="status" className="rounded-control border border-line bg-panel px-3 py-2 text-sm text-ink-2">
             {t("registered")}
@@ -114,6 +125,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <Button type="submit" variant="primary" className="w-full">
             {t("signIn")}
           </Button>
+          <Link href="/forgot-password" className="block text-xs text-ink-3 underline-offset-2 hover:underline">
+            {t("forgot")}
+          </Link>
         </form>
 
         {googleEnabled ? (
@@ -164,7 +178,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                   name="password"
                   type="password"
                   autoComplete="new-password"
-                  minLength={8}
+                  minLength={MIN_PASSWORD_CHARS}
                   required
                   className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
                 />

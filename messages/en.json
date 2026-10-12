@@ -191,7 +191,8 @@
       "csvTitle": "Trades — CSV",
       "csvCaption": "The active account’s trades, one row per trade.",
       "jsonTitle": "Everything — JSON",
-      "jsonCaption": "Profile, accounts, trades, tags and journal entries."
+      "jsonCaption": "Profile, accounts, trades, tags, playbooks, strategies and journal entries — and what Restore reads back.",
+      "derivedBody": "If pip or P&L numbers look stale after editing an instrument or importing trades, recompute them here — this runs the exact same logic a backfill script would, across every trade in your accounts."
     },
     "notifications": {
       "emailTitle": "Email",
@@ -208,6 +209,52 @@
       "inAppReminderHint": "A strip on the overview when today had trades but no journal entry.",
       "saved": "Notification settings saved.",
       "couldNotSave": "Could not save"
+    },
+    "danger": {
+      "title": "Delete account",
+      "caption": "Removes you, every account, trade, journal entry and uploaded screenshot. It cannot be undone.",
+      "exportFirst": "Download a JSON export first (Data tab) if you might want any of it back.",
+      "open": "Delete my account…",
+      "dialogTitle": "Delete your account?",
+      "dialogBody": "Everything you own on this instance is deleted at once. Type your email to confirm.",
+      "confirmEmail": "Your email",
+      "password": "Password",
+      "noPassword": "You signed in without a password, so a sign-in within the last ten minutes is required instead.",
+      "confirm": "Delete everything",
+      "cancel": "Cancel"
+    },
+    "restore": {
+      "title": "Restore",
+      "caption": "Bring a JSON export back in — into this login, as new accounts.",
+      "body": "Every trading account in the file becomes a new account, labelled “(restored)”. Nothing you already have is changed or merged: tags and playbooks with the same name are reused, and journal days you have already written are left alone. P&L, pips and R are recomputed rather than copied.",
+      "choose": "Choose file",
+      "noFile": "No file chosen",
+      "submit": "Restore",
+      "restoring": "Restoring…",
+      "labelSuffix": "{label} (restored)",
+      "done": "Restored {accounts, plural, one {# account} other {# accounts}} and {trades, plural, one {# trade} other {# trades}}.",
+      "couldNotRestore": "Could not restore",
+      "resultTitle": "Restored from {file}",
+      "created": "Created",
+      "createdAccounts": "{count, plural, one {# account} other {# accounts}}",
+      "createdTrades": "{count, plural, one {# trade} other {# trades}}",
+      "createdBalanceEvents": "{count, plural, one {# deposit or withdrawal} other {# deposits and withdrawals}}",
+      "createdJournal": "{count, plural, one {# journal day} other {# journal days}}",
+      "createdTags": "{count, plural, one {# new tag} other {# new tags}}",
+      "createdPlaybooks": "{count, plural, one {# new playbook} other {# new playbooks}}",
+      "createdStrategies": "{count, plural, one {# strategy} other {# strategies}}",
+      "createdAttachments": "{count, plural, one {# attachment link} other {# attachment links}}",
+      "skippedTitle": "Skipped",
+      "nothingSkipped": "Nothing was skipped.",
+      "skippedBacktest": "{count, plural, one {# backtest account} other {# backtest accounts}} — backtest runs and their settings aren't in the export, so the trades would have no run to belong to.",
+      "skippedUnknownSymbols": "{count, plural, one {# trade} other {# trades}} on symbols this instance doesn't have ({symbols}). Ask the owner to add them under Instruments, then restore again.",
+      "skippedInvalidTrades": "{count, plural, one {# trade} other {# trades}} whose fills don't add up (an exit before any entry, or more closed than opened).",
+      "skippedJournal": "{count, plural, one {# journal day} other {# journal days}} you already have an entry for — yours was kept.",
+      "skippedUploads": "{count, plural, one {# uploaded attachment} other {# uploaded attachments}} — the export holds only a pointer to the file, not the file itself.",
+      "skippedLinks": "{count, plural, one {# attachment link} other {# attachment links}} that aren't https.",
+      "skippedRuleChecks": "{count, plural, one {# checklist answer} other {# checklist answers}} for rules your existing playbook doesn't have.",
+      "skippedStrategies": "{count, plural, one {# strategy} other {# strategies}} with a name you already use.",
+      "skippedAliases": "{count, plural, one {# symbol mapping} other {# symbol mappings}} you already have, or for symbols this instance doesn't know."
     }
   },
   "accounts": {
@@ -1037,7 +1084,23 @@
     "continueWithGoogle": "Continue with Google",
     "createAnAccount": "Create an account",
     "name": "Name",
-    "createAccount": "Create account"
+    "createAccount": "Create account",
+    "forgot": "Forgot your password?",
+    "forgotTitle": "Reset your password",
+    "forgotHint": "Enter your account's email. If it has an account, a link to choose a new password arrives in a minute.",
+    "sendLink": "Send reset link",
+    "sent": "If that address has an account, a reset link is on its way. It works once, for 30 minutes.",
+    "resetUnavailable": "Password reset by email isn't available on this instance. Ask whoever runs it.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "resetHint": "At least {min} characters. Signing in with it signs you out everywhere else.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "savePassword": "Save new password",
+    "linkInvalid": "This reset link has expired or was already used.",
+    "requestNew": "Request a new link",
+    "resetDone": "Password changed. Sign in with the new one — every other session has been signed out.",
+    "deleted": "Your account and all of its data have been deleted."
   },
   "dashboard": {
     "overview": {
@@ -1282,7 +1345,21 @@
     "chooseTimezoneFromList": "Choose a timezone from the list.",
     "ownerOnlyInstruments": "Only the instance owner can change instrument specifications.",
     "ownerOnlyResetInstruments": "Only the instance owner can reset the instrument table.",
-    "instrumentNotFound": "Instrument not found."
+    "instrumentNotFound": "Instrument not found.",
+    "passwordsDiffer": "The two passwords don't match.",
+    "resetLinkInvalid": "This reset link has expired or was already used. Request a new one.",
+    "resetUnavailable": "Password reset by email isn't available on this instance. Ask whoever runs it.",
+    "deleteEmailMismatch": "Type your account's email exactly to confirm.",
+    "deleteWrongPassword": "That password isn't right.",
+    "deleteNeedsRecentSignIn": "For safety, sign out and back in, then delete within ten minutes.",
+    "deleteLastOwner": "You're the only instance owner and other people use this instance. Make someone else owner first (AUTH_OWNER_EMAILS).",
+    "chooseRestoreFile": "Choose a JSON export file to restore.",
+    "restoreFileTooLarge": "That file is larger than {mb}MB — is it really a Ledger export?",
+    "restoreNotJson": "That file isn't valid JSON. Choose the .json file Settings → Data → Download JSON produced.",
+    "restoreNotAnExport": "That file isn't a Ledger JSON export.",
+    "restoreNewerVersion": "That export was made by a newer version of Ledger, so this one can't read it safely. Nothing was restored.",
+    "restoreInvalidFile": "That export has a value this version can't read (at {where}). Nothing was restored.",
+    "restoreFailed": "Restoring failed, and nothing was imported. Try again, or check the file."
   },
   "validation": {
     "mustBeNumber": "Must be a number",
@@ -1723,6 +1800,13 @@
       "worst": "Worst trade",
       "journalDays": "Journal entries: {entries} of {days} trading days.",
       "cta": "Open the dashboard"
+    },
+    "reset": {
+      "subject": "Reset your Ledger password",
+      "heading": "Choose a new password",
+      "body": "Someone — hopefully you — asked to reset the password for this address. The link works once, for {minutes} minutes.",
+      "cta": "Choose a new password",
+      "why": "If you didn't ask for this, ignore this email: your password stays as it is."
     }
   },
   "unsubscribe": {
