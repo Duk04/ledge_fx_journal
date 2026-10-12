@@ -118,6 +118,23 @@ const schema = z
     PRISMA_LOG: optionalString,
     PRISMA_JS_ENGINE: optionalString,
 
+    /**
+     * Mail for reminders and summaries (docs/NOTIFICATIONS.md). Falls back to
+     * AUTH_RESEND_KEY, so an instance that already sends magic links needs
+     * nothing new. With neither, the email toggles render disabled.
+     */
+    RESEND_API_KEY: optionalString,
+    /**
+     * Shared secret the scheduler sends as `Authorization: Bearer …` to
+     * /api/cron/notifications. Unset means the route refuses every call —
+     * an unauthenticated route that mails every user is not a default.
+     */
+    CRON_SECRET: z
+      .string()
+      .optional()
+      .transform((v) => (v === undefined || v.trim() === "" ? undefined : v.trim()))
+      .refine((v) => v === undefined || v.length >= 16, "CRON_SECRET must be at least 16 characters when set."),
+
     /** Error reporting. Sentry stays off when unset — see src/lib/sentry-options.ts. */
     SENTRY_DSN: optionalString,
     SENTRY_ENVIRONMENT: optionalString,

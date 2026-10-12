@@ -184,18 +184,20 @@ model User {
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  accounts        TradingAccount[]
-  tags            Tag[]
-  journalEntries  JournalEntry[]
-  authAccounts    Account[]
-  candleImports   CandleImport[]
-  strategies      Strategy[]
-  backtestRuns    BacktestRun[]
-  authAttempts    AuthAttempt[]
-  revokedSessions RevokedSession[]
-  symbolAliases   SymbolAlias[]
-  tradeImports    TradeImport[]
-  playbooks       Playbook[]
+  accounts          TradingAccount[]
+  tags              Tag[]
+  journalEntries    JournalEntry[]
+  authAccounts      Account[]
+  candleImports     CandleImport[]
+  strategies        Strategy[]
+  backtestRuns      BacktestRun[]
+  authAttempts      AuthAttempt[]
+  revokedSessions   RevokedSession[]
+  symbolAliases     SymbolAlias[]
+  tradeImports      TradeImport[]
+  playbooks         Playbook[]
+  notificationPrefs NotificationPrefs?
+  notificationLogs  NotificationLog[]
 
   @@map("users")
 }
@@ -748,4 +750,56 @@ model BacktestRun {
   @@index([userId, createdAt(sort: Desc)])
   @@index([accountId])
   @@map("backtest_runs")
+}
+
+/// What a user has asked to be reminded about, and when. No row = the
+/// defaults below (email off, in-app banner on): a user who never opened the
+/// Notifications tab gets no mail. See docs/NOTIFICATIONS.md.
+model NotificationPrefs {
+  userId          String   @id @map("user_id")
+  /// Email: "you haven't written today's journal", at sendHour local time.
+  journalReminder Boolean  @default(false) @map("journal_reminder")
+  /// Email: last week's numbers, Monday at sendHour local time.
+  weeklySummary   Boolean  @default(false) @map("weekly_summary")
+  /// Local hour (0–23, in User.timezone) the cron sends at.
+  sendHour        Int      @default(20) @map("send_hour")
+  /// The dashboard strip for a trading day with no journal entry yet.
+  inAppReminder   Boolean  @default(true) @map("in_app_reminder")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_prefs")
+}
+
+enum NotificationKind {
+  JOURNAL_REMINDER
+  WEEKLY_SUMMARY
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// One row per (user, kind, period) — written BEFORE the mail is sent. The
+/// unique key is the only thing standing between an overlapping or retried
+/// cron run and a second copy in someone's inbox, so a failed send stays
+/// FAILED for that period rather than being retried.
+model NotificationLog {
+  id        String             @id @default(uuid())
+  userId    String             @map("user_id")
+  kind      NotificationKind
+  /// The local date ("2026-10-12") for a reminder; the Monday that starts
+  /// the summarised week for a summary.
+  periodKey String             @map("period_key")
+  status    NotificationStatus @default(PENDING)
+  error     String?
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, periodKey])
+  @@map("notification_logs")
 }

@@ -76,6 +76,10 @@ export function isPublicPath(pathname: string): boolean {
     pathname === "/reset-password" ||
     pathname === "/verify-email" ||
     pathname.startsWith("/api/auth/") ||
+    // A scheduler and a mail client have no session; each route carries its
+    // own authorization (CRON_SECRET, a signed link). docs/NOTIFICATIONS.md.
+    pathname.startsWith("/api/cron/") ||
+    pathname === "/api/notifications/unsubscribe" ||
     pathname.startsWith("/_next/") ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||

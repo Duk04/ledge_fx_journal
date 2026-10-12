@@ -5,7 +5,7 @@ Three tiers, three commands:
 ```
 npm test          # unit: pure logic, ~700 tests in about a second, no I/O
 npm run test:db   # db: the authorization wiring against a real Postgres
-npm run test:e2e  # e2e: four user flows in Chrome against a production build
+npm run test:e2e  # e2e: the main user flows in Chrome against a production build
 npm run verify    # typecheck + lint + format:check + unit — the gate
 ```
 
@@ -142,13 +142,15 @@ stores the derived columns. Verified by mutation: dropping `userId` from
 `requireAccountAccess`'s WHERE clause fails two of these tests. New actions
 that write user data should add a case here.
 
-**End-to-end covers four flows, not the app.** `e2e/` (Playwright, Chrome)
-runs the flows this section used to list as missing, in this order: register
-→ dashboard → sign out → sign in; create an account → log a closed trade →
+**End-to-end covers the main flows, not the app.** `e2e/` (Playwright,
+Chrome) started as the four flows this section used to list as missing —
+register → dashboard → sign out → sign in; create an account → log a closed trade →
 the computed P&L, R multiple, pips, holding time and session on the detail
 page; dashboard and analytics with a range change; the trades search and
-pagination round-tripping through the URL. The first one found that sign-out
-had never worked — the `<form>` inside the Radix menu item was unmounted when
+pagination round-tripping through the URL — and has since grown one spec per
+feature that has a user-visible flow (import, executions, challenge rules,
+playbooks, simulate, the shell, languages, notifications; `ls e2e/*.spec.ts`
+is the list). The first one found that sign-out had never worked — the `<form>` inside the Radix menu item was unmounted when
 the menu closed, and the browser cancelled the submit — which is the argument
 for this tier in one bug. The browser timezone is pinned to
 Asia/Ulaanbaatar, the default `User.timezone`, so wall-clock assertions do not

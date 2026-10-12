@@ -7,8 +7,11 @@ import { ProfileTab } from "@/components/settings/profile-tab";
 import { TagsTab } from "@/components/settings/tags-tab";
 import { InstrumentsTab } from "@/components/settings/instruments-tab";
 import { DataTab } from "@/components/settings/data-tab";
+import { NotificationsTab } from "@/components/settings/notifications-tab";
+import { getNotificationPrefs } from "@/lib/queries/notifications";
+import { emailConfigured } from "@/lib/email";
 
-const TABS = ["profile", "tags", "instruments", "data"] as const;
+const TABS = ["profile", "notifications", "tags", "instruments", "data"] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const t = await getTranslations("settings");
@@ -19,10 +22,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   // database (see lib/session.ts on where authority lives), and a client has
   // no business being trusted with it.
   const owner = canWriteSharedData(user.role);
-  const [profile, tags, instruments] = await Promise.all([
+  const [profile, tags, instruments, notificationPrefs] = await Promise.all([
     getProfile(user.id),
     listTagsGrouped(user.id),
     listInstruments(),
+    getNotificationPrefs(user.id),
   ]);
 
   return (
@@ -31,12 +35,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <UrlTabs value={tab}>
         <TabsList>
           <TabsTrigger value="profile">{t("tabs.profile")}</TabsTrigger>
+          <TabsTrigger value="notifications">{t("tabs.notifications")}</TabsTrigger>
           <TabsTrigger value="tags">{t("tabs.tags")}</TabsTrigger>
           <TabsTrigger value="instruments">{t("tabs.instruments")}</TabsTrigger>
           <TabsTrigger value="data">{t("tabs.data")}</TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="pt-4">
           <ProfileTab profile={profile} />
+        </TabsContent>
+        <TabsContent value="notifications" className="pt-4">
+          <NotificationsTab
+            initial={notificationPrefs}
+            email={profile.email}
+            timezone={profile.timezone}
+            emailAvailable={emailConfigured()}
+          />
         </TabsContent>
         <TabsContent value="tags" className="pt-4">
           <TagsTab initialTags={tags} />

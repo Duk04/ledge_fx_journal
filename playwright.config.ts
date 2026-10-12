@@ -58,6 +58,10 @@ export default defineConfig({
       ALLOW_PASSWORD_LOGIN: "true",
       ALLOW_REGISTRATION: "true",
       REQUIRE_EMAIL_VERIFICATION: "false",
+      // No mail provider, whatever a developer's .env says: the specs assert
+      // the "email unavailable" state and must never send real mail.
+      RESEND_API_KEY: "",
+      AUTH_RESEND_KEY: "",
     },
   },
 });

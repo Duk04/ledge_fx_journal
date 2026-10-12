@@ -114,7 +114,8 @@
       "profile": "Profile",
       "tags": "Tags",
       "instruments": "Instruments",
-      "data": "Data"
+      "data": "Data",
+      "notifications": "Notifications"
     },
     "profile": {
       "name": "Name",
@@ -191,6 +192,22 @@
       "csvCaption": "The active account’s trades, one row per trade.",
       "jsonTitle": "Everything — JSON",
       "jsonCaption": "Profile, accounts, trades, tags and journal entries."
+    },
+    "notifications": {
+      "emailTitle": "Email",
+      "emailCaption": "Sent to {email}, in your language, at the hour you pick in your timezone.",
+      "emailOff": "This instance has no mail provider configured (RESEND_API_KEY), so email notifications are unavailable.",
+      "journalReminder": "Journal reminder",
+      "journalReminderHint": "On a day you traded and haven't written a journal entry yet.",
+      "weeklySummary": "Weekly summary",
+      "weeklySummaryHint": "Monday: last week's closed trades, net P&L and win rate per account.",
+      "sendHour": "Send at",
+      "sendHourHint": "Local time ({timezone}). If the scheduler runs late, the mail still goes out later that day.",
+      "inAppTitle": "In the app",
+      "inAppReminder": "Journal nudge on the dashboard",
+      "inAppReminderHint": "A strip on the overview when today had trades but no journal entry.",
+      "saved": "Notification settings saved.",
+      "couldNotSave": "Could not save"
     }
   },
   "accounts": {
@@ -1202,6 +1219,11 @@
       "oversized": "A trade today risked {pct}% of equity — more than 1.5x your {rulePct}% per-trade rule.",
       "noStopOne": "One trade today has no stop loss recorded.",
       "noStopMany": "{count} trades today have no stop loss recorded."
+    },
+    "journalNudge": {
+      "text": "{count, plural, one {# trade} other {# trades}} today and no journal entry yet.",
+      "cta": "Write today's journal",
+      "dismissHint": "Turn this off in Settings → Notifications."
     }
   },
   "errors": {
@@ -1333,7 +1355,8 @@
     "enterPipSize": "Enter a pip size.",
     "enterContractSize": "Enter a contract size.",
     "enterDigits": "Enter a digit count.",
-    "httpsUrl": "Must be an https:// URL."
+    "httpsUrl": "Must be an https:// URL.",
+    "hourRange": "Pick an hour from 0 to 23."
   },
   "backtest": {
     "index": {
@@ -1677,5 +1700,37 @@
       "OVERLAP": "London / New York overlap",
       "OFFHOURS": "Outside the main sessions"
     }
+  },
+  "email": {
+    "why": "You get this because you turned it on in Ledger's notification settings.",
+    "unsubscribe": "Turn off these emails",
+    "settings": "Notification settings",
+    "reminder": {
+      "subject": "You traded today — your journal is still empty",
+      "heading": "Write it down while it's fresh",
+      "body": "{count, plural, one {# trade} other {# trades}} on {date}, and no journal entry yet. A few lines now beat guessing next week.",
+      "cta": "Write today's journal"
+    },
+    "summary": {
+      "subject": "Your trading week of {week}",
+      "heading": "Week of {week}",
+      "intro": "Closed trades across your accounts, Monday to Sunday.",
+      "account": "Account",
+      "trades": "Trades",
+      "netPnl": "Net P&L",
+      "winRate": "Win rate",
+      "best": "Best trade",
+      "worst": "Worst trade",
+      "journalDays": "Journal entries: {entries} of {days} trading days.",
+      "cta": "Open the dashboard"
+    }
+  },
+  "unsubscribe": {
+    "doneTitle": "You're unsubscribed",
+    "doneReminder": "Ledger won't email journal reminders any more.",
+    "doneSummary": "Ledger won't email weekly summaries any more.",
+    "invalidTitle": "That link didn't work",
+    "invalidBody": "It may have been copied incompletely. You can switch emails off in your notification settings instead.",
+    "settings": "Notification settings"
   }
 }

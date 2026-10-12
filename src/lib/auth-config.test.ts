@@ -39,6 +39,8 @@ describe("isPublicPath", () => {
     "/sw.js",
     "/icons/icon-192.png",
     "/favicon.ico",
+    "/api/cron/notifications",
+    "/api/notifications/unsubscribe",
   ])("treats %s as public", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
@@ -54,6 +56,9 @@ describe("isPublicPath", () => {
     "/api/export/trades",
     "/api/attachments",
     "/api/backtest/bars",
+    // Only the exact unsubscribe route is public, not its neighbours.
+    "/api/notifications/unsubscribe/extra",
+    "/api/notifications",
   ])("treats %s as protected", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });

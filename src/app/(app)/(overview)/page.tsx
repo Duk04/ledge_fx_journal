@@ -7,6 +7,7 @@ import { SectionHead, Panel, PanelHeader, PanelBody, Label2, StatRow, Stat, Empt
 import { formatMoney, formatPercent, formatR } from "@/lib/metrics/formatters";
 import { RangeControl } from "@/components/dashboard/range-control";
 import { RiskGuard } from "@/components/dashboard/risk-guard";
+import { JournalNudge } from "@/components/dashboard/journal-nudge";
 import { OpenPositionsPanel } from "@/components/dashboard/open-positions-panel";
 import { PnlRows } from "@/components/dashboard/pnl-rows";
 import { DisciplinePanel } from "@/components/dashboard/discipline-panel";
@@ -54,6 +55,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       {/* Sits above the numbers on purpose: a rule breach today matters more
           than a 90-day statistic. */}
       <RiskGuard accountId={account.id} />
+      <JournalNudge userId={user.id} timezone={user.timezone} />
 
       <StatRow>
         {/* The headline: larger, and signed (colour is never the only cue).

@@ -9,7 +9,7 @@ short and the `@map`/`@@map` names below match the actual Postgres columns.
 
 | Table | Purpose |
 |---|---|
-| `users` | One row per journal user. Holds auth profile fields (email, name, image, password hash for the dev credentials login) plus app preferences (role, timezone — used to compute market-session boundaries in local time). |
+| `users` | One row per journal user. Holds auth profile fields (email, name, image, password hash for the dev credentials login) plus app preferences (role; timezone — used for local calendar days and reminder hours; locale — the UI and email language, `docs/I18N.md`). |
 | `auth_accounts`, `sessions`, `verification_tokens` | Auth.js (`@auth/prisma-adapter`) tables. Field names/shapes follow the adapter's contract exactly (see the comment in the schema); only table names are remapped. Not user-data in the same sense as the rest — the adapter owns them. |
 | `accounts` (model `TradingAccount`) | A broker account the user tracks (demo/live/prop, MT4/MT5/cTrader, its own currency and starting balance). Trades and balance events both hang off an account, not directly off a user. |
 | `instruments` | Reference data: one row per tradable symbol with its pip size, contract size, quote precision, and asset class. Shared across all users — not user-scoped, no RLS. Seeded from `src/lib/instruments.ts`. |
@@ -19,6 +19,7 @@ short and the `@map`/`@@map` names below match the actual Postgres columns.
 | `attachments` | Screenshots/files attached to a trade (before/after chart, etc.), either an object-storage key or an external URL. |
 | `journal_entries` | Free-form daily journal: pre-market plan, end-of-day review, mood — one per user per calendar date. |
 | `balance_events` | Deposits/withdrawals/adjustments against an account, for reconciling equity curve against raw trade P&L. |
+| `notification_prefs`, `notification_logs` | Which reminders a user wants and at what local hour; and one row per (user, kind, period) claimed before a mail is sent — the unique key is the duplicate-send guard. See `docs/NOTIFICATIONS.md`. |
 
 ## Row-level security approach
 
