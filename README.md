@@ -28,6 +28,10 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
 - **Periods and exit efficiency** — month-by-month P&L, the selected range
   against the one before it, and MAE/MFE in R (entered, or measured from M1
   candles).
+- **Simulate** — replay your own trades under a different rule (cap losses,
+  skip weekdays/sessions/tags, fixed % sizing), Monte Carlo on your R
+  multiples, and a position-size calculator that warns before the trade.
+  See `docs/SIMULATE.md`.
 - **A same-day risk guard** — a plain-language strip that appears only when
   something's actually off today: a daily loss limit reached, two-plus
   losses in a row, a trade sized well past the account's per-trade risk
@@ -68,7 +72,7 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 748 unit tests across the pure layers (metrics, the backtest
+- **Vitest** — 759 unit tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
   no I/O and no mocking, running in about a second; plus a Postgres-backed
   tier for the authorization wiring and Playwright e2e for four user flows.

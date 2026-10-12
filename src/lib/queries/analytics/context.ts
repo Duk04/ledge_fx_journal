@@ -73,6 +73,7 @@ export const fetchAccountData = cache(async (userId: string, accountId: string) 
         volumeLots: true,
         netPnl: true,
         rMultiple: true,
+        riskAmount: true,
         holdingMinutes: true,
         marketSession: true,
         followedPlan: true,

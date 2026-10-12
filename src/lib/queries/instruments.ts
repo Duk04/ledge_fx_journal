@@ -17,9 +17,9 @@ import { prisma } from "@/lib/db";
 
 export interface InstrumentOption {
   symbol: string;
-  /** Falls back to the symbol: every consumer renders this as a label, and
-   * `displayName` is nullable in the schema. Coercing here keeps the null out
-   * of the components. */
+  /** Always a label. (This comment used to say `displayName` was nullable in
+   * the schema and fell back to the symbol; the column is NOT NULL, so the
+   * fallback below is belt-and-braces for a hand-edited row, nothing more.) */
   displayName: string;
 }
 
@@ -46,4 +46,20 @@ export async function listActiveSymbols(): Promise<string[]> {
 /** One instrument's full row, or null. Used where the contract fields matter. */
 export async function getInstrument(symbol: string) {
   return prisma.instrument.findUnique({ where: { symbol } });
+}
+
+/** Active instruments with the contract fields a client-side calculator
+ * needs (pip size, contract size, currencies) as plain strings. */
+export async function listInstrumentSpecs() {
+  const rows = await prisma.instrument.findMany({ where: { isActive: true }, orderBy: { symbol: "asc" } });
+  return rows.map((r) => ({
+    symbol: r.symbol,
+    displayName: r.displayName || r.symbol,
+    pipSize: r.pipSize.toString(),
+    contractSize: r.contractSize.toString(),
+    digits: r.digits,
+    baseCurrency: r.baseCurrency,
+    quoteCurrency: r.quoteCurrency,
+    assetClass: r.assetClass,
+  }));
 }

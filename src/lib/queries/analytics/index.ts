@@ -47,3 +47,6 @@ export type { HeatmapCell, RHistogramBucket, RHistogramResult, TradeExtreme } fr
 
 export { periods } from "./periods";
 export type { ExcursionStats, MonthCell, PeriodComparison, PeriodsData, YearRow } from "./periods";
+
+export { simulationInputs } from "./simulation";
+export type { SimulationInputs } from "./simulation";
