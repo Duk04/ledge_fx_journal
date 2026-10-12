@@ -3,10 +3,9 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { signIn } from "@/lib/auth";
-import { signInWithPassword, registerUser } from "@/lib/actions/auth";
+import { signInWithPassword } from "@/lib/actions/auth";
 import { authFeatures } from "@/lib/auth-features";
 import { safeNext } from "@/lib/auth/safe-next";
-import { MIN_PASSWORD_CHARS } from "@/lib/auth/password";
 import { redirectIfAuthenticated } from "@/lib/session";
 
 // Deliberately minimal markup — another agent owns the design system.
@@ -47,16 +46,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     if (result && !result.ok) {
       // Fetched here, not captured from the page: a Server Action's closed-over
       // values are serialised into the form, and a function cannot be.
-      const ta = await getTranslations("auth");
-      const qs = new URLSearchParams({ next, error: result.formError ?? ta("somethingWentWrong") });
-      redirect(`/login?${qs.toString()}`);
-    }
-  }
-
-  async function handleRegister(formData: FormData) {
-    "use server";
-    const result = await registerUser(formData);
-    if (result && !result.ok) {
       const ta = await getTranslations("auth");
       const qs = new URLSearchParams({ next, error: result.formError ?? ta("somethingWentWrong") });
       redirect(`/login?${qs.toString()}`);
@@ -139,55 +128,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         ) : null}
 
         {registrationEnabled ? (
-          <details className="space-y-3 border-t border-line pt-4">
-            <summary className="cursor-pointer text-sm text-ink-2">{t("createAnAccount")}</summary>
-            <form action={handleRegister} className="space-y-3 pt-3">
-              <input type="hidden" name="next" value={next} />
-              <div className="space-y-1">
-                <label htmlFor="reg-name" className="text-sm text-ink-2">
-                  {t("name")}
-                </label>
-                <input
-                  id="reg-name"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="reg-email" className="text-sm text-ink-2">
-                  {t("email")}
-                </label>
-                <input
-                  id="reg-email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="reg-password" className="text-sm text-ink-2">
-                  {t("password")}
-                </label>
-                <input
-                  id="reg-password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={MIN_PASSWORD_CHARS}
-                  required
-                  className="bg-panel border border-line rounded-control h-control px-2.5 text-sm w-full"
-                />
-              </div>
-              <Button type="submit" variant="default" className="w-full">
-                {t("createAccount")}
-              </Button>
-            </form>
-          </details>
+          <p className="border-t border-line pt-4 text-sm text-ink-2">
+            {t("noAccount")}{" "}
+            <Link href="/register" className="font-medium text-ink underline-offset-2 hover:underline">
+              {t("createAnAccount")}
+            </Link>
+          </p>
         ) : null}
       </div>
     </div>

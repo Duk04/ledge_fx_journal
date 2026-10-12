@@ -60,3 +60,25 @@ test("a session cookie restored after sign-out is rejected", async ({ page, cont
   await expect(page).toHaveURL(/\/login/);
   await expect(page.locator("#email")).toBeVisible();
 });
+
+test("sign-in and sign-up are separate pages, and sign-up checks the password twice", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.locator("#reg-email")).toHaveCount(0);
+  await page.getByRole("link", { name: "Create an account" }).click();
+  await expect(page).toHaveURL("/register");
+
+  await page.locator("#reg-name").fill("Typo Trader");
+  await page.locator("#reg-email").fill(`typo-${Date.now()}@example.com`);
+  await page.locator("#reg-password").fill("correct-horse-battery");
+  await page.locator("#reg-confirm").fill("correct-horse-batterz");
+  await page.getByRole("button", { name: "Create account" }).click();
+
+  // The error sits under the field it is about, and what was typed survives.
+  await expect(page.getByText("The two passwords don't match.")).toBeVisible();
+  await expect(page.locator("#reg-confirm")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#reg-name")).toHaveValue("Typo Trader");
+  await expect(page).toHaveURL("/register");
+
+  await page.getByRole("link", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/login");
+});

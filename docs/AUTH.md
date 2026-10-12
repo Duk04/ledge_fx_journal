@@ -271,6 +271,15 @@ unscoped, writes are gated by `requireOwner()`**.
 Rate-limited per IP, which is what bounds it: two rows per call makes an
 unthrottled endpoint a write amplifier.
 
+The form lives on its own page, `/register` (public, outside the middleware
+matcher like `/login`), linked both ways with the sign-in page. It used to be a
+disclosure under the sign-in form — two Email and two Password fields on one
+screen. It asks for the password twice: a typo in a field nobody can see is a
+locked account on day one, so `registerUser` refuses a `confirm` that differs.
+It is a typo guard, not a security control, and a caller that sends no
+`confirm` field is not held to it. Errors render under their field (a client
+form with `useActionState`); name and email survive a failed attempt.
+
 Password rules (`src/lib/auth/password.ts`): at least 10 characters, at most
 **72 bytes**, not a common password, and not built from the email's local
 part. The byte ceiling is bcrypt's: it hashes 72 bytes and discards the rest

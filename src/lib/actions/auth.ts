@@ -181,6 +181,17 @@ export async function registerUser(formData: FormData): Promise<AuthResult | und
   }
 
   const { name, password } = parsed.data;
+  // A typo in a password nobody can see is a locked account on day one. The
+  // field only exists on the register page, so a caller that does not send
+  // it (a test, a script) is not held to it.
+  const confirm = formData.get("confirm");
+  if (typeof confirm === "string" && confirm !== password) {
+    return {
+      ok: false,
+      formError: await tr("fixErrorsBelow"),
+      fieldErrors: { confirm: [await tr("passwordsDiffer")] },
+    };
+  }
   const email = parsed.data.email.trim().toLowerCase();
   const ip = await requestIp();
 

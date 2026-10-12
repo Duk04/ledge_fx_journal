@@ -7,7 +7,7 @@ export const DEMO = { email: "duk@example.com", password: "password" };
 
 export async function signIn(page: Page, email = DEMO.email, password = DEMO.password) {
   await page.goto("/login");
-  // By id: the registration form below has its own Email/Password labels.
+  // By id rather than label: ids do not change with the UI language.
   await page.locator("#email").fill(email);
   await page.locator("#password").fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -22,11 +22,11 @@ export async function signIn(page: Page, email = DEMO.email, password = DEMO.pas
 export async function register(page: Page) {
   const email = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
   const password = "correct-horse-battery";
-  await page.goto("/login");
-  await page.getByText("Create an account").click();
+  await page.goto("/register");
   await page.locator("#reg-name").fill("E2E Trader");
   await page.locator("#reg-email").fill(email);
   await page.locator("#reg-password").fill(password);
+  await page.locator("#reg-confirm").fill(password);
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();

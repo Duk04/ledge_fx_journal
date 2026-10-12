@@ -72,6 +72,7 @@ declare module "next-auth" {
 export function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/login" ||
+    pathname === "/register" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
     pathname === "/verify-email" ||

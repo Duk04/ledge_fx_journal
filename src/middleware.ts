@@ -47,6 +47,6 @@ export const config = {
      * ONE rule — this decides whether the callback runs, that decides what it
      * does — and lib/auth-config.test.ts asserts the two agree.
      */
-    "/((?!login$|forgot-password$|reset-password$|verify-email$|api/auth/|_next/|manifest\\.webmanifest$|sw\\.js$|icons/|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|txt|xml|json|woff2?|ttf|map)$).*)",
+    "/((?!login$|register$|forgot-password$|reset-password$|verify-email$|api/auth/|_next/|manifest\\.webmanifest$|sw\\.js$|icons/|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|txt|xml|json|woff2?|ttf|map)$).*)",
   ],
 };

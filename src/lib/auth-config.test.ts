@@ -29,6 +29,7 @@ function matcherRuns(pathname: string): boolean {
 describe("isPublicPath", () => {
   it.each([
     "/login",
+    "/register",
     "/forgot-password",
     "/reset-password",
     "/verify-email",
@@ -79,7 +80,14 @@ describe("middleware matcher", () => {
   });
 
   it("does not run for the auth endpoints or the sign-in pages", () => {
-    for (const path of ["/login", "/forgot-password", "/reset-password", "/verify-email", "/api/auth/signin"]) {
+    for (const path of [
+      "/login",
+      "/register",
+      "/forgot-password",
+      "/reset-password",
+      "/verify-email",
+      "/api/auth/signin",
+    ]) {
       expect(matcherRuns(path), path).toBe(false);
     }
   });

@@ -1097,7 +1097,14 @@
     "linkInvalid": "This reset link has expired or was already used.",
     "requestNew": "Request a new link",
     "resetDone": "Password changed. Sign in with the new one — every other session has been signed out.",
-    "deleted": "Your account and all of its data have been deleted."
+    "deleted": "Your account and all of its data have been deleted.",
+    "registerTitle": "Create your account",
+    "registerHint": "A demo trading account is set up for you; add your real ones after.",
+    "passwordHint": "At least {min} characters.",
+    "confirmYourPassword": "Confirm password",
+    "haveAccount": "Already have an account?",
+    "noAccount": "New to FX Journal?",
+    "registrationClosed": "Registration is closed on this instance. Ask whoever runs it for an account."
   },
   "dashboard": {
     "overview": {
