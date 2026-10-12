@@ -119,6 +119,14 @@ const schema = z
     PRISMA_JS_ENGINE: optionalString,
 
     /**
+     * Market data download (docs/BACKTEST-DATA.md "Downloading from OANDA").
+     * A token from a free OANDA practice account; unset, the Download
+     * panels explain how to get one instead of offering a button that fails.
+     */
+    OANDA_API_TOKEN: optionalString,
+    OANDA_ENVIRONMENT: z.enum(["practice", "live"]).default("practice"),
+
+    /**
      * Mail for reminders and summaries (docs/NOTIFICATIONS.md). Falls back to
      * AUTH_RESEND_KEY, so an instance that already sends magic links needs
      * nothing new. With neither, the email toggles render disabled.

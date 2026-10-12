@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead, EmptyState, Panel, PanelBody } from "@/components/ui";
-import { requireUser } from "@/lib/session";
+import { canWriteSharedData, requireUser } from "@/lib/session";
+import { env } from "@/lib/env";
+import { OANDA_INSTRUMENTS } from "@/lib/candles/oanda";
+import { listActiveInstruments } from "@/lib/queries/instruments";
 import { getInstrument } from "@/lib/queries/instruments";
 import { getRun } from "@/lib/queries/backtests";
 import { listCoverage, getBars } from "@/lib/queries/candles";
@@ -16,18 +19,24 @@ export default async function ReplayPage({ searchParams }: { searchParams: Promi
   const t = await getTranslations("backtest.replay");
 
   if (!runId) {
-    const coverage = await listCoverage(user.id);
+    const [coverage, instruments] = await Promise.all([listCoverage(user.id), listActiveInstruments()]);
+    // A replay can download what it needs (lib/actions/market-data.ts) when
+    // a token is configured and this user may write shared data.
+    const downloadable =
+      env.OANDA_API_TOKEN && canWriteSharedData(user.role)
+        ? instruments.map((i) => i.symbol).filter((s) => OANDA_INSTRUMENTS[s])
+        : [];
     return (
       <Page>
         <SectionHead title={t("title")} hint={t("hint")} />
-        {coverage.length === 0 ? (
+        {coverage.length === 0 && downloadable.length === 0 ? (
           <Panel>
             <PanelBody>
-              <EmptyState title={t("noDataTitle")} description={t("noDataDescription")} />
+              <EmptyState title={t("noDataTitle")} description={t("noDataSetup")} />
             </PanelBody>
           </Panel>
         ) : (
-          <ReplaySetupForm coverage={coverage} />
+          <ReplaySetupForm coverage={coverage} downloadable={downloadable} />
         )}
       </Page>
     );

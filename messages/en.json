@@ -1363,7 +1363,14 @@
     "restoreNotAnExport": "That file isn't a Ledger JSON export.",
     "restoreNewerVersion": "That export was made by a newer version of Ledger, so this one can't read it safely. Nothing was restored.",
     "restoreInvalidFile": "That export has a value this version can't read (at {where}). Nothing was restored.",
-    "restoreFailed": "Restoring failed, and nothing was imported. Try again, or check the file."
+    "restoreFailed": "Restoring failed, and nothing was imported. Try again, or check the file.",
+    "ownerOnlyDownload": "Only the instance owner can download shared market data.",
+    "oandaNotConfigured": "Market data download isn't set up: add OANDA_API_TOKEN to the server's environment (see Backtest → Data).",
+    "notDownloadable": "{symbol} can't be downloaded from OANDA.",
+    "downloadRange": "The start date must be before the end date, and not in the future.",
+    "downloadTooLarge": "That range is more than {max} bars — download it in smaller pieces, or pick a longer timeframe.",
+    "downloadEmpty": "OANDA has no bars for that range (a weekend or holiday, or before its history starts).",
+    "oandaFailed": "OANDA refused the download: {message}"
   },
   "validation": {
     "mustBeNumber": "Must be a number",
@@ -1488,7 +1495,9 @@
       "perLotSide": "per lot/side",
       "barsStored": "{count} bars stored, {from} to {to}.",
       "noBarsStored": "No {symbol} {timeframe} bars stored — pick a different timeframe or import data.",
-      "noBarsStoredFirst": "No {symbol} {timeframe} bars stored — pick a different timeframe or import data first."
+      "noBarsStoredFirst": "No {symbol} {timeframe} bars stored — pick a different timeframe or import data first.",
+      "willDownload": "Not stored yet — downloaded from OANDA when you start.",
+      "partlyStored": "Only part of this range is stored — the rest is downloaded from OANDA when you start."
     },
     "runTable": {
       "run": "Run",
@@ -1797,7 +1806,9 @@
         "delete": "Delete selected drawing",
         "undo": "Undo last drawing",
         "htf": "Toggle the second chart"
-      }
+      },
+      "downloading": "Downloading bars…",
+      "noDataSetup": "No market data yet. Add OANDA_API_TOKEN to download it automatically (Backtest → Data explains how), or import a CSV there."
     },
     "chart": {
       "entry": "entry",
@@ -1805,6 +1816,25 @@
       "target": "target",
       "stopDraft": "stop (draft)",
       "targetDraft": "target (draft)"
+    },
+    "download": {
+      "title": "Download from OANDA",
+      "caption": "no file needed — bars are fetched and stored for every backtest on this instance",
+      "symbol": "Symbol",
+      "timeframe": "Timeframe",
+      "from": "From",
+      "to": "To",
+      "submit": "Download",
+      "downloading": "Downloading…",
+      "done": "{inserted} new bars stored ({existing} were already there).",
+      "failed": "Download failed",
+      "ownerOnly": "Only the instance owner can download shared market data.",
+      "setupTitle": "Set up automatic downloads",
+      "setupIntro": "Bars come from OANDA's free practice API. One token, once:",
+      "step1": "Open a free practice (demo) account at oanda.com.",
+      "step2": "In its account settings, under Manage API Access, generate a personal access token.",
+      "step3": "Add OANDA_API_TOKEN=<token> to the server's .env (or deployment environment) and restart.",
+      "starterHint": "Then `npm run data:starter` fetches a starter set (EURUSD, GBPUSD, USDJPY, XAUUSD), and replays download anything else they need."
     }
   },
   "ui": {

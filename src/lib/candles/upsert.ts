@@ -101,3 +101,33 @@ export async function upsertCandles(
 
   return { inserted, updated };
 }
+
+/**
+ * Inserts only the bars not already stored; existing rows are left exactly
+ * as they are. For downloaded data: a gap-filler must never overwrite bars
+ * someone imported on purpose (an MT5 export carries that broker's prices
+ * and spreads, which a backtest of that broker should keep).
+ */
+export async function insertMissingCandles(
+  symbol: string,
+  timeframe: Timeframe,
+  source: CandleSource,
+  rows: readonly ParsedBar[],
+): Promise<{ inserted: number; existing: number }> {
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += UPSERT_BATCH_SIZE) {
+    const batch = rows.slice(i, i + UPSERT_BATCH_SIZE);
+    const values = Prisma.join(
+      batch.map(
+        (r) =>
+          Prisma.sql`(${symbol}, ${timeframe}::"Timeframe", ${new Date(r.ts)}::timestamptz, ${r.open}, ${r.high}, ${r.low}, ${r.close}, ${r.volume ?? null}, ${r.spread ?? null}, ${source}::"CandleSource")`,
+      ),
+    );
+    inserted += await prisma.$executeRaw`
+      INSERT INTO "candles" ("symbol", "timeframe", "ts", "open", "high", "low", "close", "volume", "spread", "source")
+      VALUES ${values}
+      ON CONFLICT ("symbol", "timeframe", "ts") DO NOTHING
+    `;
+  }
+  return { inserted, existing: rows.length - inserted };
+}

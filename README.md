@@ -142,6 +142,7 @@ change, in dev and in any migration plan for production data.
 | `npm run db:seed` | `tsx prisma/seed.ts` — idempotent demo data |
 | `npm run db:reset` | `prisma migrate reset` — drop, re-migrate, re-seed |
 | `npm run db:studio` | Prisma Studio |
+| `npm run data:starter` | Download a starter set of candles from OANDA (needs `OANDA_API_TOKEN`) |
 | `npm run backfill` | Recompute every trade's derived analytics columns — **run after any formula or instrument-spec change** |
 
 ## Project layout
@@ -193,6 +194,9 @@ instance. Before deploying it for real:
   `NEXT_PUBLIC_SENTRY_DSN` (browser, needed at build time). Off when unset;
   request bodies, cookies and query strings are never sent
   (`src/lib/sentry-options.ts`).
+- **Optional: market data without imports.** Set `OANDA_API_TOKEN` (free
+  practice account), then `npm run data:starter`; replays download whatever
+  else they need. See `docs/BACKTEST-DATA.md`.
 - **Optional: reminder and summary email.** Set `RESEND_API_KEY` (or reuse
   `AUTH_RESEND_KEY`), `CRON_SECRET`, and an hourly scheduler —
   `vercel.json` on Vercel Pro, or the GitHub Actions fallback in

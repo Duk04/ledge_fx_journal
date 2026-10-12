@@ -19,6 +19,7 @@
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "backfill": "tsx scripts/backfill-metrics.ts",
+    "data:starter": "tsx --conditions=react-server scripts/download-starter-data.ts",
     "typecheck": "tsc --noEmit",
     "db:migrate:new": "prisma migrate dev",
     "postinstall": "prisma generate",

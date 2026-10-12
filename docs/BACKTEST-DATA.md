@@ -11,7 +11,35 @@ Implementation lives in:
 - `src/lib/candles/upsert.ts` — the bulk upsert itself, deliberately NOT
   exported from the action module: every export of a `"use server"` file is
   a callable POST endpoint, and this helper does no authorization of its own
+- `src/lib/candles/oanda.ts` + `src/lib/actions/market-data.ts` — downloading
+  from OANDA instead of importing (below)
 - `src/app/(app)/backtest/data/page.tsx` + `src/components/backtest/*` — the UI
+
+## Downloading from OANDA
+
+Bars can be fetched instead of imported. Nobody has to export and upload a CSV before a first replay.
+
+- **Setup, once.** Open a free OANDA practice (demo) account. Under Manage API Access, generate a personal access token, and set `OANDA_API_TOKEN` in `.env` or the deployment environment. `OANDA_ENVIRONMENT=live` switches to a live account's API; the default is `practice`.
+- **Starter set.** `npm run data:starter` downloads EURUSD, GBPUSD, USDJPY and XAUUSD at M15 (60 days), H1 (180 days) and D1 (3 years), ending yesterday. Run it again to top the set up.
+- **Replay.** When the chosen symbol and range are not fully stored, Start downloads them first. The setup form offers every downloadable symbol, not only stored ones, with a default span per timeframe.
+- **Backtest → Data.** The Download panel fetches any mapped symbol, timeframe and range. Without a token, that panel explains the steps above instead.
+
+What gets stored, and why:
+
+- **BID prices**, as on an MT5 chart.
+- **The closing spread in points** (ask − bid) in `spread`, so the fill model uses each bar's real spread, as it does for an MT5 export.
+- **Complete candles only.** A forming bar would be stored and never corrected.
+- **UTC alignment.** H4, D1 and W1 are requested on a UTC grid (`dailyAlignment=0`, `alignmentTimezone=UTC`, weeks from Monday), the buckets `aggregate.ts` builds. OANDA's default is a 17:00 New York day, which would offset every daily bar by five hours.
+- **Insert-only.** `insertMissingCandles`, `ON CONFLICT DO NOTHING`. The opposite of the import's upsert, deliberately: a download only fills gaps and never replaces a bar someone imported on purpose. That bar could be an MT5 export with that broker's prices and spreads.
+- **Owner only**, like every write to the shared table. A download is recorded in `candle_imports` with source `API` and file name `OANDA`.
+- **Bounded.** At most 60,000 bars per download (`MAX_DOWNLOAD_BARS`), checked before OANDA is asked. That is about six weeks of M1 or two years of M15.
+
+Why OANDA:
+
+- Dukascopy's open datafeed, what most free tools used, now answers `429` and points at a requester-pays S3 bucket that needs an AWS account.
+- TradingView's data is not available to an app like this.
+- OANDA gives any practice account years of M1–D1 history for FX, metals and index CFDs, from a real broker. CFD availability depends on the account's region, and OANDA's refusal is shown as it comes.
+- The data is fetched into each instance's own database, never committed to this public repository.
 
 ## The two supported CSV formats
 

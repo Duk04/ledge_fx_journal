@@ -6,6 +6,9 @@ import { listCoverage, candleStorageBytes } from "@/lib/queries/candles";
 import { listActiveInstruments } from "@/lib/queries/instruments";
 import { CoverageTable, type CoverageTableRow } from "@/components/backtest/coverage-table";
 import { CandleImportPanel } from "@/components/backtest/candle-import";
+import { CandleDownloadPanel } from "@/components/backtest/candle-download";
+import { OANDA_INSTRUMENTS } from "@/lib/candles/oanda";
+import { env } from "@/lib/env";
 
 // Supabase's free tier (what this app is built against — see
 // prisma/schema.prisma's SIZE WARNING on the Candle model).
@@ -78,6 +81,12 @@ export default async function BacktestDataPage() {
           <CoverageTable rows={coverageRows} canDelete={owner} />
         </PanelBody>
       </Panel>
+
+      <CandleDownloadPanel
+        instruments={instruments.filter((i) => OANDA_INSTRUMENTS[i.symbol])}
+        configured={Boolean(env.OANDA_API_TOKEN)}
+        canWrite={owner}
+      />
 
       <CandleImportPanel instruments={instruments} />
     </Page>

@@ -24,6 +24,8 @@ import {
 } from "@/components/ui";
 import type { CoverageRow } from "@/lib/queries/candles";
 import { createReplayRun } from "@/lib/actions/backtests";
+import { downloadCandles } from "@/lib/actions/market-data";
+import { defaultDownloadRange } from "@/lib/candles/oanda";
 
 const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
 
@@ -31,10 +33,20 @@ function isoDate(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
 
-export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
+/**
+ * `downloadable`: symbols this user can have downloaded from OANDA on the
+ * spot (empty without a token, or for a non-owner). When the chosen range
+ * is not fully stored, Start downloads it first — so a replay never needs a
+ * CSV import beforehand.
+ */
+export function ReplaySetupForm({ coverage, downloadable = [] }: { coverage: CoverageRow[]; downloadable?: string[] }) {
   const t = useTranslations("backtest");
   const router = useRouter();
-  const symbolOptions = React.useMemo(() => Array.from(new Set(coverage.map((c) => c.symbol))).sort(), [coverage]);
+  const symbolOptions = React.useMemo(
+    () => Array.from(new Set([...coverage.map((c) => c.symbol), ...downloadable])).sort(),
+    [coverage, downloadable],
+  );
+  const [downloading, setDownloading] = React.useState(false);
 
   const [symbol, setSymbol] = React.useState(symbolOptions[0] ?? "");
   const [timeframe, setTimeframe] = React.useState<(typeof TIMEFRAMES)[number]>("M15");
@@ -50,8 +62,20 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
   const [pending, startTransition] = React.useTransition();
 
   const matchingCoverage = coverage.find((c) => c.symbol === symbol && c.timeframe === timeframe) ?? null;
-  const effectiveFrom = datesTouched ? from : matchingCoverage ? isoDate(matchingCoverage.firstTs) : "";
-  const effectiveTo = datesTouched ? to : matchingCoverage ? isoDate(matchingCoverage.lastTs) : "";
+  const canDownload = downloadable.includes(symbol);
+  const fallback = canDownload ? defaultDownloadRange(timeframe) : { from: "", to: "" };
+  const effectiveFrom = datesTouched ? from : matchingCoverage ? isoDate(matchingCoverage.firstTs) : fallback.from;
+  const effectiveTo = datesTouched ? to : matchingCoverage ? isoDate(matchingCoverage.lastTs) : fallback.to;
+  // Whether the chosen dates reach outside what is stored. Coverage is a
+  // first/last pair, so a gap in the middle is not seen here; the download
+  // is insert-only, so asking for stored bars again costs nothing but time.
+  const needsDownload =
+    canDownload &&
+    !!effectiveFrom &&
+    !!effectiveTo &&
+    (!matchingCoverage ||
+      effectiveFrom < isoDate(matchingCoverage.firstTs) ||
+      effectiveTo > isoDate(matchingCoverage.lastTs));
 
   function handleStart() {
     setError(null);
@@ -60,6 +84,15 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
       return;
     }
     startTransition(async () => {
+      if (needsDownload) {
+        setDownloading(true);
+        const got = await downloadCandles({ symbol, timeframe, from: effectiveFrom, to: effectiveTo });
+        setDownloading(false);
+        if (!got.ok) {
+          setError(got.formError ?? t("download.failed"));
+          return;
+        }
+      }
       const result = await createReplayRun({
         symbol,
         timeframe,
@@ -117,7 +150,9 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
           </Select>
         </Field>
 
-        {matchingCoverage ? (
+        {needsDownload ? (
+          <p className="text-2xs text-ink-3">{matchingCoverage ? t("form.partlyStored") : t("form.willDownload")}</p>
+        ) : matchingCoverage ? (
           <p className="text-2xs text-ink-3">
             {t("form.barsStored", {
               count: matchingCoverage.barCount.toLocaleString(),
@@ -192,7 +227,7 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
       </PanelBody>
       <PanelFooter className="justify-end">
         <Button variant="primary" onClick={handleStart} disabled={pending || !symbol || !effectiveFrom || !effectiveTo}>
-          <Play /> {pending ? t("replay.starting") : t("replay.start")}
+          <Play /> {downloading ? t("replay.downloading") : pending ? t("replay.starting") : t("replay.start")}
         </Button>
       </PanelFooter>
     </Panel>
