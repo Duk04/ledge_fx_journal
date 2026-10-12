@@ -5,6 +5,8 @@ import { SectionHead } from "@/components/ui/panel";
 import { requireUser } from "@/lib/session";
 import { getTrade, listInstruments, listTagsForUser } from "@/lib/queries/trades";
 import { TradeForm } from "@/components/trades/trade-form";
+import { AttachmentUploader } from "@/components/trades/attachment-uploader";
+import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { listPlaybookOptions } from "@/lib/queries/playbooks";
 // From the pure module, not the client component: a server page reaching
 // into a "use client" file for a date helper pulls that whole module into
@@ -16,6 +18,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const user = await requireUser();
   const t = await getTranslations("trades.form.page");
+  const tDetail = await getTranslations("trades.detail");
   const trade = await getTrade(user.id, id);
   if (!trade) notFound();
 
@@ -74,6 +77,14 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         }
         defaults={defaults}
       />
+      {/* Beside the form, not inside it: each screenshot change saves on its
+          own, so it must not wait for — or be lost with — the form's Save. */}
+      <Panel className="mt-4">
+        <PanelHeader title={tDetail("panels.screenshots")} />
+        <PanelBody>
+          <AttachmentUploader tradeId={trade.id} initialAttachments={trade.attachments} />
+        </PanelBody>
+      </Panel>
     </Page>
   );
 }

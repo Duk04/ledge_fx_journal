@@ -718,7 +718,11 @@
         "ariaStop": ", stop {price}",
         "ariaTarget": ", target {price}",
         "ariaExit": ", exit {price}"
-      }
+      },
+      "screenshotsTitle": "Screenshots",
+      "screenshotsCaption": "optional — the chart before and after, uploaded when you log the trade",
+      "screenshotsFailed": "{count, plural, one {# screenshot} other {# screenshots}} didn't upload — add {count, plural, one {it} other {them}} again on the trade page.",
+      "uploadingScreenshots": "Uploading screenshots {done}/{total}…"
     },
     "attachments": {
       "unsupportedType": "Unsupported file type — use PNG, JPEG, WebP or AVIF.",
@@ -766,15 +770,8 @@
         "AFTER": "AFTER",
         "OTHER": "OTHER"
       },
-      "kindAlt": {
-        "BEFORE": "before screenshot",
-        "AFTER": "after screenshot",
-        "OTHER": "other screenshot"
-      },
-      "kindAltGeneric": "{kind} screenshot",
-      "galleryEmptyTitle": "No screenshots",
-      "galleryEmptyDescription": "This trade doesn't have any before/after chart screenshots attached.",
-      "storedNoPreview": "Stored file — no preview"
+      "pickFiles": "Choose screenshots",
+      "removePending": "Remove {name}"
     }
   },
   "playbooks": {

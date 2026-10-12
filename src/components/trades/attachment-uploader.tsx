@@ -13,6 +13,13 @@ import { EmptyState } from "@/components/ui/empty";
 import { useToast } from "@/components/ui/toast";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
 import { addExternalLink, deleteAttachment, setAttachmentKind, setCaption } from "@/lib/actions/attachments";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  ATTACHMENT_KINDS,
+  imagesFromClipboard,
+  uploadAttachment,
+  validateImageFile,
+} from "./attachment-files";
 
 export interface AttachmentView {
   id: string;
@@ -23,9 +30,7 @@ export interface AttachmentView {
   mimeType: string | null;
 }
 
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"];
-const MAX_BYTES = 8 * 1024 * 1024;
-const KINDS = ["BEFORE", "AFTER", "OTHER"] as const;
+const KINDS = ATTACHMENT_KINDS;
 
 type PendingUpload = {
   tempId: string;
@@ -39,18 +44,6 @@ type PendingUpload = {
 function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): string | null {
   if (a.storageKey) return `/api/attachments/${a.id}`;
   return a.externalUrl;
-}
-
-/** Returns a `trades.attachments` message key rather than text: this runs
- * outside a component, so the caller translates it. */
-function clientValidate(file: File): "unsupportedType" | "tooLarge" | null {
-  if (!ACCEPTED_TYPES.includes(file.type)) {
-    return "unsupportedType";
-  }
-  if (file.size > MAX_BYTES) {
-    return "tooLarge";
-  }
-  return null;
 }
 
 /**
@@ -84,7 +77,7 @@ export function AttachmentUploader({
 
   const upload = React.useCallback(
     (file: File, tempId: string = crypto.randomUUID()) => {
-      const problem = clientValidate(file);
+      const problem = validateImageFile(file);
       if (problem) {
         toast({ title: t("addFailed"), description: t(problem), tone: "loss" });
         return;
@@ -107,47 +100,18 @@ export function AttachmentUploader({
         return [...prev, { tempId, name: file.name, progress: 0, status: "uploading", file }];
       });
 
-      const form = new FormData();
-      form.set("tradeId", tradeId);
-      form.set("file", file);
-      form.set("kind", "OTHER");
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/attachments");
-      xhr.upload.onprogress = (e) => {
-        if (!e.lengthComputable) return;
-        const pct = Math.round((e.loaded / e.total) * 100);
-        setUploads((prev) => prev.map((u) => (u.tempId === tempId ? { ...u, progress: pct } : u)));
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          let row: AttachmentView | null = null;
-          try {
-            row = JSON.parse(xhr.responseText);
-          } catch {
-            /* fall through to the error path below */
-          }
-          if (row) {
-            setAttachments((prev) => [row!, ...prev]);
-            setUploads((prev) => prev.filter((u) => u.tempId !== tempId));
-            toast({ title: t("added"), tone: "profit" });
-            return;
-          }
+      void uploadAttachment<AttachmentView>({ tradeId, file, kind: "OTHER" }, (pct) =>
+        setUploads((prev) => prev.map((u) => (u.tempId === tempId ? { ...u, progress: pct } : u))),
+      ).then((result) => {
+        if (result.ok) {
+          setAttachments((prev) => [result.row, ...prev]);
+          setUploads((prev) => prev.filter((u) => u.tempId !== tempId));
+          toast({ title: t("added"), tone: "profit" });
+          return;
         }
-        let message = t("uploadFailedSentence");
-        try {
-          message = JSON.parse(xhr.responseText)?.error ?? message;
-        } catch {
-          /* keep default message */
-        }
+        const message = result.error ?? (result.network ? t("networkError") : t("uploadFailedSentence"));
         setUploads((prev) => prev.map((u) => (u.tempId === tempId ? { ...u, status: "error", error: message } : u)));
-      };
-      xhr.onerror = () => {
-        setUploads((prev) =>
-          prev.map((u) => (u.tempId === tempId ? { ...u, status: "error", error: t("networkError") } : u)),
-        );
-      };
-      xhr.send(form);
+      });
     },
     [tradeId, toast, online, t],
   );
@@ -167,15 +131,7 @@ export function AttachmentUploader({
   // completely unaffected — this only ever fires for an actual image.
   React.useEffect(() => {
     function onPaste(e: ClipboardEvent) {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      const imageFiles: File[] = [];
-      for (const item of items) {
-        if (item.kind === "file" && item.type.startsWith("image/")) {
-          const file = item.getAsFile();
-          if (file) imageFiles.push(file);
-        }
-      }
+      const imageFiles = imagesFromClipboard(e);
       if (imageFiles.length) {
         e.preventDefault();
         handleFiles(imageFiles);
@@ -274,7 +230,7 @@ export function AttachmentUploader({
           if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[var(--radius-panel)] border border-dashed px-4 py-6 text-center transition-colors",
+          "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed px-4 py-6 text-center transition-colors",
           dragOver
             ? "border-brand bg-brand-weak"
             : "border-line-strong bg-panel-sunken hover:border-line-strong hover:bg-hover",
@@ -288,7 +244,7 @@ export function AttachmentUploader({
         <input
           ref={fileInputRef}
           type="file"
-          accept={ACCEPTED_TYPES.join(",")}
+          accept={ACCEPTED_IMAGE_TYPES.join(",")}
           multiple
           className="sr-only"
           onChange={(e) => {

@@ -718,7 +718,11 @@
         "ariaStop": ", stop {price}",
         "ariaTarget": ", зорилт {price}",
         "ariaExit": ", гарах {price}"
-      }
+      },
+      "screenshotsTitle": "Скриншот",
+      "screenshotsCaption": "заавал биш — арилжааны өмнөх, дараах график; арилжааг бүртгэхэд хамт хуулагдана",
+      "screenshotsFailed": "{count} скриншот хуулагдсангүй — арилжааны хуудсанд дахин нэмнэ үү.",
+      "uploadingScreenshots": "Скриншот хуулж байна {done}/{total}…"
     },
     "attachments": {
       "unsupportedType": "Дэмжигдэхгүй файлын төрөл — PNG, JPEG, WebP эсвэл AVIF ашиглана уу.",
@@ -766,15 +770,8 @@
         "AFTER": "ДАРАА",
         "OTHER": "БУСАД"
       },
-      "kindAlt": {
-        "BEFORE": "өмнөх дэлгэцийн зураг",
-        "AFTER": "дараах дэлгэцийн зураг",
-        "OTHER": "бусад дэлгэцийн зураг"
-      },
-      "kindAltGeneric": "{kind} дэлгэцийн зураг",
-      "galleryEmptyTitle": "Дэлгэцийн зураг алга",
-      "galleryEmptyDescription": "Энэ арилжаанд өмнөх/дараах графикийн дэлгэцийн зураг хавсаргаагүй байна.",
-      "storedNoPreview": "Хадгалсан файл — урьдчилан харах боломжгүй"
+      "pickFiles": "Скриншот сонгох",
+      "removePending": "{name}-г хасах"
     }
   },
   "playbooks": {

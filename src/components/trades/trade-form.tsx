@@ -38,6 +38,8 @@ import {
   type TradeFormInput,
 } from "./trade-form-values";
 import { PreviewStrip, buildPreview, buildWarnings } from "./trade-preview";
+import { PendingScreenshots, type PendingScreenshot } from "./pending-screenshots";
+import { uploadAttachment } from "./attachment-files";
 
 const RESPONSIVE_HEIGHT = "h-control-lg sm:h-control";
 /** Radix Select can't use "" as an item value; this stands for "no playbook". */
@@ -106,6 +108,12 @@ export function TradeForm({
     mode: "onBlur",
   });
 
+  // Screenshots picked before the trade exists; uploaded once it does (see
+  // PendingScreenshots for why they wait). Create mode only — a saved
+  // trade's edit page has the full uploader beside this form.
+  const [screenshots, setScreenshots] = React.useState<PendingScreenshot[]>([]);
+  const [uploading, setUploading] = React.useState<{ done: number; total: number } | null>(null);
+
   // Remember the last symbol/volume for next time — a journal you have to
   // re-type into every time is a journal you stop using.
   React.useEffect(() => {
@@ -153,7 +161,28 @@ export function TradeForm({
       } catch {
         /* ignore */
       }
-      toast({ title: mode === "create" ? t("logged") : t("updated") });
+      // Sequential, not parallel: a handful of chart images, and one at a
+      // time keeps the progress honest and the server's memory flat. The
+      // trade is already saved, so a failure here costs a re-upload on the
+      // trade page, not the trade.
+      let failed = 0;
+      if (mode === "create" && screenshots.length) {
+        for (const [i, shot] of screenshots.entries()) {
+          setUploading({ done: i, total: screenshots.length });
+          const up = await uploadAttachment({ tradeId: result.id, file: shot.file, kind: shot.kind });
+          if (!up.ok) failed++;
+        }
+        setUploading(null);
+      }
+      if (failed) {
+        toast({
+          title: t("logged"),
+          description: t("screenshotsFailed", { count: failed }),
+          tone: "warn",
+        });
+      } else {
+        toast({ title: mode === "create" ? t("logged") : t("updated") });
+      }
       router.push(`/trades/${result.id}`);
       return;
     }
@@ -559,6 +588,15 @@ export function TradeForm({
         ) : null}
       </Panel>
 
+      {mode === "create" ? (
+        <Panel>
+          <PanelHeader title={t("screenshotsTitle")} caption={t("screenshotsCaption")} />
+          <PanelBody>
+            <PendingScreenshots value={screenshots} onChange={setScreenshots} disabled={form.formState.isSubmitting} />
+          </PanelBody>
+        </Panel>
+      ) : null}
+
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="default" onClick={() => router.back()}>
           {t("cancel")}
@@ -569,7 +607,13 @@ export function TradeForm({
           disabled={form.formState.isSubmitting || !online}
           title={online ? undefined : t("offlineSubmitTitle")}
         >
-          {form.formState.isSubmitting ? t("saving") : mode === "create" ? t("logTrade") : t("saveChanges")}
+          {uploading
+            ? t("uploadingScreenshots", { done: String(uploading.done + 1), total: String(uploading.total) })
+            : form.formState.isSubmitting
+              ? t("saving")
+              : mode === "create"
+                ? t("logTrade")
+                : t("saveChanges")}
           <Kbd className="ml-1 hidden md:inline-flex">{modKey}⏎</Kbd>
         </Button>
       </div>

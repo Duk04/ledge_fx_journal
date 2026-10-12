@@ -1,7 +1,7 @@
 import "server-only";
 import { Decimal } from "decimal.js";
 import { excursionInR } from "@/lib/metrics/excursion";
-import type { Direction, MarketSession, Prisma } from "@prisma/client";
+import type { AttachmentKind, Direction, MarketSession, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
 import type { Summary } from "@/lib/metrics/types";
@@ -282,10 +282,11 @@ export interface TradeDetail {
   tags: { id: string; name: string; color: string }[];
   attachments: {
     id: string;
-    kind: string;
+    kind: AttachmentKind;
     externalUrl: string | null;
     storageKey: string | null;
     caption: string | null;
+    mimeType: string | null;
   }[];
   /** A fresh recompute from the raw fields, plus planned R:R (never stored). */
   recomputed: {
@@ -412,6 +413,7 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
       externalUrl: a.externalUrl,
       storageKey: a.storageKey,
       caption: a.caption,
+      mimeType: a.mimeType,
     })),
     recomputed: {
       netPnl: freshNetPnl,

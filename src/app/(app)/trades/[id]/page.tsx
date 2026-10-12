@@ -11,7 +11,7 @@ import { formatDuration, formatInZone, formatPrice, formatR } from "@/lib/metric
 import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
-import { ScreenshotGallery } from "@/components/trades/screenshot-gallery";
+import { AttachmentUploader } from "@/components/trades/attachment-uploader";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
 import { ExecutionsPanel } from "@/components/trades/executions-panel";
 import { ChecklistPanel } from "@/components/trades/checklist-panel";
@@ -141,7 +141,7 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
           <Panel>
             <PanelHeader title={t("panels.screenshots")} />
             <PanelBody>
-              <ScreenshotGallery attachments={trade.attachments} />
+              <AttachmentUploader tradeId={trade.id} initialAttachments={trade.attachments} />
             </PanelBody>
           </Panel>
         </div>

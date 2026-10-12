@@ -89,6 +89,20 @@ the risk guard — has a notion of part of a trade being closed, and a number
 that only some reports honour is worse than none. It is reported, in full,
 when the last lot closes.
 
+## Screenshots
+
+Every trade can carry chart screenshots. Each one is tagged **Before**, **After** or **Other**. You can drop a file, pick one, or paste it with Ctrl/⌘+V. Paste is how a chart usually leaves MT5 or TradingView, so it works anywhere on the page.
+
+- **While logging a trade** (`/trades/new`), the Screenshots panel holds the files in the browser (`PendingScreenshots`).
+  - Each one starts as Before, because a chart picked while logging is usually the setup.
+  - They are uploaded one by one right after `createTrade` returns the new trade's id. An attachment belongs to a trade, and the upload route checks that the trade is yours, so there is nothing to upload to until the trade is saved.
+  - If the trade never saves, nothing is sent.
+  - If an upload fails, the trade is still saved. The toast says how many screenshots are missing, and they can be added on the trade page.
+- **On a saved trade**, the detail page and the edit page carry the full uploader (`AttachmentUploader`). It can add files or an https link, change the kind, edit the caption and delete.
+  - On the edit page the uploader sits beside the form, not inside it. Each change saves on its own and does not wait for the form's Save.
+- **Where the bytes live.** Uploaded bytes are stored under `.uploads/` or S3 (`lib/storage.ts`), never in `public/`. They are served only by `GET /api/attachments/[id]`, which re-checks ownership on every request.
+- **Checks.** The browser checks the type and the 8MB limit first (`attachment-files.ts`). The server checks again by sniffing the bytes.
+
 ## Why geometry problems are warnings, not errors
 
 `validateTradeGeometry()` (from `src/lib/metrics`) flags things like a long
