@@ -12,7 +12,7 @@ import { DirectionBadge, Badge, TagChip, SessionBadge } from "@/components/ui/ba
 import { RBar } from "@/components/ui/r-bar";
 import { EmptyState } from "@/components/ui/empty";
 import { Tip } from "@/components/ui/tooltip";
-import { formatPrice } from "@/lib/metrics/formatters";
+import { formatInZone, formatPrice } from "@/lib/metrics/formatters";
 import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import {
@@ -323,36 +323,35 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                   const absR = row.rMultiple !== null ? Math.abs(Number(row.rMultiple)) : 0;
                   const isOutlier = absR >= 2;
                   const outlierPositive = row.rMultiple !== null && Number(row.rMultiple) > 0;
-                  const openedAt = new Date(row.openedAt);
 
                   return (
-                    <TrLink
-                      key={row.id}
-                      href={`/trades/${row.id}`}
-                      className={
-                        isOutlier
-                          ? outlierPositive
-                            ? "border-l-2 border-l-profit"
-                            : "border-l-2 border-l-loss"
-                          : undefined
-                      }
-                    >
-                      <Td>
+                    <TrLink key={row.id} href={`/trades/${row.id}`}>
+                      {/* The outlier rule sits on the first cell, not the
+                          <tr>: DataTable uses border-collapse: separate, and
+                          in that model a row's own border is never painted. */}
+                      <Td
+                        className={
+                          isOutlier
+                            ? outlierPositive
+                              ? "border-l-2 border-l-profit"
+                              : "border-l-2 border-l-loss"
+                            : undefined
+                        }
+                      >
                         <div className="flex items-center gap-1.5">
                           {row.followedPlan === false ? (
                             <Tip label="Didn't follow the plan on this trade">
                               <span
+                                role="img"
                                 className="relative inline-flex size-1.5 shrink-0 rounded-full bg-warn"
                                 aria-label="Plan not followed"
                               />
                             </Tip>
                           ) : null}
                           <div className="mono flex flex-col text-xs leading-tight">
-                            <span className="text-ink">
-                              {openedAt.toLocaleDateString(undefined, { month: "short", day: "2-digit" })}
-                            </span>
+                            <span className="text-ink">{formatInZone(row.openedAt, user.timezone, "MMM dd")}</span>
                             <span className="flex items-center gap-1 text-ink-3">
-                              {openedAt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                              {formatInZone(row.openedAt, user.timezone, "HH:mm")}
                               <SessionBadge session={row.marketSession} />
                             </span>
                           </div>

@@ -5,7 +5,7 @@ import { Page, Grid } from "@/components/shell/page";
 import { Panel, PanelBody, PanelHeader, SectionHead } from "@/components/ui/panel";
 import { DirectionBadge, Badge, SessionBadge, TagChip } from "@/components/ui/badge";
 import { Money, Pips, RValue } from "@/components/ui/value";
-import { formatDuration, formatPrice } from "@/lib/metrics/formatters";
+import { formatDuration, formatInZone, formatPrice } from "@/lib/metrics/formatters";
 import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
@@ -89,9 +89,12 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
           <Panel>
             <PanelHeader title="Facts" />
             <PanelBody className="flex flex-col gap-2">
-              <FactRow label="Opened" value={openedAt.toLocaleString()} />
+              <FactRow label="Opened" value={formatInZone(openedAt, user.timezone, "EEE, MMM d yyyy · HH:mm")} />
               <FactRow label="Session" value={<SessionBadge session={trade.marketSession} />} />
-              <FactRow label="Closed" value={closedAt ? closedAt.toLocaleString() : "—"} />
+              <FactRow
+                label="Closed"
+                value={closedAt ? formatInZone(closedAt, user.timezone, "EEE, MMM d yyyy · HH:mm") : "—"}
+              />
               <FactRow label="Held" value={formatDuration(trade.holdingMinutes)} />
               <div className="my-1 h-px bg-line" />
               <FactRow label="Entry" value={formatPrice(Number(trade.entryPrice), trade.digits)} />

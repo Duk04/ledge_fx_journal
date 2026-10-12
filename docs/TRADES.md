@@ -48,19 +48,14 @@ purely to compare against what's stored (see "Disagreement detection"
 below) — it never substitutes the recompute for the stored value in a list
 or a stat.
 
-### A workaround this feature had to apply, not fix
+### `NEW_YORK` vs `NEWYORK` (fixed)
 
-`src/lib/trade-service.ts` and `src/lib/metrics/session.ts` are shared
-modules outside this feature's owned paths. `metrics/session.ts` classifies
-the New York session as `'NEW_YORK'`, but the Prisma enum generated from
-`prisma/schema.prisma` spells it `NEWYORK` (no underscore) — every existing
-seeded row confirms `NEWYORK` is what the database actually expects.
-`derivedColumns()` passes the metrics value straight through into a
-Prisma-typed field, so it type-checks but would fail at the database for any
-trade opened 16:00–21:00 UTC on a weekday. `src/lib/actions/trades.ts`
-normalises `'NEW_YORK'` → `'NEWYORK'` immediately before every write as a
-narrow, well-contained workaround (see `normaliseMarketSession` there). The
-real fix belongs in `trade-service.ts` / `metrics/session.ts`.
+`metrics/session.ts` classifies the New York session as `'NEW_YORK'`, while
+the stored enum value is `NEWYORK`. This doc used to describe a
+`normaliseMarketSession` workaround in `src/lib/actions/trades.ts`; the real
+fix landed instead: `prisma/schema.prisma` declares
+`NEW_YORK @map("NEWYORK")`, so `derivedColumns()` passes the metrics value
+straight through and Prisma maps it at the boundary. The workaround is gone.
 
 ## Why geometry problems are warnings, not errors
 

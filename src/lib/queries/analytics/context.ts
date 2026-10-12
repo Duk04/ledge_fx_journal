@@ -69,6 +69,7 @@ export const fetchAccountData = cache(async (userId: string, accountId: string) 
         marketSession: true,
         followedPlan: true,
         emotion: true,
+        instrument: { select: { digits: true } },
         tradeTags: { select: { tag: { select: { id: true, name: true, kind: true } } } },
       },
       orderBy: { openedAt: "asc" },

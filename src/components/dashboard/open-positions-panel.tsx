@@ -1,5 +1,6 @@
 import { Inbox } from "lucide-react";
 import { EmptyState, Badge, DirectionBadge } from "@/components/ui";
+import { formatPrice } from "@/lib/metrics/formatters";
 import type { OpenTrade } from "@/lib/queries/analytics";
 
 /**
@@ -28,7 +29,7 @@ export function OpenPositionsPanel({ trades }: { trades: OpenTrade[] }) {
           <div className="flex shrink-0 items-center gap-2 text-2xs text-ink-3">
             {t.stopLoss === null ? <Badge tone="warn">No stop</Badge> : null}
             <span className="mono text-ink-2">
-              {t.volumeLots.toFixed(2)} lot @ {t.entryPrice.toFixed(5)}
+              {t.volumeLots.toFixed(2)} lot @ {formatPrice(t.entryPrice, t.digits)}
             </span>
           </div>
         </li>

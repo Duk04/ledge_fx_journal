@@ -4,6 +4,7 @@ import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useFieldControlProps } from "./field";
 
 export const Select = SelectPrimitive.Root;
 export const SelectGroup = SelectPrimitive.Group;
@@ -12,8 +13,10 @@ export const SelectValue = SelectPrimitive.Value;
 /** Looks exactly like Input, plus a chevron — a select is a text field that
  * happens to open a menu instead of taking keystrokes. */
 export function SelectTrigger({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
+  const fieldProps = useFieldControlProps();
   return (
     <SelectPrimitive.Trigger
+      {...fieldProps}
       className={cn(
         "flex h-control w-full items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line bg-panel px-2.5 text-sm text-ink",
         "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)]",

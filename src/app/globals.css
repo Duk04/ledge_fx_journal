@@ -114,7 +114,10 @@
 
   --ink: #0f1319;
   --ink-2: var(--grey-600);
-  --ink-3: var(--grey-400);
+  /* grey-500, not grey-400: ink-3 carries real text (labels, hints, axis
+     ticks, "optional"), and grey-400 on white is 3.0:1 — under WCAG AA's
+     4.5:1. grey-500 is 4.7:1 on --panel. Contrast table: docs/DESIGN-SYSTEM.md. */
+  --ink-3: var(--grey-500);
   --ink-inverse: var(--grey-0);
 
   --brand: var(--cobalt-700);
@@ -129,7 +132,7 @@
   --loss-weak: color-mix(in oklab, var(--clay-600) 10%, transparent);
   --warn: var(--amber-600);
   --warn-weak: color-mix(in oklab, var(--amber-600) 12%, transparent);
-  --flat: var(--grey-400);
+  --flat: var(--grey-500);
 
   --hover: color-mix(in oklab, var(--grey-500) 6%, transparent);
   --active: color-mix(in oklab, var(--grey-500) 11%, transparent);
@@ -160,8 +163,11 @@
     --line-faint: var(--grey-850);
 
     --ink: #e9ecf1;
-    --ink-2: var(--grey-400);
-    --ink-3: var(--grey-500);
+    /* Both steps move one notch lighter than they were: grey-500 on --panel
+       was 3.8:1, so ink-3 becomes grey-400 (6.0:1), and ink-2 moves to
+       grey-300 to stay a visible step above it. */
+    --ink-2: var(--grey-300);
+    --ink-3: var(--grey-400);
     --ink-inverse: var(--grey-1000);
 
     --brand: var(--cobalt-500);
@@ -176,7 +182,7 @@
     --loss-weak: color-mix(in oklab, var(--clay-400) 14%, transparent);
     --warn: var(--amber-400);
     --warn-weak: color-mix(in oklab, var(--amber-400) 16%, transparent);
-    --flat: var(--grey-500);
+    --flat: var(--grey-400);
 
     --hover: color-mix(in oklab, var(--grey-300) 9%, transparent);
     --active: color-mix(in oklab, var(--grey-300) 14%, transparent);
@@ -203,8 +209,8 @@
   --line-faint: var(--grey-850);
 
   --ink: #e9ecf1;
-  --ink-2: var(--grey-400);
-  --ink-3: var(--grey-500);
+  --ink-2: var(--grey-300);
+  --ink-3: var(--grey-400);
   --ink-inverse: var(--grey-1000);
 
   --brand: var(--cobalt-500);
@@ -219,7 +225,7 @@
   --loss-weak: color-mix(in oklab, var(--clay-400) 14%, transparent);
   --warn: var(--amber-400);
   --warn-weak: color-mix(in oklab, var(--amber-400) 16%, transparent);
-  --flat: var(--grey-500);
+  --flat: var(--grey-400);
 
   --hover: color-mix(in oklab, var(--grey-300) 9%, transparent);
   --active: color-mix(in oklab, var(--grey-300) 14%, transparent);

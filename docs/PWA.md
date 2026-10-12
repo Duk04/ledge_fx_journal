@@ -77,13 +77,12 @@ That alternative is the whole implementation:
   won't save until you're back online." — the moment `navigator.onLine`
   (via `useOnlineStatus()`) goes false, and disappears the instant it comes
   back.
-- Any write surface should disable its own submit under the same condition.
-  The trade form (`src/components/trades/trade-form.tsx`, owned outside this
-  change) should import `useOnlineStatus()` from
-  `src/components/pwa/use-online-status.ts` and disable its submit button
-  while offline, with `title`/helper text pointing at the banner's
-  explanation. `src/components/trades/attachment-uploader.tsx` already does
-  this for screenshot uploads.
+- Any write surface disables its own submit under the same condition. The
+  trade form (`src/components/trades/trade-form.tsx`) disables its submit
+  button while offline with the reason in its `title`, and its submit
+  handler re-checks — ⌘⏎ goes through `requestSubmit()`, which ignores a
+  disabled button. `src/components/trades/attachment-uploader.tsx` does the
+  same for screenshot uploads.
 
 If a real offline queue is ever built, it should be a deliberate, separately
 reviewed feature with its own conflict story — not something bolted onto the
@@ -111,17 +110,10 @@ new dependency) if `sharp` can't be loaded, drawing the same glyph as filled
 rectangles. Either path produces the real brand mark; neither ships a
 placeholder grey square.
 
-**`apple-touch-icon.png` is not currently linked from `<head>`.** iOS looks
-for a `<link rel="apple-touch-icon">` tag (`src/app/layout.tsx`), which is
-outside this change's file list. Whoever owns that file should add:
-
-```html
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-```
-
-Until then, Android/desktop install (which reads the manifest's `icons`
-array directly) gets the full icon set; iOS home-screen installs will use a
-generic screenshot-based icon instead of the candle mark.
+**iOS needs `apple-touch-icon.png` linked from `<head>`.** Safari ignores the
+manifest's `icons` array and looks for a `<link rel="apple-touch-icon">` tag
+instead; `src/app/layout.tsx` renders it. (This section used to say the link
+was missing — it was added later and the note was never updated.)
 
 ## Installing
 
@@ -134,8 +126,8 @@ long-press shortcut on the home-screen icon.
 **iOS (Safari):** open the app in Safari, tap the **Share** icon, then
 **"Add to Home Screen"**. `appleWebApp: { capable: true }` in
 `src/app/layout.tsx` is what makes the installed icon open full-screen
-(`standalone`-equivalent) instead of inside Safari's chrome. (See the
-apple-touch-icon note above for the one rough edge on iOS today.)
+(`standalone`-equivalent) instead of inside Safari's chrome, and the
+`apple-touch-icon` link gives it the candle mark.
 
 **Desktop (Chrome/Edge):** an install icon appears in the address bar; click
 it, or use the browser menu's "Install Ledger…" entry.

@@ -17,12 +17,13 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { Input, NumberInput, Textarea } from "@/components/ui/input";
-import { Field, FieldError, FieldHint, FieldLabel, FieldRow } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldRow } from "@/components/ui/field";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { TagChip } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { useOnlineStatus } from "@/components/pwa/use-online-status";
 
 import { buildTradeFormSchema } from "@/lib/schemas/trade";
 import { createTrade, updateTrade } from "@/lib/actions/trades";
@@ -37,6 +38,16 @@ import {
 import { PreviewStrip, buildPreview, buildWarnings } from "./trade-preview";
 
 const RESPONSIVE_HEIGHT = "h-control-lg sm:h-control";
+
+/** Fields rendered inside the collapsible "Discipline & notes" panel. */
+const ADVANCED_FIELDS = [
+  "commission",
+  "swap",
+  "followedPlan",
+  "emotion",
+  "confidence",
+  "notes",
+] as const satisfies readonly (keyof TradeFormInput)[];
 
 export function TradeForm({
   mode,
@@ -59,6 +70,8 @@ export function TradeForm({
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
+  const advancedId = React.useId();
+  const online = useOnlineStatus();
 
   const validSymbols = React.useMemo(() => new Set(instruments.map((i) => i.symbol)), [instruments]);
   const schema = React.useMemo(() => buildTradeFormSchema(validSymbols), [validSymbols]);
@@ -102,6 +115,17 @@ export function TradeForm({
   const geometryWarnings = React.useMemo(() => buildWarnings(watched, instrument), [watched, instrument]);
 
   async function onSubmit(values: TradeFormInput) {
+    // The submit button is disabled offline, but ⌘⏎ calls requestSubmit()
+    // directly and that ignores a disabled button. docs/PWA.md: no offline
+    // write queue, so say so instead of letting the action fail opaquely.
+    if (!online) {
+      toast({
+        title: "You're offline",
+        description: "This trade can't be saved until you're back online. Nothing you typed is lost.",
+        tone: "warn",
+      });
+      return;
+    }
     const fd = buildFormData(values);
     const result = mode === "create" ? await createTrade(accountId, fd) : await updateTrade(accountId, tradeId!, fd);
 
@@ -142,6 +166,14 @@ export function TradeForm({
   }
 
   const errors = form.formState.errors;
+
+  // These fields live in the collapsible panel. A collapsed panel unmounts
+  // them, so a validation or server error on one of them would otherwise be
+  // invisible — the toast says "check the highlighted fields" and nothing is
+  // highlighted. The panel is therefore open whenever one of them has an
+  // error, derived rather than synced through an effect.
+  const advancedHasError = ADVANCED_FIELDS.some((f) => errors[f]);
+  const panelOpen = advancedOpen || advancedHasError;
 
   return (
     <form
@@ -308,7 +340,7 @@ export function TradeForm({
               control={form.control}
               name="tagIds"
               render={({ field }) => (
-                <div className="flex flex-wrap gap-1.5">
+                <FieldGroup className="flex flex-wrap gap-1.5">
                   {tags.length === 0 ? <span className="text-xs text-ink-3">No tags yet.</span> : null}
                   {tags.map((tag) => {
                     const active = field.value.includes(tag.id);
@@ -316,6 +348,7 @@ export function TradeForm({
                       <button
                         type="button"
                         key={tag.id}
+                        aria-pressed={active}
                         onClick={() =>
                           field.onChange(active ? field.value.filter((id) => id !== tag.id) : [...field.value, tag.id])
                         }
@@ -328,7 +361,7 @@ export function TradeForm({
                       </button>
                     );
                   })}
-                </div>
+                </FieldGroup>
               )}
             />
           </Field>
@@ -338,17 +371,33 @@ export function TradeForm({
       <PreviewStrip preview={preview} />
 
       <Panel>
-        <PanelHeader
-          className="cursor-pointer select-none"
-          onClick={() => setAdvancedOpen((v) => !v)}
-          title="Discipline & notes"
-          caption="Optional — costs, mindset, and a write-up"
-          actions={
-            <ChevronDown className={cn("size-4 text-ink-3 transition-transform", advancedOpen && "rotate-180")} />
-          }
-        />
-        {advancedOpen ? (
-          <PanelBody className="flex flex-col gap-4">
+        {/* A real disclosure: the button sits inside the heading (a heading
+            inside a button is invalid HTML), takes keyboard focus, and
+            announces its state through aria-expanded. */}
+        <PanelHeader className="px-0">
+          <h2 className="min-w-0 flex-1">
+            <button
+              type="button"
+              aria-expanded={panelOpen}
+              aria-controls={advancedId}
+              onClick={() => setAdvancedOpen(!panelOpen)}
+              className="flex min-h-10 w-full items-center justify-between gap-3 px-3 text-left select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset"
+            >
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="truncate text-sm font-semibold text-ink">Discipline &amp; notes</span>
+                <span className="truncate text-xs font-normal text-ink-3">
+                  Optional — costs, mindset, and a write-up
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden
+                className={cn("size-4 shrink-0 text-ink-3 transition-transform", panelOpen && "rotate-180")}
+              />
+            </button>
+          </h2>
+        </PanelHeader>
+        {panelOpen ? (
+          <PanelBody id={advancedId} className="flex flex-col gap-4">
             <FieldRow>
               <Field>
                 <FieldLabel optional>Commission</FieldLabel>
@@ -428,7 +477,12 @@ export function TradeForm({
         <Button type="button" variant="default" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={form.formState.isSubmitting || !online}
+          title={online ? undefined : "You're offline — this can't be saved until you reconnect."}
+        >
           {form.formState.isSubmitting ? "Saving…" : mode === "create" ? "Log trade" : "Save changes"}
           <kbd className="ml-1 hidden rounded-[3px] bg-black/15 px-1 text-2xs font-normal md:inline">⌘⏎</kbd>
         </Button>

@@ -7,7 +7,8 @@ import { TradeForm } from "@/components/trades/trade-form";
 // From the pure module, not the client component: a server page reaching
 // into a "use client" file for a date helper pulls that whole module into
 // the server graph.
-import { isoToDatetimeLocal, type TradeFormInput } from "@/components/trades/trade-form-values";
+import type { TradeFormInput } from "@/components/trades/trade-form-values";
+import { formatInZone } from "@/lib/metrics/formatters";
 
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,8 +22,10 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     symbol: trade.symbol,
     direction: trade.direction,
     status: trade.status as TradeFormInput["status"],
-    openedAt: isoToDatetimeLocal(trade.openedAt),
-    closedAt: isoToDatetimeLocal(trade.closedAt),
+    // Stored ISO timestamps, converted to wall time in the browser by
+    // defaultFormValues — see the comment there for why not here.
+    openedAt: trade.openedAt,
+    closedAt: trade.closedAt ?? "",
     entryPrice: trade.entryPrice,
     exitPrice: trade.exitPrice ?? "",
     stopLoss: trade.stopLoss ?? "",
@@ -40,7 +43,10 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
 
   return (
     <Page width="reading">
-      <SectionHead title={`Edit ${trade.symbol}`} hint={`Opened ${new Date(trade.openedAt).toLocaleString()}`} />
+      <SectionHead
+        title={`Edit ${trade.symbol}`}
+        hint={`Opened ${formatInZone(trade.openedAt, user.timezone, "EEE, MMM d yyyy · HH:mm")}`}
+      />
       <TradeForm
         mode="edit"
         accountId={trade.accountId}

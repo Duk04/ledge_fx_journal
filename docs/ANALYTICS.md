@@ -1,6 +1,6 @@
 # Analytics & Overview
 
-Owns: `src/app/(app)/page.tsx` (Overview), `src/app/(app)/analytics/page.tsx`
+Owns: `src/app/(app)/(overview)/page.tsx` (Overview), `src/app/(app)/analytics/page.tsx`
 (Reports), `src/components/charts/**`, `src/components/dashboard/**`,
 `src/lib/queries/analytics.ts`.
 

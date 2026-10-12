@@ -1,6 +1,6 @@
 # Testing
 
-27 files, 678 tests, all of which run in about a second with no database and
+28 files, 682 tests, all of which run in about a second with no database and
 no browser.
 
 ```

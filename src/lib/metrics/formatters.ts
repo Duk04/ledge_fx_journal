@@ -5,6 +5,8 @@
  * `Decimal | number | null` (formatDuration takes `number | null`, since
  * holding-minutes is already a plain integer) and render "—" for null.
  */
+import { TZDate } from "@date-fns/tz";
+import { format } from "date-fns";
 import { Decimal } from "decimal.js";
 
 type Numeric = Decimal | number | null | undefined;
@@ -68,4 +70,19 @@ export function formatPrice(value: Numeric, digits: number): string {
   const n = toNumber(value);
   if (n === null) return "—";
   return n.toFixed(digits);
+}
+
+/**
+ * A date-fns `pattern` rendered in the user's IANA `timezone`, e.g.
+ * formatInZone(t.openedAt, user.timezone, "MMM d, HH:mm").
+ *
+ * Server components must use this instead of `toLocaleString()` /
+ * `format(new Date(...))`: those render in the *server's* zone, so a Vercel
+ * deploy (UTC) shows an Ulaanbaatar trader every time eight hours early, and
+ * the day can flip — while the session badge next to it, computed in
+ * lib/metrics/session.ts, is right. Never null-tolerant: a missing timestamp
+ * is a caller bug, not a display state.
+ */
+export function formatInZone(at: Date | string, timezone: string, pattern: string): string {
+  return format(new TZDate(new Date(at).getTime(), timezone), pattern);
 }

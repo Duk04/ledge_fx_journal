@@ -68,7 +68,32 @@ export function datetimeLocalToIso(local: string): string {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
+/** True for a stored timestamp ("…Z" or "…+08:00"), false for a bare
+ * datetime-local wall time ("2026-09-08T09:00"). */
+function isOffsetTimestamp(value: string): boolean {
+  return /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(value);
+}
+
+/**
+ * `openedAt` / `closedAt` in `defaults` may be either a datetime-local value or
+ * a stored ISO timestamp. ISO timestamps are converted HERE, and this runs in
+ * the browser: the edit page used to call `isoToDatetimeLocal` itself, which
+ * runs on the server and so produced the server's wall time. On a UTC host an
+ * Ulaanbaatar user then saw 01:30 for a 09:30 trade, and saving the form
+ * unchanged wrote it back eight hours early, because `buildFormData` reads the
+ * value in the browser's zone. Converting on the client keeps both directions
+ * in one timezone. (The inputs are uncontrolled react-hook-form registrations,
+ * so the server-rendered HTML carries no value for them and there is nothing
+ * to mismatch on hydration.)
+ */
 export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeFormInput {
+  const localised: Partial<TradeFormInput> = { ...defaults };
+  if (localised.openedAt && isOffsetTimestamp(localised.openedAt)) {
+    localised.openedAt = isoToDatetimeLocal(localised.openedAt);
+  }
+  if (localised.closedAt && isOffsetTimestamp(localised.closedAt)) {
+    localised.closedAt = isoToDatetimeLocal(localised.closedAt);
+  }
   return {
     symbol: "",
     direction: "LONG",
@@ -88,7 +113,7 @@ export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeForm
     confidence: "",
     notes: "",
     tagIds: [],
-    ...defaults,
+    ...localised,
   };
 }
 

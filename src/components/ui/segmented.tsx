@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { cn } from "@/lib/cn";
+import { useFieldGroupLabelling } from "./field";
 
 /**
  * Single-select segmented control — date ranges, density switches. The track
@@ -10,9 +11,11 @@ import { cn } from "@/lib/cn";
  * a physical switch uses: the thing that's "on" sits proud of the surface.
  */
 export function Segmented({ className, ...props }: Omit<ToggleGroupPrimitive.ToggleGroupSingleProps, "type">) {
+  const labelling = useFieldGroupLabelling();
   return (
     <ToggleGroupPrimitive.Root
       type="single"
+      {...labelling}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-[var(--radius-control)] border border-line bg-panel-sunken p-[2px]",
         className,

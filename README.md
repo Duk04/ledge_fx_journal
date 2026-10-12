@@ -58,7 +58,7 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 678 tests across the pure layers (metrics, the backtest
+- **Vitest** — 682 tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
   no I/O and no mocking, running in about a second. `docs/TESTING.md`
   explains what that covers and, more usefully, what it does not
@@ -153,9 +153,13 @@ docs/                     one topic per file — read AUTH.md/DATA-MODEL.md/etc.
 This repo is built for local development against a real (if small) Postgres
 instance. Before deploying it for real:
 
-- **Turn off dev login.** Set `ALLOW_DEV_LOGIN=false` (see `docs/AUTH.md`) —
-  the credentials provider is an unthrottled password check meant for local
-  dev and seeded test accounts only.
+- **Decide on password login.** `ALLOW_PASSWORD_LOGIN` (default on) controls
+  email + password sign-in. It is throttled per email and per IP
+  (`src/lib/auth/throttle.ts`), so it is a supported production method — but
+  set it to `false` if you only want Google / magic-link sign-in. The old
+  `ALLOW_DEV_LOGIN` variable is rejected at boot (see `docs/AUTH.md`).
+- **Remove or change the seeded demo user** (`duk@example.com` / `password`)
+  if you ran `npm run db:seed` against this database.
 - **Generate a real `AUTH_SECRET`** (`openssl rand -base64 32`) and set
   `AUTH_URL` to your real origin.
 - **Drop `engineType = "client"`** if your deploy target can reach

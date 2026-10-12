@@ -123,16 +123,13 @@ import has to be an **upsert**, not an insert:
   statement, which is how `importCandles` reports accurate
   inserted/updated counts back to the UI.
 
-**Upload size, and a follow-up this module can't finish alone**: Next.js
-Server Actions cap the request body at 1MB by default
-(`experimental.serverActions.bodySizeLimit` in `next.config.ts`). The 25MB
-cap enforced inside `importCandles` is this module's own business rule, but
-it can only be *reached* — as opposed to the upload failing earlier, inside
-the framework, with a generic error — once that framework-level limit is
-raised in `next.config.ts`. That file is shared app-wide configuration
-outside this module's ownership, so raising it (e.g. to `"30mb"`) is a
-one-line follow-up for whoever owns `next.config.ts`, not something this
-module changes on its own.
+**Upload size**: Next.js Server Actions cap the request body at 1MB by
+default. `next.config.ts` raises `experimental.serverActions.bodySizeLimit`
+to `"30mb"`, so the 25MB cap enforced inside `importCandles` — this module's
+own business rule — is the limit a user actually meets, with a specific
+message, instead of a generic framework error at 1MB. Keep the framework
+limit above the module's: lowering it below 25MB silently reinstates the
+generic failure. (This used to be listed as an open follow-up; it is done.)
 
 ## Aggregation rules
 

@@ -17,7 +17,7 @@ import { computeRiskGuard, type RiskTradeInput } from "@/lib/risk";
  * props from whatever page mounts it, so dropping `<RiskGuard accountId={…} />`
  * into a new page is always safe on its own.
  *
- * Mounted on the Overview dashboard (src/app/(app)/page.tsx), under the
+ * Mounted on the Overview dashboard (src/app/(app)/(overview)/page.tsx), under the
  * SectionHead and above the StatRow, so a breach is the first thing seen on
  * the page it is most relevant to.
  */

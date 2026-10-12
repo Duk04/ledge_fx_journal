@@ -1,8 +1,8 @@
-import { format } from "date-fns";
 import { DataTable, Th, Td, TrLink, TableEmpty } from "@/components/ui";
 import { DirectionBadge } from "@/components/ui";
 import { Money, RValue } from "@/components/ui";
 import { RBar } from "@/components/ui";
+import { formatInZone } from "@/lib/metrics/formatters";
 import type { RecentTrade } from "@/lib/queries/analytics";
 
 /**
@@ -10,7 +10,15 @@ import type { RecentTrade } from "@/lib/queries/analytics";
  * doc-comment: this answers "what's happening right now", not "how did the
  * selected window go"). Whole rows navigate to the trade detail page.
  */
-export function RecentTradesTable({ trades }: { trades: RecentTrade[] }) {
+export function RecentTradesTable({
+  trades,
+  currency,
+  timezone,
+}: {
+  trades: RecentTrade[];
+  currency: string;
+  timezone: string;
+}) {
   const scale = Math.max(1, ...trades.map((t) => Math.abs(t.rMultiple ?? 0)));
 
   return (
@@ -30,7 +38,7 @@ export function RecentTradesTable({ trades }: { trades: RecentTrade[] }) {
         ) : (
           trades.map((t) => (
             <TrLink key={t.id} href={`/trades/${t.id}`}>
-              <Td>{format(new Date(t.openedAt), "MMM d")}</Td>
+              <Td>{formatInZone(t.openedAt, timezone, "MMM d")}</Td>
               <Td className="mono">{t.symbol}</Td>
               <Td>
                 <DirectionBadge direction={t.direction} />
@@ -42,7 +50,7 @@ export function RecentTradesTable({ trades }: { trades: RecentTrade[] }) {
                 </div>
               </Td>
               <Td numeric>
-                <Money value={t.netPnl} signed />
+                <Money value={t.netPnl} currency={currency} signed />
               </Td>
             </TrLink>
           ))

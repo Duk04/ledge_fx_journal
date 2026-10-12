@@ -16,7 +16,7 @@ jobs:
     env:
       # No database is contacted by any of the steps below: `new PrismaClient()`
       # does not connect eagerly, every page is dynamic (they all call
-      # requireUser()), and all 431 tests are pure. These exist only because
+      # requireUser()), and every unit test is pure. These exist only because
       # `next build` evaluates module scope while collecting pages, and
       # src/lib/env.ts validates the environment there — deliberately, so a
       # misconfigured deployment fails at boot rather than on the first request

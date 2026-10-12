@@ -127,7 +127,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         <Panel className="lg:col-span-7">
           <PanelHeader title="Recent trades" caption="Last 10" />
           <PanelBody padded={false}>
-            <RecentTradesTable trades={data.recentTrades} />
+            <RecentTradesTable trades={data.recentTrades} currency={data.currency} timezone={user.timezone} />
           </PanelBody>
         </Panel>
 

@@ -89,27 +89,21 @@ running balance. Concretely, in `addBalanceEvent`:
   users read as "how much came out"), even though the stored value is
   negative.
 
-## Known upstream issues this agent worked around (not fixed, out of scope)
+## Upstream issues this feature once worked around (both since fixed)
 
-Two bugs in shared files outside this agent's owned paths would otherwise
-break Journal/Accounts code that touches them:
+Earlier versions of this doc described two workarounds. Both underlying bugs
+are fixed and the workarounds are gone; the history is kept because the
+symptoms are worth recognising:
 
-1. **`src/lib/active-account.ts` / `src/lib/db.ts`** — `active-account.ts`
-   imports a named `db` export from `src/lib/db.ts`, which only exports
-   `prisma` (default and named). Calling `resolveActiveAccountId()` throws
-   at runtime. Every read in this agent's code that needs the active account
-   (`resolveActiveTradingAccountId` in `src/lib/queries/journal.ts`)
-   re-implements the same small, already-documented cookie contract against
-   `prisma` directly instead of calling the broken function. Only the
-   `ACCOUNT_COOKIE` name constant is imported from `active-account.ts`.
-2. **`src/lib/trade-service.ts` → `src/lib/metrics/session.ts`** —
-   `derivedColumns()` can produce `marketSession: "NEW_YORK"`, but the
-   Prisma enum backing that column (`prisma/schema.prisma`) spells it
-   `NEWYORK`. Writing the mismatched value throws at the database. The
-   "Recompute derived columns" action
-   (`src/app/(app)/settings/actions.ts`) normalises `"NEW_YORK"` →
-   `"NEWYORK"` at the point it writes to the database, rather than editing
-   the shared metrics/service files.
+1. `src/lib/active-account.ts` imported a `db` export that `src/lib/db.ts`
+   never had, so `resolveActiveAccountId()` threw. It now imports `prisma`,
+   and `src/lib/queries/journal.ts` re-exports it as
+   `resolveActiveTradingAccountId` instead of re-implementing the cookie
+   contract.
+2. `lib/metrics/session.ts` says `NEW_YORK` while the database stores
+   `NEWYORK`. The enum in `prisma/schema.prisma` now declares
+   `NEW_YORK @map("NEWYORK")`, so the TypeScript name and the stored value
+   are reconciled in one place and nothing needs normalising before a write.
 
 ## Export format
 

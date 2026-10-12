@@ -15,6 +15,10 @@ const FieldContext = React.createContext<{
   register: (id: string) => () => void;
   invalid: boolean;
   setInvalid: (v: boolean) => void;
+  /** True once a group control (Segmented, a chip list) has mounted inside
+   * this Field — see useFieldGroupLabelling. */
+  isGroup: boolean;
+  markGroup: () => () => void;
 } | null>(null);
 
 function useFieldContext(explicitId?: string) {
@@ -27,15 +31,21 @@ export function Field({ id, className, children, ...props }: React.ComponentProp
   const autoId = id ?? generatedId;
   const [describedBy, setDescribedBy] = React.useState<string[]>([]);
   const [invalid, setInvalid] = React.useState(false);
+  const [groupCount, setGroupCount] = React.useState(0);
 
   const register = React.useCallback((entryId: string) => {
     setDescribedBy((prev) => (prev.includes(entryId) ? prev : [...prev, entryId]));
     return () => setDescribedBy((prev) => prev.filter((v) => v !== entryId));
   }, []);
 
+  const markGroup = React.useCallback(() => {
+    setGroupCount((n) => n + 1);
+    return () => setGroupCount((n) => n - 1);
+  }, []);
+
   const value = React.useMemo(
-    () => ({ id: autoId, describedBy, register, invalid, setInvalid }),
-    [autoId, describedBy, invalid, register],
+    () => ({ id: autoId, describedBy, register, invalid, setInvalid, isGroup: groupCount > 0, markGroup }),
+    [autoId, describedBy, invalid, register, groupCount, markGroup],
   );
 
   return (
@@ -47,7 +57,10 @@ export function Field({ id, className, children, ...props }: React.ComponentProp
   );
 }
 
-/** Attach this to the actual control (Input, Select trigger, …). */
+/** Spread onto the actual control. Input, NumberInput, Textarea and
+ * SelectTrigger already call it, so FieldLabel's htmlFor resolves and hints /
+ * errors reach aria-describedby with no wiring at the call site. Explicit
+ * props passed to the control still win, because they are spread after. */
 export function useFieldControlProps() {
   const ctx = React.useContext(FieldContext);
   if (!ctx) return {};
@@ -58,6 +71,41 @@ export function useFieldControlProps() {
   };
 }
 
+/** The id FieldLabel renders with, for controls that are not a single
+ * labellable element and so must point back at the label with
+ * aria-labelledby instead of being targeted by htmlFor. */
+export function fieldLabelId(fieldId: string) {
+  return `${fieldId}-label`;
+}
+
+/**
+ * For a control that is a GROUP of buttons rather than one input — Segmented,
+ * a row of tag chips. `<label for>` can only target a labellable element, so
+ * pointed at a group it labels nothing. Calling this hook switches FieldLabel
+ * from `htmlFor` to being the group's `aria-labelledby` target, and returns
+ * the props to spread on the group's root.
+ *
+ * The switch happens in an effect, so the server render and the first client
+ * render agree (both still carry `for`) and hydration does not mismatch.
+ */
+export function useFieldGroupLabelling(): { "aria-labelledby"?: string; "aria-describedby"?: string } {
+  const ctx = React.useContext(FieldContext);
+  const markGroup = ctx?.markGroup;
+  React.useEffect(() => markGroup?.(), [markGroup]);
+  if (!ctx) return {};
+  return {
+    "aria-labelledby": fieldLabelId(ctx.id),
+    "aria-describedby": ctx.describedBy.length ? ctx.describedBy.join(" ") : undefined,
+  };
+}
+
+/** A plain role="group" wrapper wired to its Field's label, for ad-hoc button
+ * groups (e.g. tag chips) that are not a Segmented. */
+export function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
+  const labelling = useFieldGroupLabelling();
+  return <div role="group" {...labelling} className={className} {...props} />;
+}
+
 export function FieldLabel({
   className,
   optional,
@@ -65,9 +113,14 @@ export function FieldLabel({
   htmlFor,
   ...props
 }: React.ComponentProps<"label"> & { optional?: boolean }) {
-  const { id } = useFieldContext(htmlFor);
+  const { id, ctx } = useFieldContext(htmlFor);
   return (
-    <label htmlFor={id} className={cn("text-xs font-medium text-ink-2", className)} {...props}>
+    <label
+      id={id ? fieldLabelId(id) : undefined}
+      htmlFor={ctx?.isGroup && !htmlFor ? undefined : id}
+      className={cn("text-xs font-medium text-ink-2", className)}
+      {...props}
+    >
       {children}
       {optional ? <span className="ml-1 text-2xs font-normal text-ink-3">optional</span> : null}
     </label>

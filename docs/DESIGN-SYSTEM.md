@@ -58,6 +58,23 @@ Specific choices worth knowing about:
   background always stays proportionally related to its foreground colour
   without a second value to keep in sync.
 
+### Text contrast
+
+Every ink step is real text somewhere (`.label`, `FieldHint`, chart axis
+ticks, "optional"), so every step must clear WCAG AA's 4.5:1 against the
+surfaces it sits on. Measured against `--panel`:
+
+| Token | Light | Dark |
+|---|---|---|
+| `--ink` | `#0f1319` — 18.6:1 | `#e9ecf1` — 15:1 |
+| `--ink-2` | grey-600 — 7.0:1 | grey-300 — 9.5:1 |
+| `--ink-3` | grey-500 — 4.7:1 | grey-400 — 6.0:1 |
+
+`--ink-3` used to be grey-400 in light (3.0:1) and grey-500 in dark (3.8:1);
+both failed. Dark `--ink-2` moved up a notch with it so the three steps stay
+visibly distinct. `--flat` (a zero P&L) follows `--ink-3`. If you change the
+grey ramp or a surface, recompute this table rather than trusting it.
+
 Never reference a `--grey-*`/`--cobalt-*`/`--jade-*`/etc. primitive directly
 from a component. Never write a raw hex outside `globals.css` (the one
 standing exception is `scripts/make-icons.mjs`, which runs outside the CSS

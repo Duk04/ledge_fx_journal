@@ -35,6 +35,8 @@ export interface OpenTrade {
   direction: Direction;
   openedAt: string;
   entryPrice: number;
+  /** Instrument display precision — 5 for EURUSD, 3 for USDJPY, 2 for XAUUSD. */
+  digits: number;
   volumeLots: number;
   stopLoss: number | null;
   takeProfit: number | null;
@@ -168,6 +170,7 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
       direction: t.direction,
       openedAt: t.openedAt.toISOString(),
       entryPrice: toNum(t.entryPrice) ?? 0,
+      digits: t.instrument.digits,
       volumeLots: toNum(t.volumeLots) ?? 0,
       stopLoss: toNum(t.stopLoss),
       takeProfit: toNum(t.takeProfit),

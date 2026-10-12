@@ -113,11 +113,19 @@ function HeatCell({ cell, maxAbs, currency }: { cell: HeatmapCell; maxAbs: numbe
         </div>
       }
     >
+      {/* The tint is mixed into the background colour rather than applied as
+          `opacity` on the cell: opacity would fade the count text and the
+          polarity bar along with it, down to ~12% on the faintest cells. The
+          cell is focusable so the tooltip is reachable without a mouse. */}
       <div
-        className="relative flex aspect-square min-h-9 items-center justify-center rounded-[3px] border border-line-faint"
+        tabIndex={0}
+        aria-label={`${WEEKDAY_SHORT[cell.weekday] ?? cell.weekday} ${cell.sessionLabel}: ${cell.count} trade${cell.count === 1 ? "" : "s"}${cell.count > 0 ? `, net ${formatMoney(cell.netPnl, currency)}` : ""}`}
+        className="relative flex aspect-square min-h-9 items-center justify-center rounded-[3px] border border-line-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         style={{
-          backgroundColor: cell.count === 0 ? "var(--inset)" : tone,
-          opacity: cell.count === 0 ? 1 : 0.12 + fraction * 0.55,
+          backgroundColor:
+            cell.count === 0
+              ? "var(--inset)"
+              : `color-mix(in oklab, ${tone} ${Math.round((0.12 + fraction * 0.55) * 100)}%, transparent)`,
         }}
       >
         <span className={cn("mono relative text-2xs tabular-nums", cell.count === 0 ? "text-ink-3" : "text-ink")}>

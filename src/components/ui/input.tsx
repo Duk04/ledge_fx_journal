@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useFieldControlProps } from "./field";
 
 /** Shared skin for anything that looks like a text field — kept in one place
  * so Input, NumberInput and Select's trigger can never drift apart. */
@@ -15,8 +16,10 @@ export const fieldSkin =
   "has-[input:disabled]:pointer-events-none has-[input:disabled]:opacity-45";
 
 export function Input({ className, ...props }: React.ComponentProps<"input">) {
+  const fieldProps = useFieldControlProps();
   return (
     <input
+      {...fieldProps}
       className={cn(
         "h-control w-full rounded-[var(--radius-control)] border border-line bg-panel px-2.5 text-sm text-ink",
         "placeholder:text-ink-3",
@@ -39,6 +42,7 @@ export function Input({ className, ...props }: React.ComponentProps<"input">) {
  * to its own line on a narrow form.
  */
 export function NumberInput({ className, unit, ...props }: React.ComponentProps<"input"> & { unit?: React.ReactNode }) {
+  const fieldProps = useFieldControlProps();
   return (
     <div
       className={cn(
@@ -52,6 +56,7 @@ export function NumberInput({ className, unit, ...props }: React.ComponentProps<
       )}
     >
       <input
+        {...fieldProps}
         inputMode="decimal"
         className={cn(
           "mono min-w-0 flex-1 bg-transparent text-right text-sm text-ink outline-none",
@@ -65,8 +70,10 @@ export function NumberInput({ className, unit, ...props }: React.ComponentProps<
 }
 
 export function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+  const fieldProps = useFieldControlProps();
   return (
     <textarea
+      {...fieldProps}
       className={cn(
         "min-h-20 w-full resize-y rounded-[var(--radius-control)] border border-line bg-panel px-2.5 py-2 text-sm text-ink",
         "placeholder:text-ink-3",

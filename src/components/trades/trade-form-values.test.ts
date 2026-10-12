@@ -165,6 +165,21 @@ describe("defaultFormValues", () => {
     expect(values.status).toBe("CLOSED");
   });
 
+  it("converts stored ISO timestamps to the input's wall-time format", () => {
+    // The edit page hands over trade.openedAt as stored. Conversion must
+    // happen here (in the browser) and agree with datetimeLocalToIso, so that
+    // saving an untouched edit form round-trips the exact same instant.
+    const opened = "2026-09-08T01:30:00.000Z";
+    const values = defaultFormValues({ openedAt: opened, closedAt: "2026-09-08T03:00:00.000+00:00" });
+    expect(values.openedAt).toBe(isoToDatetimeLocal(opened));
+    expect(values.closedAt).toBe(isoToDatetimeLocal("2026-09-08T03:00:00.000Z"));
+    expect(datetimeLocalToIso(values.openedAt)).toBe(opened);
+  });
+
+  it("leaves an empty closedAt empty", () => {
+    expect(defaultFormValues({ closedAt: "" }).closedAt).toBe("");
+  });
+
   it("returns a fresh tagIds array each call", () => {
     // A shared array would let one form's tag selection leak into the next.
     const a = defaultFormValues();
