@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Plus } from "lucide-react";
 import { Page } from "@/components/shell/page";
 import { SectionHead, Panel, PanelHeader, PanelBody, Button, Badge, EmptyState } from "@/components/ui";
@@ -13,6 +14,7 @@ import { StrategyWorkbench } from "@/components/backtest/strategies/strategy-wor
 export default async function StrategiesPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const { id } = await searchParams;
   const user = await requireUser();
+  const t = await getTranslations("backtest");
 
   const [strategies, coverage, selected] = await Promise.all([
     listStrategies(user.id),
@@ -25,12 +27,12 @@ export default async function StrategiesPage({ searchParams }: { searchParams: P
   return (
     <Page>
       <SectionHead
-        title="Strategies"
-        hint="Write a strategy once, replay it over any range, and tune it against real fill costs."
+        title={t("strategies.title")}
+        hint={t("strategies.hint")}
         actions={
           <Button asChild variant="default" size="sm">
             <Link href="/backtest/strategies">
-              <Plus /> New
+              <Plus /> {t("strategies.new")}
             </Link>
           </Button>
         }
@@ -39,10 +41,13 @@ export default async function StrategiesPage({ searchParams }: { searchParams: P
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="lg:col-span-3">
           <Panel>
-            <PanelHeader title="Saved" caption={strategies.length ? `${strategies.length}` : undefined} />
+            <PanelHeader
+              title={t("strategies.saved")}
+              caption={strategies.length ? `${strategies.length}` : undefined}
+            />
             {strategies.length === 0 ? (
               <PanelBody>
-                <EmptyState title="No strategies yet" description="Start from a template on the right, then save it." />
+                <EmptyState title={t("strategies.emptyTitle")} description={t("strategies.emptyDescription")} />
               </PanelBody>
             ) : (
               <nav className="flex flex-col p-1.5">
@@ -61,15 +66,18 @@ export default async function StrategiesPage({ searchParams }: { searchParams: P
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate font-medium">{s.name}</span>
                         {s.lastRun ? (
-                          <Badge tone={s.lastRun.status === "DONE" ? "neutral" : "warn"}>{s.lastRun.status}</Badge>
+                          <Badge tone={s.lastRun.status === "DONE" ? "neutral" : "warn"}>
+                            {t(`runStatus.${s.lastRun.status}`)}
+                          </Badge>
                         ) : null}
                       </span>
                       {stats ? (
                         <span className="mono text-2xs text-ink-3">
-                          {stats.tradeCount} trades · <RValue value={stats.expectancyR} className="text-2xs" />
+                          {t("strategies.tradesCount", { count: String(stats.tradeCount) })} ·{" "}
+                          <RValue value={stats.expectancyR} className="text-2xs" />
                         </span>
                       ) : (
-                        <span className="text-2xs text-ink-3">never run</span>
+                        <span className="text-2xs text-ink-3">{t("strategies.neverRun")}</span>
                       )}
                     </Link>
                   );

@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import { DataTable, Th, Td, TableEmpty, TrLink, DirectionBadge, Money, RValue } from "@/components/ui";
 import type { TradeExtreme } from "@/lib/queries/analytics";
 
@@ -12,6 +13,7 @@ export function ExtremesTable({
   trades: TradeExtreme[];
   currency: string;
 }) {
+  const t = useTranslations("dashboard.table");
   return (
     <div className="flex flex-col">
       <div className="border-b border-line px-3 py-2">
@@ -20,16 +22,16 @@ export function ExtremesTable({
       <DataTable>
         <thead>
           <tr>
-            <Th>Date</Th>
-            <Th>Symbol</Th>
-            <Th>Dir</Th>
-            <Th numeric>R</Th>
-            <Th numeric>Net P&L</Th>
+            <Th>{t("date")}</Th>
+            <Th>{t("symbol")}</Th>
+            <Th>{t("dir")}</Th>
+            <Th numeric>{t("r")}</Th>
+            <Th numeric>{t("netPnl")}</Th>
           </tr>
         </thead>
         <tbody>
           {trades.length === 0 ? (
-            <TableEmpty colSpan={5}>None in this range.</TableEmpty>
+            <TableEmpty colSpan={5}>{t("noneInRange")}</TableEmpty>
           ) : (
             trades.map((t) => (
               <TrLink key={t.id} href={`/trades/${t.id}`}>

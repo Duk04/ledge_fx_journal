@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { SectionHead, EmptyState } from "@/components/ui";
 import { Page } from "@/components/shell/page";
 import { AccountCard, type AccountCardData } from "@/components/accounts/account-card";
@@ -11,6 +12,7 @@ import type { BalanceEventRow } from "@/components/accounts/balance-events-dialo
 
 export default async function AccountsPage() {
   const user = await requireUser();
+  const t = await getTranslations("accounts.page");
 
   const [accounts, activeAccountId, rawEvents, riskRows] = await Promise.all([
     listAccounts(user.id),
@@ -75,17 +77,10 @@ export default async function AccountsPage() {
 
   return (
     <Page>
-      <SectionHead
-        title="Accounts"
-        hint="Every broker account you track, its equity, and where its cash has gone."
-        actions={<NewAccountButton />}
-      />
+      <SectionHead title={t("title")} hint={t("hint")} actions={<NewAccountButton />} />
 
       {active.length === 0 && archived.length === 0 ? (
-        <EmptyState
-          title="No trading accounts yet"
-          description="Add your first account to start logging trades and journaling against it."
-        />
+        <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
       ) : (
         <div className="flex flex-col gap-4">
           {active.map((a) => (
@@ -102,7 +97,7 @@ export default async function AccountsPage() {
       {archived.length > 0 ? (
         <details className="group">
           <summary className="label cursor-pointer list-none px-1 py-2 select-none">
-            Archived accounts ({archived.length})
+            {t("archived", { count: String(archived.length) })}
           </summary>
           <div className="mt-2 flex flex-col gap-4 opacity-70">
             {archived.map((a) => (

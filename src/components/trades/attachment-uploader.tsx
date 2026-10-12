@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AlertTriangle, ImagePlus, Link2, Loader2, RefreshCw, Trash2, UploadCloud, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,6 @@ export interface AttachmentView {
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"];
 const MAX_BYTES = 8 * 1024 * 1024;
 const KINDS = ["BEFORE", "AFTER", "OTHER"] as const;
-const KIND_LABEL: Record<(typeof KINDS)[number], string> = { BEFORE: "Before", AFTER: "After", OTHER: "Other" };
 
 type PendingUpload = {
   tempId: string;
@@ -41,12 +41,14 @@ function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): s
   return a.externalUrl;
 }
 
-function clientValidate(file: File): string | null {
+/** Returns a `trades.attachments` message key rather than text: this runs
+ * outside a component, so the caller translates it. */
+function clientValidate(file: File): "unsupportedType" | "tooLarge" | null {
   if (!ACCEPTED_TYPES.includes(file.type)) {
-    return "Unsupported file type — use PNG, JPEG, WebP or AVIF.";
+    return "unsupportedType";
   }
   if (file.size > MAX_BYTES) {
-    return "That file is too large — the limit is 8MB.";
+    return "tooLarge";
   }
   return null;
 }
@@ -69,6 +71,7 @@ export function AttachmentUploader({
   tradeId: string;
   initialAttachments: AttachmentView[];
 }) {
+  const t = useTranslations("trades.attachments");
   const { toast } = useToast();
   const online = useOnlineStatus();
   const [attachments, setAttachments] = React.useState(initialAttachments);
@@ -83,13 +86,13 @@ export function AttachmentUploader({
     (file: File, tempId: string = crypto.randomUUID()) => {
       const problem = clientValidate(file);
       if (problem) {
-        toast({ title: "Couldn't add screenshot", description: problem, tone: "loss" });
+        toast({ title: t("addFailed"), description: t(problem), tone: "loss" });
         return;
       }
       if (!online) {
         toast({
-          title: "You're offline",
-          description: "Screenshots can't upload until you're back online.",
+          title: t("offlineTitle"),
+          description: t("offlineUpload"),
           tone: "warn",
         });
         return;
@@ -127,11 +130,11 @@ export function AttachmentUploader({
           if (row) {
             setAttachments((prev) => [row!, ...prev]);
             setUploads((prev) => prev.filter((u) => u.tempId !== tempId));
-            toast({ title: "Screenshot added", tone: "profit" });
+            toast({ title: t("added"), tone: "profit" });
             return;
           }
         }
-        let message = "Upload failed.";
+        let message = t("uploadFailedSentence");
         try {
           message = JSON.parse(xhr.responseText)?.error ?? message;
         } catch {
@@ -141,14 +144,12 @@ export function AttachmentUploader({
       };
       xhr.onerror = () => {
         setUploads((prev) =>
-          prev.map((u) =>
-            u.tempId === tempId ? { ...u, status: "error", error: "Network error — check your connection." } : u,
-          ),
+          prev.map((u) => (u.tempId === tempId ? { ...u, status: "error", error: t("networkError") } : u)),
         );
       };
       xhr.send(form);
     },
-    [tradeId, toast, online],
+    [tradeId, toast, online, t],
   );
 
   // `useCallback` purely so the paste effect below can depend on it
@@ -201,9 +202,9 @@ export function AttachmentUploader({
     const result = await deleteAttachment(id);
     if (!result.ok) {
       setAttachments(prevList);
-      toast({ title: "Couldn't delete screenshot", description: result.formError, tone: "loss" });
+      toast({ title: t("deleteFailed"), description: result.formError, tone: "loss" });
     } else {
-      toast({ title: "Screenshot deleted" });
+      toast({ title: t("deleted") });
     }
   }
 
@@ -211,7 +212,7 @@ export function AttachmentUploader({
     setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, kind } : a)));
     const result = await setAttachmentKind(id, kind);
     if (!result.ok) {
-      toast({ title: "Couldn't update", description: result.formError, tone: "loss" });
+      toast({ title: t("updateFailed"), description: result.formError, tone: "loss" });
     }
   }
 
@@ -220,7 +221,7 @@ export function AttachmentUploader({
     if (value === original) return;
     const result = await setCaption(id, value.trim() ? value.trim() : null);
     if (!result.ok) {
-      toast({ title: "Couldn't save caption", description: result.formError, tone: "loss" });
+      toast({ title: t("captionFailed"), description: result.formError, tone: "loss" });
     }
   }
 
@@ -229,7 +230,7 @@ export function AttachmentUploader({
     const result = await addExternalLink(tradeId, url, "OTHER");
     if (!result.ok) {
       toast({
-        title: "Couldn't add link",
+        title: t("linkFailed"),
         description: result.formError ?? result.fieldErrors?.url?.[0],
         tone: "loss",
       });
@@ -240,7 +241,7 @@ export function AttachmentUploader({
       ...prev,
     ]);
     setLinkOpen(false);
-    toast({ title: "Link added", tone: "profit" });
+    toast({ title: t("linkAdded"), tone: "profit" });
   }
 
   const isEmpty = attachments.length === 0 && uploads.length === 0;
@@ -250,7 +251,7 @@ export function AttachmentUploader({
       {!online ? (
         <div className="flex items-center gap-2 rounded-control border border-warn/30 bg-warn-weak px-2.5 py-1.5 text-xs text-warn">
           <AlertTriangle className="size-3.5 shrink-0" />
-          You&rsquo;re offline — screenshots will queue in the picker but won&rsquo;t upload until you&rsquo;re back.
+          {t("offlineBanner")}
         </div>
       ) : null}
 
@@ -281,9 +282,9 @@ export function AttachmentUploader({
       >
         <UploadCloud className="size-5 text-ink-3" aria-hidden />
         <p className="text-xs text-ink-2">
-          <span className="font-medium text-ink">Click to upload</span>, drag a file here, or paste (⌘/Ctrl+V)
+          {t.rich("dropzone", { upload: (chunks) => <span className="font-medium text-ink">{chunks}</span> })}
         </p>
-        <p className="text-2xs text-ink-3">PNG, JPEG, WebP or AVIF — up to 8MB</p>
+        <p className="text-2xs text-ink-3">{t("dropzoneHint")}</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -298,17 +299,17 @@ export function AttachmentUploader({
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="label">Screenshots</span>
+        <span className="label">{t("screenshots")}</span>
         <Button type="button" variant="ghost" size="sm" onClick={() => setLinkOpen(true)}>
-          <Link2 /> Add link instead
+          <Link2 /> {t("addLinkInstead")}
         </Button>
       </div>
 
       {isEmpty ? (
         <EmptyState
           icon={<ImagePlus className="size-4" />}
-          title="No screenshots yet"
-          description="Drop a before/after chart here, or paste one straight from your clipboard."
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
         />
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -328,16 +329,16 @@ export function AttachmentUploader({
               ) : (
                 <>
                   <AlertTriangle className="size-4 text-loss" aria-hidden />
-                  <span className="max-w-full truncate text-2xs text-loss">{u.error ?? "Upload failed"}</span>
+                  <span className="max-w-full truncate text-2xs text-loss">{u.error ?? t("uploadFailed")}</span>
                   <div className="flex items-center gap-1">
                     <Button type="button" variant="default" size="sm" onClick={() => retry(u)}>
-                      <RefreshCw /> Retry
+                      <RefreshCw /> {t("retry")}
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Dismiss"
+                      aria-label={t("dismiss")}
                       onClick={() => dismissFailed(u.tempId)}
                     >
                       <X />
@@ -363,13 +364,13 @@ export function AttachmentUploader({
       {/* ------------------------------------------------------- delete confirm */}
       <Dialog open={confirmDeleteId !== null} onOpenChange={(v) => !v && setConfirmDeleteId(null)}>
         <DialogContent size="sm">
-          <DialogHeader title="Delete screenshot?" description="This can't be undone." />
+          <DialogHeader title={t("deleteTitle")} description={t("deleteDescription")} />
           <DialogFooter>
             <Button variant="default" size="sm" onClick={() => setConfirmDeleteId(null)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button variant="danger" size="sm" onClick={onDeleteConfirmed}>
-              <Trash2 /> Delete
+              <Trash2 /> {t("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -378,20 +379,17 @@ export function AttachmentUploader({
       {/* ------------------------------------------------------- external link */}
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent size="sm">
-          <DialogHeader
-            title="Add a screenshot link"
-            description="For a chart already hosted somewhere (https only)."
-          />
+          <DialogHeader title={t("linkTitle")} description={t("linkDescription")} />
           <form action={onAddLink}>
             <div className="flex flex-col gap-3 p-4">
               <Input name="url" type="url" placeholder="https://..." required autoFocus />
             </div>
             <DialogFooter>
               <Button type="button" variant="default" size="sm" onClick={() => setLinkOpen(false)}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" variant="primary" size="sm">
-                Add
+                {t("add")}
               </Button>
             </DialogFooter>
           </form>
@@ -412,6 +410,7 @@ function AttachmentTile({
   onCaptionBlur: (value: string) => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("trades.attachments");
   const [open, setOpen] = React.useState(false);
   const [caption, setCaptionValue] = React.useState(attachment.caption ?? "");
   const src = srcFor(attachment);
@@ -424,7 +423,7 @@ function AttachmentTile({
             {/* eslint-disable-next-line @next/next/no-img-element -- attachment bytes come from our own authenticated route or an arbitrary https URL, neither of which next/image can optimise */}
             <img
               src={src}
-              alt={attachment.caption ?? "Trade screenshot"}
+              alt={attachment.caption ?? t("alt")}
               className="size-full object-cover transition-transform group-hover:scale-[1.02]"
             />
           </button>
@@ -435,12 +434,12 @@ function AttachmentTile({
         )}
 
         <Badge tone={attachment.kind === "AFTER" ? "profit" : "neutral"} className="absolute top-1.5 left-1.5">
-          {attachment.kind}
+          {t(`kindBadge.${attachment.kind}`)}
         </Badge>
         <button
           type="button"
           onClick={onDelete}
-          aria-label="Delete screenshot"
+          aria-label={t("deleteAria")}
           className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-inner bg-panel/90 text-ink-3 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:text-loss"
         >
           <Trash2 className="size-3.5" />
@@ -450,18 +449,18 @@ function AttachmentTile({
       <Segmented
         value={attachment.kind}
         onValueChange={(v) => v && onKindChange(v as (typeof KINDS)[number])}
-        aria-label="Screenshot kind"
+        aria-label={t("kindAria")}
       >
         {KINDS.map((k) => (
           <SegmentedItem key={k} value={k} className="flex-1 text-2xs">
-            {KIND_LABEL[k]}
+            {t(`kind.${k}`)}
           </SegmentedItem>
         ))}
       </Segmented>
 
       <Input
         defaultValue={caption}
-        placeholder="Add a caption"
+        placeholder={t("captionPlaceholder")}
         className="h-7 text-xs"
         onChange={(e) => setCaptionValue(e.target.value)}
         onBlur={(e) => onCaptionBlur(e.target.value)}
@@ -471,11 +470,7 @@ function AttachmentTile({
         <DialogContent size="lg" className="max-h-[90vh]">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element -- a full-size lightbox of an attachment whose dimensions are unknown until it loads, served from our own authenticated route or an arbitrary https URL. next/image can optimise neither.
-            <img
-              src={src}
-              alt={attachment.caption ?? "Trade screenshot"}
-              className="max-h-[85vh] w-full object-contain"
-            />
+            <img src={src} alt={attachment.caption ?? t("alt")} className="max-h-[85vh] w-full object-contain" />
           ) : null}
           {caption ? (
             <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{caption}</p>

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
@@ -59,12 +60,25 @@ const SESSION_CODES: Record<string, { code: string; name: string }> = {
   OFF_HOURS: { code: "··", name: "Outside the main sessions" },
 };
 
+/** The spellings above that have a translated long name (`ui.session.*`). */
+const SESSION_NAME_KEY: Record<string, "SYDNEY" | "TOKYO" | "LONDON" | "NEW_YORK" | "OVERLAP" | "OFFHOURS"> = {
+  SYDNEY: "SYDNEY",
+  TOKYO: "TOKYO",
+  LONDON: "LONDON",
+  NEW_YORK: "NEW_YORK",
+  NEWYORK: "NEW_YORK",
+  OVERLAP: "OVERLAP",
+  OFFHOURS: "OFFHOURS",
+  OFF_HOURS: "OFFHOURS",
+};
+
 export function SessionBadge({ session }: { session: string | null | undefined }) {
+  const t = useTranslations("ui");
   if (!session) return <span className="text-ink-3">—</span>;
   const meta = SESSION_CODES[session] ?? { code: session.slice(0, 2).toUpperCase(), name: session };
   return (
     <span
-      title={meta.name}
+      title={SESSION_NAME_KEY[session] ? t(`session.${SESSION_NAME_KEY[session]}`) : meta.name}
       className={cn(
         "mono inline-flex h-[1.15rem] w-[1.9rem] items-center justify-center rounded-inner",
         "border border-line bg-panel-sunken text-2xs tracking-[0.04em] text-ink-2",

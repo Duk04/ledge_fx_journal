@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { Percent } from "@/components/ui";
 import type { OverviewData } from "@/lib/queries/analytics";
@@ -10,29 +11,30 @@ import type { OverviewData } from "@/lib/queries/analytics";
  * ruin signal that a win-rate/profit-factor summary would never show.
  */
 export function DisciplinePanel({ discipline }: { discipline: OverviewData["discipline"] }) {
+  const t = useTranslations("dashboard.discipline");
   const { tradeCount, planFollowedRate, noStopCount, noStopRate, avgEmotion } = discipline;
 
   if (tradeCount === 0) {
-    return <p className="px-3 py-4 text-xs text-ink-3">No trades in this range to score discipline on.</p>;
+    return <p className="px-3 py-4 text-xs text-ink-3">{t("empty")}</p>;
   }
 
   return (
     <div className="flex flex-col divide-y divide-line-faint">
       <Row
-        label="Plan followed"
+        label={t("planFollowed")}
         value={planFollowedRate === null ? "—" : <Percent value={planFollowedRate} />}
-        hint={planFollowedRate === null ? "not recorded on these trades" : undefined}
+        hint={planFollowedRate === null ? t("notRecordedOnTrades") : undefined}
       />
       <Row
-        label="No stop loss"
+        label={t("noStopLoss")}
         value={`${noStopCount} / ${tradeCount}`}
-        hint={noStopRate !== null ? `${(noStopRate * 100).toFixed(0)}% of trades taken naked` : undefined}
+        hint={noStopRate !== null ? t("takenNaked", { pct: (noStopRate * 100).toFixed(0) }) : undefined}
         tone={noStopCount > 0 ? "warn" : "neutral"}
       />
       <Row
-        label="Avg. emotion"
+        label={t("avgEmotion")}
         value={avgEmotion === null ? "—" : avgEmotion.toFixed(1)}
-        hint={avgEmotion === null ? "not recorded" : "1 (calm) – 5 (extreme)"}
+        hint={avgEmotion === null ? t("notRecorded") : t("emotionScale")}
       />
     </div>
   );

@@ -112,6 +112,10 @@ and returns; nothing invokes the result.
   real source — look there before building a new one.
 - Error boundaries take a `retry` prop (stable since Next 16.3), not `reset`.
   Model new ones on `src/app/(app)/error.tsx`.
+- User-visible text goes through next-intl (`messages/en.json` and
+  `mn.json`, same keys — a test enforces it). Server actions translate with
+  `failT`/`tr` from `src/i18n/server-t.ts`; zod messages are `vmsg()` keys.
+  Read `docs/I18N.md` before adding either.
 - A control the current user may not use is hidden or disabled, with a reason
   in the `title` — not left to fail on submit.
 

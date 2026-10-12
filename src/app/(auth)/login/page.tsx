@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { signIn } from "@/lib/auth";
 import { signInWithPassword, registerUser } from "@/lib/actions/auth";
@@ -20,6 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   // whether the rest of the route renders, so a check there is not a gate.
   await redirectIfAuthenticated();
 
+  const t = await getTranslations("auth");
   const params = await searchParams;
   const next = safeNext(params.next);
   const error = params.error;
@@ -38,7 +40,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     "use server";
     const result = await signInWithPassword(formData);
     if (result && !result.ok) {
-      const qs = new URLSearchParams({ next, error: result.formError ?? "Something went wrong." });
+      // Fetched here, not captured from the page: a Server Action's closed-over
+      // values are serialised into the form, and a function cannot be.
+      const ta = await getTranslations("auth");
+      const qs = new URLSearchParams({ next, error: result.formError ?? ta("somethingWentWrong") });
       redirect(`/login?${qs.toString()}`);
     }
   }
@@ -47,7 +52,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     "use server";
     const result = await registerUser(formData);
     if (result && !result.ok) {
-      const qs = new URLSearchParams({ next, error: result.formError ?? "Something went wrong." });
+      const ta = await getTranslations("auth");
+      const qs = new URLSearchParams({ next, error: result.formError ?? ta("somethingWentWrong") });
       redirect(`/login?${qs.toString()}`);
     }
   }
@@ -61,7 +67,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <div className="flex min-h-svh w-full items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-1">
-          <h1 className="text-lg font-medium">Sign in</h1>
+          <h1 className="text-lg font-medium">{t("signIn")}</h1>
           <p className="text-sm text-ink-2">FX Journal</p>
         </div>
 
@@ -73,7 +79,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
         {justRegistered ? (
           <div role="status" className="rounded-control border border-line bg-panel px-3 py-2 text-sm text-ink-2">
-            Account created. Sign in below.
+            {t("registered")}
           </div>
         ) : null}
 
@@ -81,7 +87,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <input type="hidden" name="next" value={next} />
           <div className="space-y-1">
             <label htmlFor="email" className="text-sm text-ink-2">
-              Email
+              {t("email")}
             </label>
             <input
               id="email"
@@ -94,7 +100,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
           <div className="space-y-1">
             <label htmlFor="password" className="text-sm text-ink-2">
-              Password
+              {t("password")}
             </label>
             <input
               id="password"
@@ -106,26 +112,26 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             />
           </div>
           <Button type="submit" variant="primary" className="w-full">
-            Sign in
+            {t("signIn")}
           </Button>
         </form>
 
         {googleEnabled ? (
           <form action={handleGoogleSignIn}>
             <Button type="submit" variant="default" className="w-full">
-              Continue with Google
+              {t("continueWithGoogle")}
             </Button>
           </form>
         ) : null}
 
         {registrationEnabled ? (
           <details className="space-y-3 border-t border-line pt-4">
-            <summary className="cursor-pointer text-sm text-ink-2">Create an account</summary>
+            <summary className="cursor-pointer text-sm text-ink-2">{t("createAnAccount")}</summary>
             <form action={handleRegister} className="space-y-3 pt-3">
               <input type="hidden" name="next" value={next} />
               <div className="space-y-1">
                 <label htmlFor="reg-name" className="text-sm text-ink-2">
-                  Name
+                  {t("name")}
                 </label>
                 <input
                   id="reg-name"
@@ -138,7 +144,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </div>
               <div className="space-y-1">
                 <label htmlFor="reg-email" className="text-sm text-ink-2">
-                  Email
+                  {t("email")}
                 </label>
                 <input
                   id="reg-email"
@@ -151,7 +157,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </div>
               <div className="space-y-1">
                 <label htmlFor="reg-password" className="text-sm text-ink-2">
-                  Password
+                  {t("password")}
                 </label>
                 <input
                   id="reg-password"
@@ -164,7 +170,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 />
               </div>
               <Button type="submit" variant="default" className="w-full">
-                Create account
+                {t("createAccount")}
               </Button>
             </form>
           </details>

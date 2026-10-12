@@ -1,3 +1,5 @@
+import { vmsg } from "@/i18n/encoded";
+
 /**
  * Password policy. Pure, so it is testable and can run on either side.
  *
@@ -143,33 +145,33 @@ function localPart(email: string): string {
  */
 export function validatePassword(password: string, ctx: { email?: string } = {}): PasswordCheck {
   if (password.length < MIN_PASSWORD_CHARS) {
-    return { ok: false, message: `Use at least ${MIN_PASSWORD_CHARS} characters.` };
+    return { ok: false, message: vmsg("pwMinChars", { min: String(MIN_PASSWORD_CHARS) }) };
   }
 
   const bytes = byteLength(password);
   if (bytes > MAX_PASSWORD_BYTES) {
     return {
       ok: false,
-      message: `That password is too long to be hashed safely (${bytes} bytes; the limit is ${MAX_PASSWORD_BYTES}). Emoji and non-Latin characters each count as several bytes.`,
+      message: vmsg("pwTooLong", { bytes: String(bytes), max: String(MAX_PASSWORD_BYTES) }),
     };
   }
 
   const lower = password.toLowerCase();
 
   if (COMMON_PASSWORDS.has(lower)) {
-    return { ok: false, message: "That password appears in every breach list. Choose something else." };
+    return { ok: false, message: vmsg("pwBreached") };
   }
 
   if (ctx.email) {
     const local = localPart(ctx.email);
     if (local.length >= 3 && (lower.includes(local) || local.includes(lower))) {
-      return { ok: false, message: "Don't build the password out of your email address." };
+      return { ok: false, message: vmsg("pwEmail") };
     }
   }
 
   // A single repeated character passes a length check and nothing else.
   if (new Set(password).size < 4) {
-    return { ok: false, message: "That password repeats too few distinct characters." };
+    return { ok: false, message: vmsg("pwRepeats") };
   }
 
   return { ok: true };

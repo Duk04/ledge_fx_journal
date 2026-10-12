@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { SectionHead, Panel, PanelHeader, PanelBody } from "@/components/ui";
 import { Page } from "@/components/shell/page";
 import { canWriteSharedData, requireUser } from "@/lib/session";
@@ -20,6 +21,7 @@ function formatBytes(bytes: number): string {
 
 export default async function BacktestDataPage() {
   const user = await requireUser();
+  const t = await getTranslations("backtest.data");
   // Candle data is shared by every account, so deleting a range is owner-only
   // (see lib/actions/candles.ts). Resolved here so the control is hidden
   // rather than failing on submit.
@@ -49,13 +51,13 @@ export default async function BacktestDataPage() {
 
   return (
     <Page>
-      <SectionHead
-        title="Market data"
-        hint="Historical bars for backtesting — what's stored, where it came from, and where the gaps are."
-      />
+      <SectionHead title={t("title")} hint={t("hint")} />
 
       <Panel>
-        <PanelHeader title="Storage" caption={`${formatBytes(storageBytes)} of ${formatBytes(FREE_TIER_BYTES)} used`} />
+        <PanelHeader
+          title={t("storage")}
+          caption={t("storageUsed", { used: formatBytes(storageBytes), total: formatBytes(FREE_TIER_BYTES) })}
+        />
         <PanelBody className="flex flex-col gap-2">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-inset">
             <div
@@ -63,18 +65,14 @@ export default async function BacktestDataPage() {
               style={{ width: `${usagePct}%` }}
             />
           </div>
-          <p className="text-xs text-ink-3">
-            Supabase&rsquo;s free tier caps the whole database at 500 MB, and candles share that with every other table
-            in the app. A year of M1 bars for one symbol runs roughly {formatBytes(YEAR_OF_M1_BYTES_PER_SYMBOL)} —
-            import the ranges a backtest actually needs rather than a broker&rsquo;s entire history.
-          </p>
+          <p className="text-xs text-ink-3">{t("storageNote", { size: formatBytes(YEAR_OF_M1_BYTES_PER_SYMBOL) })}</p>
         </PanelBody>
       </Panel>
 
       <Panel>
         <PanelHeader
-          title="Coverage"
-          caption={coverageRows.length > 0 ? `${coverageRows.length} symbol/timeframe pair(s)` : undefined}
+          title={t("coverage")}
+          caption={coverageRows.length > 0 ? t("coverageCaption", { count: String(coverageRows.length) }) : undefined}
         />
         <PanelBody padded={coverageRows.length === 0}>
           <CoverageTable rows={coverageRows} canDelete={owner} />

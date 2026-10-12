@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead } from "@/components/ui";
 import { PositionCalculator } from "@/components/calculator/position-calculator";
@@ -20,11 +21,12 @@ export default async function CalculatorPage() {
     overview({ userId: user.id, accountId: account.id, from: null, to: null }),
     listInstrumentSpecs(),
   ]);
+  const t = await getTranslations("calculator");
   const balance = ov.equity.length ? ov.equity[ov.equity.length - 1].balance : (toNum(account.startingBalance) ?? 0);
 
   return (
     <Page>
-      <SectionHead title="Position size" hint={`${account.label} — how many lots risk exactly what you mean to.`} />
+      <SectionHead title={t("title")} hint={t("hint", { account: account.label })} />
       <PositionCalculator
         instruments={instruments}
         currency={account.currency}

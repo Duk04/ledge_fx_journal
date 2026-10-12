@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { Instrument, MarketSession } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, failFields, ok, type ActionResult } from "./result";
+import { failFields, ok, type ActionResult } from "./result";
 import { getInstrument, listActiveSymbols } from "@/lib/queries/instruments";
 import { requireUser } from "@/lib/session";
 import { accountOrFailure } from "./guard";
@@ -14,6 +14,7 @@ import type { TradeInput } from "@/lib/metrics/types";
 import { hasMultipleFills, simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
 import { aggregateFills, validateFills } from "@/lib/metrics/fills";
 import { Decimal } from "decimal.js";
+import { failT, failZod, tr } from "@/i18n/server-t";
 
 /**
  * Trade writes. Every action here follows the same shape: authenticate,
@@ -133,12 +134,12 @@ export async function createTrade(accountId: string, formData: FormData): Promis
   if (!parsed.ok) return failFields(parsed.fieldErrors);
 
   const instrument = await getInstrument(parsed.values.symbol);
-  if (!instrument) return failFields({ symbol: ["Unknown symbol."] });
+  if (!instrument) return failFields({ symbol: [await tr("unknownSymbolShort")] });
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
-  if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
+  if (tagIds === null) return failFields({ tagIds: [await tr("tagsNotFound")] });
   const playbookId = await ownedPlaybook(user.id, parsed.values.playbookId);
-  if (playbookId === null) return failFields({ playbookId: ["That playbook was not found."] });
+  if (playbookId === null) return failFields({ playbookId: [await tr("playbookNotFound")] });
 
   const derived = derivedColumns(formTradeInput(parsed.values, instrument, account.currency));
 
@@ -190,19 +191,19 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
     where: { id: tradeId, accountId: account.id },
     include: { executions: { select: { kind: true } } },
   });
-  if (!existing) return fail("Trade not found.");
+  if (!existing) return failT("tradeNotFound");
 
   const symbols = await listActiveSymbols();
   const parsed = parseTradeForm(formData, { validSymbols: symbols });
   if (!parsed.ok) return failFields(parsed.fieldErrors);
 
   const instrument = await getInstrument(parsed.values.symbol);
-  if (!instrument) return failFields({ symbol: ["Unknown symbol."] });
+  if (!instrument) return failFields({ symbol: [await tr("unknownSymbolShort")] });
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
-  if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
+  if (tagIds === null) return failFields({ tagIds: [await tr("tagsNotFound")] });
   const playbookId = await ownedPlaybook(user.id, parsed.values.playbookId);
-  if (playbookId === null) return failFields({ playbookId: ["That playbook was not found."] });
+  if (playbookId === null) return failFields({ playbookId: [await tr("playbookNotFound")] });
 
   // Everything the fills do NOT own. `initialStopLoss` keeps its stored value
   // when the field is left blank, and only falls back to the stop for a trade
@@ -272,7 +273,7 @@ export async function deleteTrade(accountId: string, tradeId: string): Promise<T
   if ("failure" in found) return found.failure;
 
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId }, select: { id: true } });
-  if (!existing) return fail("Trade not found.");
+  if (!existing) return failT("tradeNotFound");
 
   await prisma.trade.delete({ where: { id: tradeId } });
   revalidateTradeViews();
@@ -295,17 +296,17 @@ export async function closeTrade(
 
   const parsed = closeTradeSchema.safeParse(input);
   if (!parsed.success) {
-    return failFields(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+    return failZod(parsed.error.flatten().fieldErrors as Record<string, string[]>);
   }
 
   const existing = await prisma.trade.findFirst({
     where: { id: tradeId, accountId },
     include: { executions: true },
   });
-  if (!existing) return fail("Trade not found.");
-  if (existing.status !== "OPEN") return fail("Only an open trade can be closed.");
+  if (!existing) return failT("tradeNotFound");
+  if (existing.status !== "OPEN") return failT("onlyOpenCanClose");
   if (parsed.data.closedAt.getTime() < existing.openedAt.getTime()) {
-    return failFields({ closedAt: ["Close time cannot be before the open time."] });
+    return failFields({ closedAt: [await tr("closeBeforeOpen")] });
   }
 
   const fills = existing.executions.map(toFill);
@@ -313,7 +314,7 @@ export async function closeTrade(
   const open = entered.minus(exitedLots);
   const lots = parsed.data.volumeLots === undefined ? open : new Decimal(parsed.data.volumeLots);
   if (lots.gt(open)) {
-    return failFields({ volumeLots: [`Only ${open.toString()} lots are still open.`] });
+    return failFields({ volumeLots: [await tr("onlyLotsOpen", { lots: open.toString() })] });
   }
   const problems = validateFills([
     ...fills,
@@ -348,10 +349,10 @@ export async function setTradeTags(accountId: string, tradeId: string, tagIds: s
   if ("failure" in found) return found.failure;
 
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId }, select: { id: true } });
-  if (!existing) return fail("Trade not found.");
+  if (!existing) return failT("tradeNotFound");
 
   const owned = await assertTagsOwned(user.id, tagIds);
-  if (owned === null) return failFields({ tagIds: ["One or more tags could not be found."] });
+  if (owned === null) return failFields({ tagIds: [await tr("tagsNotFound")] });
 
   await prisma.trade.update({
     where: { id: tradeId },
@@ -374,7 +375,7 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
     where: { id: tradeId, accountId },
     include: { tradeTags: true },
   });
-  if (!existing) return fail("Trade not found.");
+  if (!existing) return failT("tradeNotFound");
 
   // A duplicate is deliberately a fresh, OPEN position: same symbol,
   // direction, size and planned stop/target, opened "now" — the setup you

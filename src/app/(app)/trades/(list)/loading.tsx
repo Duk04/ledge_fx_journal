@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { Panel, PanelFooter } from "@/components/ui/panel";
 import { DataTable, Th } from "@/components/ui/table";
@@ -6,7 +7,8 @@ import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 /** Mirrors the real page's shape (stat row + table) at the row height the
  * table actually uses, so real rows don't cause a layout jump when they
  * arrive. */
-export default function TradesLoading() {
+export default async function TradesLoading() {
+  const t = await getTranslations("trades.common");
   return (
     <Page>
       <div className="flex items-center justify-between">
@@ -29,17 +31,17 @@ export default function TradesLoading() {
         <DataTable>
           <thead>
             <tr>
-              <Th>Opened</Th>
-              <Th>Symbol</Th>
-              <Th>Dir</Th>
-              <Th numeric>Entry → Exit</Th>
-              <Th numeric>Lots</Th>
-              <Th numeric>Pips</Th>
-              <Th numeric>Net P&L</Th>
-              <Th numeric>R</Th>
-              <Th>R</Th>
-              <Th>Tags</Th>
-              <Th aria-label="Actions" />
+              <Th>{t("opened")}</Th>
+              <Th>{t("symbol")}</Th>
+              <Th>{t("dir")}</Th>
+              <Th numeric>{t("entryExit")}</Th>
+              <Th numeric>{t("lots")}</Th>
+              <Th numeric>{t("pips")}</Th>
+              <Th numeric>{t("netPnl")}</Th>
+              <Th numeric>{t("r")}</Th>
+              <Th>{t("r")}</Th>
+              <Th>{t("tags")}</Th>
+              <Th aria-label={t("actions")} />
             </tr>
           </thead>
           <tbody>

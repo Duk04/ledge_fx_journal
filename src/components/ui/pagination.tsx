@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
@@ -29,20 +31,21 @@ export function Pagination({
   onPageSize?: (size: number) => void;
   className?: string;
 }) {
+  const t = useTranslations("ui");
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(total, page * pageSize);
 
   return (
     <div className={cn("flex flex-wrap items-center justify-between gap-2", className)}>
       <span className="mono text-xs text-ink-3">
-        {start}–{end} of {total}
+        {t("range", { start: String(start), end: String(end), total: String(total) })}
       </span>
       <div className="flex items-center gap-2">
         {onPageSize ? (
           <Segmented
             value={String(pageSize)}
             onValueChange={(v: string) => v && onPageSize(Number(v))}
-            aria-label="Rows per page"
+            aria-label={t("rowsPerPage")}
           >
             {PAGE_SIZES.map((size) => (
               <SegmentedItem key={size} value={String(size)}>
@@ -55,7 +58,7 @@ export function Pagination({
           <Button
             variant="default"
             size="icon-sm"
-            aria-label="Previous page"
+            aria-label={t("previousPage")}
             disabled={page <= 1}
             onClick={() => onPage(page - 1)}
           >
@@ -67,7 +70,7 @@ export function Pagination({
           <Button
             variant="default"
             size="icon-sm"
-            aria-label="Next page"
+            aria-label={t("nextPage")}
             disabled={page >= pageCount}
             onClick={() => onPage(page + 1)}
           >

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Play, Save, Trash2, FileCode } from "lucide-react";
 import {
   Panel,
@@ -55,6 +56,7 @@ export function StrategyWorkbench({
   symbolOptions: string[];
   coverage: CoverageRow[];
 }) {
+  const t = useTranslations("backtest");
   const router = useRouter();
   const { toast } = useToast();
 
@@ -93,11 +95,11 @@ export function StrategyWorkbench({
   const effectiveFrom = datesTouched ? from : matchingCoverage ? isoDate(matchingCoverage.firstTs) : "";
   const effectiveTo = datesTouched ? to : matchingCoverage ? isoDate(matchingCoverage.lastTs) : "";
 
-  function loadTemplate(t: ExampleStrategy) {
-    setName((prev) => prev || t.name);
-    setDescription((prev) => prev || t.description);
-    setCode(t.code);
-    setParams({ ...t.params });
+  function loadTemplate(tpl: ExampleStrategy) {
+    setName((prev) => prev || tpl.name);
+    setDescription((prev) => prev || tpl.description);
+    setCode(tpl.code);
+    setParams({ ...tpl.params });
     setCodeError(null);
   }
 
@@ -108,7 +110,7 @@ export function StrategyWorkbench({
       const input = { name, description: description || undefined, code, params };
       const result = strategy ? await updateStrategy(strategy.id, input) : await createStrategy(input);
       if (result.ok) {
-        toast({ title: strategy ? "Strategy saved." : "Strategy created." });
+        toast({ title: strategy ? t("workbench.strategySaved") : t("workbench.strategyCreated") });
         if (!strategy && "id" in result && result.id) {
           router.push(`/backtest/strategies?id=${result.id}`);
         } else {
@@ -127,10 +129,10 @@ export function StrategyWorkbench({
       const result = await deleteStrategy(strategy.id);
       setDeleteOpen(false);
       if (result.ok) {
-        toast({ title: "Strategy deleted." });
+        toast({ title: t("workbench.strategyDeleted") });
         router.push("/backtest/strategies");
       } else {
-        toast({ title: "Couldn't delete strategy", description: result.formError, tone: "loss" });
+        toast({ title: t("workbench.couldNotDelete"), description: result.formError, tone: "loss" });
       }
     });
   }
@@ -147,7 +149,7 @@ export function StrategyWorkbench({
   function handleRun() {
     setRunError(null);
     if (!symbol) {
-      setRunError("Choose a symbol.");
+      setRunError(t("form.chooseSymbolError"));
       return;
     }
 
@@ -156,7 +158,7 @@ export function StrategyWorkbench({
       try {
         payload = await runner.fetchBars({ symbol, timeframe, from: effectiveFrom, to: effectiveTo });
       } catch (err) {
-        setRunError(err instanceof Error ? err.message : "Couldn't load bars for that range.");
+        setRunError(err instanceof Error ? err.message : t("workbench.loadBarsFailed"));
         return;
       }
 
@@ -181,7 +183,7 @@ export function StrategyWorkbench({
       });
 
       if (!outcome.ok || !outcome.result) {
-        setRunError(outcome.error ?? "The strategy didn't finish.");
+        setRunError(outcome.error ?? t("workbench.didntFinish"));
         return;
       }
 
@@ -215,11 +217,11 @@ export function StrategyWorkbench({
       // this compiled and silently read undefined.
       if (!saved.ok) {
         const firstFieldError = Object.values(saved.fieldErrors ?? {}).flat()[0];
-        setRunError(saved.formError ?? firstFieldError ?? "The run finished but couldn't be saved.");
+        setRunError(saved.formError ?? firstFieldError ?? t("workbench.saveRunFailed"));
         return;
       }
 
-      toast({ title: "Run complete." });
+      toast({ title: t("workbench.runComplete") });
       router.push(`/backtest/runs/${saved.runId}`);
     });
   }
@@ -229,12 +231,12 @@ export function StrategyWorkbench({
       <div className="flex flex-col gap-4 xl:col-span-7">
         <Panel>
           <PanelHeader
-            title={strategy ? strategy.name : "New strategy"}
+            title={strategy ? strategy.name : t("workbench.newStrategy")}
             actions={
               <>
-                {templates.map((t) => (
-                  <Button key={t.name} variant="ghost" size="sm" onClick={() => loadTemplate(t)}>
-                    <FileCode /> {t.name}
+                {templates.map((tpl) => (
+                  <Button key={tpl.name} variant="ghost" size="sm" onClick={() => loadTemplate(tpl)}>
+                    <FileCode /> {tpl.name}
                   </Button>
                 ))}
               </>
@@ -243,21 +245,25 @@ export function StrategyWorkbench({
           <PanelBody className="flex flex-col gap-3">
             <FieldRow>
               <Field>
-                <FieldLabel>Name</FieldLabel>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. My EMA cross" />
+                <FieldLabel>{t("workbench.name")}</FieldLabel>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t("workbench.namePlaceholder")}
+                />
                 <FieldError>{nameError}</FieldError>
               </Field>
               <Field>
-                <FieldLabel optional>Description</FieldLabel>
+                <FieldLabel optional>{t("workbench.description")}</FieldLabel>
                 <Input
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What this strategy does"
+                  placeholder={t("workbench.descriptionPlaceholder")}
                 />
               </Field>
             </FieldRow>
             <Field>
-              <FieldLabel>Code</FieldLabel>
+              <FieldLabel>{t("workbench.code")}</FieldLabel>
               <Textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -267,23 +273,23 @@ export function StrategyWorkbench({
               <FieldError>{codeError}</FieldError>
             </Field>
             <Field>
-              <FieldLabel>Parameters</FieldLabel>
+              <FieldLabel>{t("workbench.parameters")}</FieldLabel>
               <ParamsEditor params={params} onChange={setParams} />
             </Field>
           </PanelBody>
           <PanelFooter>
             <span className="text-2xs text-ink-3">
-              {strategy ? (dirty ? "Unsaved changes" : "Saved") : "Not saved yet"}
+              {strategy ? (dirty ? t("workbench.unsaved") : t("workbench.savedState")) : t("workbench.notSaved")}
             </span>
             <div className="flex items-center gap-1.5">
               {strategy ? (
                 <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
-                  <Trash2 /> Delete
+                  <Trash2 /> {t("common.delete")}
                 </Button>
               ) : null}
               {/* Run is this page's primary action; saving is secondary. */}
               <Button variant="default" size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
-                <Save /> {saving ? "Saving…" : "Save"}
+                <Save /> {saving ? t("workbench.saving") : t("workbench.save")}
               </Button>
             </div>
           </PanelFooter>
@@ -294,13 +300,13 @@ export function StrategyWorkbench({
 
       <div className="flex flex-col gap-4 xl:col-span-5">
         <Panel>
-          <PanelHeader title="Run" caption="over a historical range" />
+          <PanelHeader title={t("workbench.run")} caption={t("workbench.runCaption")} />
           <PanelBody className="flex flex-col gap-3">
             <Field>
-              <FieldLabel>Symbol</FieldLabel>
+              <FieldLabel>{t("form.symbol")}</FieldLabel>
               <Select value={symbol} onValueChange={setSymbol}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a symbol" />
+                  <SelectValue placeholder={t("form.chooseSymbol")} />
                 </SelectTrigger>
                 <SelectContent>
                   {symbolOptions.map((s) => (
@@ -312,7 +318,7 @@ export function StrategyWorkbench({
               </Select>
             </Field>
             <Field>
-              <FieldLabel>Timeframe</FieldLabel>
+              <FieldLabel>{t("form.timeframe")}</FieldLabel>
               <Select value={timeframe} onValueChange={(v) => setTimeframe(v as (typeof TIMEFRAMES)[number])}>
                 <SelectTrigger>
                   <SelectValue />
@@ -329,18 +335,19 @@ export function StrategyWorkbench({
 
             {matchingCoverage ? (
               <p className="text-2xs text-ink-3">
-                {matchingCoverage.barCount.toLocaleString()} bars stored, {isoDate(matchingCoverage.firstTs)} to{" "}
-                {isoDate(matchingCoverage.lastTs)}.
+                {t("form.barsStored", {
+                  count: matchingCoverage.barCount.toLocaleString(),
+                  from: isoDate(matchingCoverage.firstTs),
+                  to: isoDate(matchingCoverage.lastTs),
+                })}
               </p>
             ) : symbol ? (
-              <p className="text-2xs text-warn">
-                No {symbol} {timeframe} bars stored — pick a different timeframe or import data.
-              </p>
+              <p className="text-2xs text-warn">{t("form.noBarsStored", { symbol, timeframe })}</p>
             ) : null}
 
             <FieldRow>
               <Field>
-                <FieldLabel>From</FieldLabel>
+                <FieldLabel>{t("form.from")}</FieldLabel>
                 <Input
                   type="date"
                   value={effectiveFrom}
@@ -351,7 +358,7 @@ export function StrategyWorkbench({
                 />
               </Field>
               <Field>
-                <FieldLabel>To</FieldLabel>
+                <FieldLabel>{t("form.to")}</FieldLabel>
                 <Input
                   type="date"
                   value={effectiveTo}
@@ -364,31 +371,39 @@ export function StrategyWorkbench({
             </FieldRow>
 
             <Field>
-              <FieldLabel>Initial balance</FieldLabel>
+              <FieldLabel>{t("form.initialBalance")}</FieldLabel>
               <NumberInput value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} unit="USD" />
             </Field>
 
             <FieldRow>
               <Field>
-                <FieldLabel>Spread</FieldLabel>
-                <NumberInput value={spreadPoints} onChange={(e) => setSpreadPoints(e.target.value)} unit="pts" />
+                <FieldLabel>{t("form.spread")}</FieldLabel>
+                <NumberInput
+                  value={spreadPoints}
+                  onChange={(e) => setSpreadPoints(e.target.value)}
+                  unit={t("form.pts")}
+                />
               </Field>
               <Field>
-                <FieldLabel>Slippage</FieldLabel>
-                <NumberInput value={slippagePoints} onChange={(e) => setSlippagePoints(e.target.value)} unit="pts" />
+                <FieldLabel>{t("form.slippage")}</FieldLabel>
+                <NumberInput
+                  value={slippagePoints}
+                  onChange={(e) => setSlippagePoints(e.target.value)}
+                  unit={t("form.pts")}
+                />
               </Field>
             </FieldRow>
             <Field>
-              <FieldLabel>Commission</FieldLabel>
+              <FieldLabel>{t("form.commission")}</FieldLabel>
               <NumberInput
                 value={commissionPerLot}
                 onChange={(e) => setCommissionPerLot(e.target.value)}
-                unit="per lot/side"
+                unit={t("form.perLotSide")}
               />
             </Field>
             <Field>
               <div className="flex items-center justify-between">
-                <FieldLabel>Pessimistic fills</FieldLabel>
+                <FieldLabel>{t("form.pessimisticFills")}</FieldLabel>
                 <Switch checked={pessimisticFills} onCheckedChange={setPessimisticFills} />
               </div>
             </Field>
@@ -397,10 +412,10 @@ export function StrategyWorkbench({
           </PanelBody>
           <PanelFooter>
             <span className="text-2xs text-ink-3">
-              {dirty ? "Runs the code above as written" : "Runs the saved strategy"}
+              {dirty ? t("workbench.runsAsWritten") : t("workbench.runsSaved")}
               {strategy && !dirty ? (
                 <Badge tone="neutral" className="ml-1.5">
-                  saved
+                  {t("workbench.savedBadge")}
                 </Badge>
               ) : null}
             </span>
@@ -410,7 +425,7 @@ export function StrategyWorkbench({
               onClick={handleRun}
               disabled={running || !symbol || !effectiveFrom || !effectiveTo}
             >
-              <Play /> {running ? "Running…" : "Run"}
+              <Play /> {running ? t("workbench.running") : t("workbench.run")}
             </Button>
           </PanelFooter>
         </Panel>
@@ -419,15 +434,15 @@ export function StrategyWorkbench({
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent size="sm">
           <DialogHeader
-            title="Delete this strategy?"
-            description={`"${strategy?.name}" will be removed. Runs already made from it keep their own copy of the results and stay in your run list.`}
+            title={t("workbench.deleteTitle")}
+            description={t("workbench.deleteDescription", { name: String(strategy?.name) })}
           />
           <DialogFooter>
             <Button variant="default" onClick={() => setDeleteOpen(false)} disabled={deleting}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? t("common.deleting") : t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

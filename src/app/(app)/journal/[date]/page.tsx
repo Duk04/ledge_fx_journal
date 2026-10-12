@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Page } from "@/components/shell/page";
 import { Panel, PanelHeader, PanelBody, SectionHead, Button, ButtonGroup } from "@/components/ui";
@@ -19,6 +20,7 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
   const currency = accountId ? ((await getAccountCurrency(accountId)) ?? "USD") : "USD";
 
   const view = await dayView(user.id, accountId, date, user.timezone);
+  const t = await getTranslations("journal.day");
 
   return (
     <Page>
@@ -26,17 +28,17 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
         title={dayLabel(date)}
         hint={
           <Link href={`/journal?month=${monthOf(date)}`} className="text-brand hover:underline">
-            ← Back to calendar
+            {t("back")}
           </Link>
         }
         actions={
           <ButtonGroup>
-            <Button asChild variant="default" size="sm" aria-label="Previous day">
+            <Button asChild variant="default" size="sm" aria-label={t("previousDay")}>
               <Link href={`/journal/${shiftDay(date, -1)}`}>
                 <ChevronLeft />
               </Link>
             </Button>
-            <Button asChild variant="default" size="sm" aria-label="Next day">
+            <Button asChild variant="default" size="sm" aria-label={t("nextDay")}>
               <Link href={`/journal/${shiftDay(date, 1)}`}>
                 <ChevronRight />
               </Link>
@@ -46,7 +48,7 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
       />
 
       <Panel>
-        <PanelHeader title="Plan & review" caption="Saves automatically when you click away from a field." />
+        <PanelHeader title={t("planTitle")} caption={t("planCaption")} />
         <PanelBody>
           <DayEditor
             date={date}
@@ -60,8 +62,8 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
 
       <Panel>
         <PanelHeader
-          title="Trades"
-          caption={`${view.trades.length} trade${view.trades.length === 1 ? "" : "s"}${accountId ? "" : " — no account selected"}`}
+          title={t("trades")}
+          caption={t(accountId ? "tradesCaption" : "tradesCaptionNoAccount", { count: view.trades.length })}
         />
         <PanelBody padded={false}>
           <DayTrades trades={view.trades} currency={currency} />

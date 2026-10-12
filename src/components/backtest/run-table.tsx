@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { DataTable, Th, Td, TrLink, TableEmpty } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Money, RValue, Empty } from "@/components/ui/value";
@@ -16,23 +17,24 @@ function formatRange(fromIso: string, toIso: string): string {
   return `${new Date(fromIso).toLocaleDateString("en-US", opts)} – ${new Date(toIso).toLocaleDateString("en-US", opts)}`;
 }
 
-export function RunTable({ rows }: { rows: RunListRow[] }) {
+export async function RunTable({ rows }: { rows: RunListRow[] }) {
   if (rows.length === 0) return null;
+  const t = await getTranslations("backtest");
 
   return (
     <DataTable>
       <thead>
         <tr>
-          <Th>Run</Th>
-          <Th>Kind</Th>
-          <Th>Symbol</Th>
-          <Th>Range</Th>
-          <Th numeric>Trades</Th>
-          <Th numeric>Net P&L</Th>
-          <Th numeric>Profit factor</Th>
-          <Th numeric>Expectancy</Th>
-          <Th>Status</Th>
-          <Th aria-label="Actions" />
+          <Th>{t("runTable.run")}</Th>
+          <Th>{t("runTable.kind")}</Th>
+          <Th>{t("runTable.symbol")}</Th>
+          <Th>{t("runTable.range")}</Th>
+          <Th numeric>{t("runTable.trades")}</Th>
+          <Th numeric>{t("runTable.netPnl")}</Th>
+          <Th numeric>{t("runTable.profitFactor")}</Th>
+          <Th numeric>{t("runTable.expectancy")}</Th>
+          <Th>{t("runTable.status")}</Th>
+          <Th aria-label={t("runTable.actions")} />
         </tr>
       </thead>
       <tbody>
@@ -48,7 +50,7 @@ export function RunTable({ rows }: { rows: RunListRow[] }) {
                 </div>
               </Td>
               <Td>
-                <Badge tone={r.kind === "STRATEGY" ? "brand" : "neutral"}>{r.kind}</Badge>
+                <Badge tone={r.kind === "STRATEGY" ? "brand" : "neutral"}>{t(`runKind.${r.kind}`)}</Badge>
               </Td>
               <Td>
                 <span className="mono text-xs">
@@ -63,7 +65,7 @@ export function RunTable({ rows }: { rows: RunListRow[] }) {
               <Td numeric>{stats?.profitFactor != null ? stats.profitFactor.toFixed(2) : <Empty />}</Td>
               <Td numeric>{stats ? <RValue value={stats.expectancyR} /> : <Empty />}</Td>
               <Td>
-                <Badge tone={STATUS_TONE[r.status]}>{r.status}</Badge>
+                <Badge tone={STATUS_TONE[r.status]}>{t(`runStatus.${r.status}`)}</Badge>
               </Td>
               <Td>
                 <RunRowMenu runId={r.id} label={r.label} />
@@ -71,7 +73,7 @@ export function RunTable({ rows }: { rows: RunListRow[] }) {
             </TrLink>
           );
         })}
-        {rows.length === 0 ? <TableEmpty colSpan={10}>No runs yet.</TableEmpty> : null}
+        {rows.length === 0 ? <TableEmpty colSpan={10}>{t("runTable.empty")}</TableEmpty> : null}
       </tbody>
     </DataTable>
   );

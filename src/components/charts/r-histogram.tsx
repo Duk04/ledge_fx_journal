@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
 import { ChartFrame } from "./chart-frame";
@@ -18,20 +19,21 @@ import type { RHistogramBucket } from "@/lib/queries/analytics";
  * than borrowing profit/loss coloring, with its own label.
  */
 export function RHistogram({ buckets, currency }: { buckets: RHistogramBucket[]; currency: string }) {
+  const t = useTranslations("dashboard.charts");
   const withData = buckets.filter((b) => b.count > 0);
   if (withData.length === 0) {
-    return <EmptyState title="No closed trades yet" description="The R distribution fills in once trades close." />;
+    return <EmptyState title={t("histogram.emptyTitle")} description={t("histogram.emptyDescription")} />;
   }
 
   const data = buckets.map((b) => ({
     ...b,
-    label: b.from === null ? "No stop" : formatBoundary(b.from),
+    label: b.from === null ? t("histogram.noStop") : formatBoundary(b.from),
     isNoR: b.from === null,
     isLoss: b.from !== null && b.from < 0,
   }));
 
   return (
-    <ChartFrame label={histogramLabel(withData)}>
+    <ChartFrame label={histogramLabel(withData, t)}>
       <ResponsiveContainer width="100%" height="100%" minHeight={180}>
         <BarChart data={data} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="18%">
           <XAxis
@@ -51,12 +53,12 @@ export function RHistogram({ buckets, currency }: { buckets: RHistogramBucket[];
                 <ChartTooltipShell>
                   <ChartTooltipTitle>
                     {b.from === null
-                      ? "No stop loss recorded"
-                      : `${formatBoundary(b.from)}R to ${formatBoundary(b.to!)}R`}
+                      ? t("histogram.noStopRecorded")
+                      : t("histogram.bucketRange", { from: formatBoundary(b.from), to: formatBoundary(b.to!) })}
                   </ChartTooltipTitle>
-                  <ChartTooltipRow label="Trades" value={b.count} />
+                  <ChartTooltipRow label={t("trades")} value={b.count} />
                   <ChartTooltipRow
-                    label="Net P&L"
+                    label={t("netPnl")}
                     value={formatMoney(b.netPnl, currency)}
                     tone={b.netPnl > 0 ? "profit" : b.netPnl < 0 ? "loss" : "neutral"}
                   />
@@ -79,12 +81,13 @@ function formatBoundary(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-function histogramLabel(buckets: RHistogramBucket[]) {
+function histogramLabel(buckets: RHistogramBucket[], t: ReturnType<typeof useTranslations<"dashboard.charts">>) {
   const total = buckets.reduce((a, b) => a + b.count, 0);
   const winners = buckets.filter((b) => b.from !== null && b.from >= 0).reduce((a, b) => a + b.count, 0);
   const top = [...buckets].sort((a, b) => b.count - a.count)[0];
-  const range = (b: RHistogramBucket) => (b.from === null ? "no stop" : `${b.from}R to ${b.to ?? "∞"}R`);
+  const range = (b: RHistogramBucket) =>
+    b.from === null ? t("histogram.noStopLower") : t("histogram.bucketRange", { from: b.from, to: b.to ?? "∞" });
   return total
-    ? `R multiples of ${total} trade(s): ${winners} at 0R or better; most common ${top ? range(top) : "none"}.`
-    : "R distribution: no trades.";
+    ? t("histogram.label", { total, winners, top: top ? range(top) : t("histogram.none") })
+    : t("histogram.labelEmpty");
 }

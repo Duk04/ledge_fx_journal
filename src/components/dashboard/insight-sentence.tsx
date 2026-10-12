@@ -1,4 +1,5 @@
 import { Lightbulb } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/metrics/formatters";
 import type { Breakdowns, BreakdownRow } from "@/lib/queries/analytics";
 
@@ -23,7 +24,9 @@ import type { Breakdowns, BreakdownRow } from "@/lib/queries/analytics";
  */
 const MIN_SAMPLE = 10;
 
-export function buildInsight(breakdowns: Breakdowns, currency: string): string {
+type InsightT = ReturnType<typeof useTranslations<"dashboard.insight">>;
+
+export function buildInsight(breakdowns: Breakdowns, currency: string, t: InsightT): string {
   const pool: BreakdownRow[] = [
     ...breakdowns.symbol,
     ...breakdowns.tag,
@@ -34,25 +37,35 @@ export function buildInsight(breakdowns: Breakdowns, currency: string): string {
   const eligible = pool.filter((r) => r.count >= MIN_SAMPLE);
 
   if (eligible.length < 2) {
-    return `Not enough trades yet in any single group (need ${MIN_SAMPLE}+) to honestly call out a strongest or weakest area — check back after a few more closed trades.`;
+    return t("notEnough", { min: MIN_SAMPLE });
   }
 
   const sorted = [...eligible].sort((a, b) => b.netPnl - a.netPnl);
   const best = sorted[0];
   const worst = sorted[sorted.length - 1];
   const fmt = (n: number) => formatMoney(n, currency);
+  const values = {
+    min: MIN_SAMPLE,
+    best: best.label,
+    bestPnl: fmt(best.netPnl),
+    bestCount: best.count,
+    worst: worst.label,
+    worstPnl: fmt(worst.netPnl),
+    worstCount: worst.count,
+  };
 
   if (worst.netPnl >= 0) {
-    return `Every group with enough trades (${MIN_SAMPLE}+) is net positive — ${best.label} leads with ${fmt(best.netPnl)} over ${best.count} trades, ${worst.label} trails at ${fmt(worst.netPnl)} over ${worst.count}.`;
+    return t("allPositive", values);
   }
   if (best.netPnl <= 0) {
-    return `Every group with enough trades (${MIN_SAMPLE}+) is net negative — ${worst.label} is the deepest drag at ${fmt(worst.netPnl)} over ${worst.count} trades, ${best.label} is the least bad at ${fmt(best.netPnl)} over ${best.count}.`;
+    return t("allNegative", values);
   }
-  return `${best.label} is carrying this account: ${fmt(best.netPnl)} over ${best.count} trades, while ${worst.label} is ${fmt(worst.netPnl)} over ${worst.count}.`;
+  return t("mixed", values);
 }
 
 export function InsightSentence({ breakdowns, currency }: { breakdowns: Breakdowns; currency: string }) {
-  const text = buildInsight(breakdowns, currency);
+  const t = useTranslations("dashboard.insight");
+  const text = buildInsight(breakdowns, currency, t);
   return (
     <div className="flex items-start gap-2 rounded-[var(--radius-panel)] border border-line bg-panel-sunken px-3 py-2.5 text-sm text-ink">
       <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-ink-3" aria-hidden />

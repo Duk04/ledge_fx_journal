@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeScript } from "@/components/theme-script";
 import { ToastProvider } from "@/components/ui/toast";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 
 /**
  * Fonts are linked from Google Fonts at runtime rather than pulled in through
@@ -46,9 +48,10 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="en" suppressHydrationWarning className="h-full">
+    <html lang={locale} suppressHydrationWarning className="h-full">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -57,13 +60,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             above for why next/font isn't used here. */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Inter:wght@400..700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <ThemeScript />
       </head>
       <body className="min-h-full antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        {/* next-intl v4: the provider inherits locale and messages from
+            src/i18n/request.ts on the server; nothing to pass. */}
+        <NextIntlClientProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

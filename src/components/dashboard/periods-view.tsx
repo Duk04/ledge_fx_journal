@@ -1,9 +1,10 @@
+import { getTranslations } from "next-intl/server";
 import { DataTable, Panel, PanelBody, PanelHeader, Td, Th } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatMoney, formatPercent, formatR } from "@/lib/metrics/formatters";
 import type { PeriodsData, SerializedSummary } from "@/lib/queries/analytics";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"] as const;
 
 function toneClass(n: number | null | undefined) {
   if (n === null || n === undefined || Math.abs(n) < 0.005) return "text-ink-3";
@@ -15,22 +16,24 @@ function toneClass(n: number | null | undefined) {
  * rather than a chart: the question is "which months", and a table answers
  * it with the numbers in reach.
  */
-export function MonthGrid({ years, currency }: { years: PeriodsData["years"]; currency: string }) {
+export async function MonthGrid({ years, currency }: { years: PeriodsData["years"]; currency: string }) {
+  const t = await getTranslations("analytics.periods");
+  const tMonth = await getTranslations("enums.monthShort");
   if (years.length === 0) {
-    return <p className="p-3 text-xs text-ink-3">No closed trades yet.</p>;
+    return <p className="p-3 text-xs text-ink-3">{t("noClosedTrades")}</p>;
   }
   return (
     <div className="overflow-x-auto">
       <DataTable>
         <thead>
           <tr>
-            <Th>Year</Th>
+            <Th>{t("year")}</Th>
             {MONTHS.map((m) => (
               <Th key={m} numeric>
-                {m}
+                {tMonth(m)}
               </Th>
             ))}
-            <Th numeric>Total</Th>
+            <Th numeric>{t("total")}</Th>
           </tr>
         </thead>
         <tbody>
@@ -44,7 +47,11 @@ export function MonthGrid({ years, currency }: { years: PeriodsData["years"]; cu
                   className={cn("mono text-xs", toneClass(cell?.netPnl))}
                   title={
                     cell
-                      ? `${cell.label}: ${cell.count} trade(s), win rate ${cell.winRate === null ? "—" : formatPercent(cell.winRate)}`
+                      ? t("cellTitle", {
+                          label: cell.label,
+                          count: cell.count,
+                          winRate: cell.winRate === null ? "—" : formatPercent(cell.winRate),
+                        })
                       : undefined
                   }
                 >
@@ -74,51 +81,57 @@ type Metric = {
  * The selected range against the window of equal length right before it.
  * "Better/worse" colouring only where the direction is unambiguous.
  */
-export function PeriodComparison({
+export async function PeriodComparison({
   comparison,
   currency,
 }: {
   comparison: PeriodsData["comparison"];
   currency: string;
 }) {
+  const t = await getTranslations("analytics.periods");
   const money = (n: number | null) => (n === null ? "—" : formatMoney(n, currency));
   const metrics: Metric[] = [
-    { label: "Net P&L", pick: (s) => s.netPnl, format: money, higherIsBetter: true },
-    { label: "Trades", pick: (s) => s.tradeCount, format: (n) => (n === null ? "—" : String(n)), higherIsBetter: true },
+    { label: t("netPnl"), pick: (s) => s.netPnl, format: money, higherIsBetter: true },
     {
-      label: "Win rate",
+      label: t("trades"),
+      pick: (s) => s.tradeCount,
+      format: (n) => (n === null ? "—" : String(n)),
+      higherIsBetter: true,
+    },
+    {
+      label: t("winRate"),
       pick: (s) => s.winRate,
       format: (n) => (n === null ? "—" : formatPercent(n)),
       higherIsBetter: true,
     },
     {
-      label: "Profit factor",
+      label: t("profitFactor"),
       pick: (s) => s.profitFactor,
       format: (n) => (n === null ? "—" : n.toFixed(2)),
       higherIsBetter: true,
     },
     {
-      label: "Expectancy",
+      label: t("expectancy"),
       pick: (s) => s.expectancyR,
       format: (n) => (n === null ? "—" : formatR(n)),
       higherIsBetter: true,
     },
-    { label: "Average loss", pick: (s) => s.averageLoss, format: money, higherIsBetter: false },
+    { label: t("averageLoss"), pick: (s) => s.averageLoss, format: money, higherIsBetter: false },
   ];
   const { current, previous } = comparison;
 
   if (!previous) {
-    return <p className="p-3 text-xs text-ink-3">Pick a range other than All to compare it with the one before it.</p>;
+    return <p className="p-3 text-xs text-ink-3">{t("noPrevious")}</p>;
   }
 
   return (
     <DataTable>
       <thead>
         <tr>
-          <Th>Metric</Th>
-          <Th numeric>This range</Th>
-          <Th numeric>Previous</Th>
-          <Th numeric>Change</Th>
+          <Th>{t("metric")}</Th>
+          <Th numeric>{t("thisRange")}</Th>
+          <Th numeric>{t("previous")}</Th>
+          <Th numeric>{t("change")}</Th>
         </tr>
       </thead>
       <tbody>
@@ -153,31 +166,25 @@ export function PeriodComparison({
 }
 
 /** MAE/MFE over the range: how much heat winners take, how much of the move is kept. */
-export function ExcursionSummary({ excursion }: { excursion: PeriodsData["excursion"] }) {
+export async function ExcursionSummary({ excursion }: { excursion: PeriodsData["excursion"] }) {
+  const t = await getTranslations("analytics.periods");
   if (excursion.sample === 0) {
     return (
       <PanelBody>
-        <p className="text-xs text-ink-3">
-          No closed trades in this range have both a worst and a best price recorded. Add them when editing a trade, or
-          use &ldquo;Measure from candles&rdquo; on a trade with M1 bars imported.
-        </p>
+        <p className="text-xs text-ink-3">{t("excursionEmpty")}</p>
       </PanelBody>
     );
   }
   const r = (n: number | null) => (n === null ? "—" : formatR(n));
   const rows: [string, string, string][] = [
+    [t("winnersAvgMae"), r(excursion.winnersAvgMaeR), t("winnersAvgMaeHint")],
+    [t("winnersWorstMae"), r(excursion.winnersWorstMaeR), ""],
+    [t("avgMfe"), r(excursion.avgMfeR), t("avgMfeHint")],
+    [t("avgRealised"), r(excursion.avgRealisedR), t("avgRealisedHint")],
     [
-      "Winners went against you, on average",
-      r(excursion.winnersAvgMaeR),
-      "Before working. A stop tighter than this cuts winners.",
-    ],
-    ["Deepest a winner went against you", r(excursion.winnersWorstMaeR), ""],
-    ["Average best excursion", r(excursion.avgMfeR), "How far trades ran in your favour."],
-    ["Average realised", r(excursion.avgRealisedR), "What you actually took."],
-    [
-      "Winners kept of the move",
+      t("winnersCapture"),
       excursion.winnersCapture === null ? "—" : formatPercent(excursion.winnersCapture),
-      "Realised R ÷ best excursion, over winners.",
+      t("winnersCaptureHint"),
     ],
   ];
   return (
@@ -191,25 +198,26 @@ export function ExcursionSummary({ excursion }: { excursion: PeriodsData["excurs
           <span className="mono text-ink">{value}</span>
         </div>
       ))}
-      <p className="text-2xs text-ink-3">{excursion.sample} trade(s) with MAE/MFE recorded.</p>
+      <p className="text-2xs text-ink-3">{t("sample", { count: excursion.sample })}</p>
     </PanelBody>
   );
 }
 
-export function PeriodsView({ data, currency }: { data: PeriodsData; currency: string }) {
+export async function PeriodsView({ data, currency }: { data: PeriodsData; currency: string }) {
+  const t = await getTranslations("analytics.periods");
   return (
     <div className="flex flex-col gap-4">
       <Panel flush>
-        <PanelHeader title="By month" caption="net P&L by close date, all time" />
+        <PanelHeader title={t("byMonth")} caption={t("byMonthCaption")} />
         <MonthGrid years={data.years} currency={currency} />
       </Panel>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel flush>
-          <PanelHeader title="Against the previous period" caption="same length, just before" />
+          <PanelHeader title={t("againstPrevious")} caption={t("againstPreviousCaption")} />
           <PeriodComparison comparison={data.comparison} currency={currency} />
         </Panel>
         <Panel>
-          <PanelHeader title="Exit efficiency" caption="MAE / MFE, in R" />
+          <PanelHeader title={t("exitEfficiency")} caption={t("exitEfficiencyCaption")} />
           <ExcursionSummary excursion={data.excursion} />
         </Panel>
       </div>

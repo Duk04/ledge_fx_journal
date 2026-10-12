@@ -283,7 +283,10 @@
   --color-chart-grid: var(--chart-grid);
   --color-scrim: var(--scrim);
 
-  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Inter is second for one reason: Instrument Sans has no Cyrillic, and the
+     Mongolian UI would otherwise fall through to whatever system face each
+     glyph lands on. The browser picks per glyph, so Latin stays Instrument. */
+  --font-sans: var(--font-instrument-sans), "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
 
   --text-2xs: var(--text-2xs);

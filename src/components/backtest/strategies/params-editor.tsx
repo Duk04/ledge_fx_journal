@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Field, FieldLabel, Input, NumberInput, Switch } from "@/components/ui";
 
 export type ParamValue = number | string | boolean;
@@ -15,9 +16,10 @@ export type ParamRecord = Record<string, ParamValue>;
  * set of fields shown rather than merging with whatever was there before.
  */
 export function ParamsEditor({ params, onChange }: { params: ParamRecord; onChange: (next: ParamRecord) => void }) {
+  const t = useTranslations("backtest.common");
   const keys = Object.keys(params);
   if (keys.length === 0) {
-    return <p className="text-xs text-ink-3">This strategy declares no parameters.</p>;
+    return <p className="text-xs text-ink-3">{t("noParams")}</p>;
   }
 
   function set(key: string, value: ParamValue) {

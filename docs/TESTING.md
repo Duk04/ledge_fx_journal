@@ -154,6 +154,13 @@ for this tier in one bug. The browser timezone is pinned to
 Asia/Ulaanbaatar, the default `User.timezone`, so wall-clock assertions do not
 depend on the machine.
 
+Every spec runs in English (`locale: "en-US"` in `playwright.config.ts`) and
+selects by exact English labels — which is why translating the app kept the
+English text byte-for-byte (`docs/I18N.md`). `e2e/i18n.spec.ts` is the one
+exception: on a user of its own, it switches to Mongolian and checks the
+choice survives a sign-in from an English browser and reaches a validation
+message.
+
 Still no component tests (no jsdom, no Testing Library): the e2e tier covers
 the interactions that matter, and a render test of a design-system primitive
 mostly re-asserts its markup.

@@ -22,7 +22,12 @@ export type RiskBreachType = "DAILY_LOSS_LIMIT" | "LOSS_STREAK" | "OVERSIZED" | 
 
 export interface RiskBreach {
   type: RiskBreachType;
+  /** English, for logs and tests. The UI renders `key` + `values` from
+   * `dashboard.risk.*` instead, so the reader gets their own language with
+   * the same numbers. */
   message: string;
+  key: "dailyLimitUsed" | "dailyHeuristic" | "lossStreak" | "oversized" | "noStopOne" | "noStopMany";
+  values: Record<string, string>;
 }
 
 export interface RiskTradeInput {
@@ -100,6 +105,12 @@ export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
       breaches.push({
         type: "DAILY_LOSS_LIMIT",
         message: `Down ${dailyLossAmount.toFixed(2)} today — your ${dailyLossLimitPct}% daily loss limit (${limit.toFixed(2)}) is used up. Stop trading this account today.`,
+        key: "dailyLimitUsed",
+        values: {
+          amount: dailyLossAmount.toFixed(2),
+          limitPct: String(dailyLossLimitPct),
+          limit: limit.toFixed(2),
+        },
       });
     }
   } else if (dailyLossAmount > 0) {
@@ -108,6 +119,8 @@ export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
       breaches.push({
         type: "DAILY_LOSS_LIMIT",
         message: `Down ${dailyLossPct.toFixed(1)}% today. That's at or beyond your daily loss limit — consider stepping away.`,
+        key: "dailyHeuristic",
+        values: { pct: dailyLossPct.toFixed(1) },
       });
     }
   }
@@ -117,6 +130,8 @@ export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
     breaches.push({
       type: "LOSS_STREAK",
       message: `${capitalize(numberWord(consecutiveLosses))} losses in a row today. Your rule says stop at two.`,
+      key: "lossStreak",
+      values: { word: capitalize(numberWord(consecutiveLosses)), count: String(consecutiveLosses) },
     });
   }
 
@@ -130,6 +145,8 @@ export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
         breaches.push({
           type: "OVERSIZED",
           message: `A trade today risked ${riskPct.toFixed(1)}% of equity — more than 1.5x your ${riskPerTradePct}% per-trade rule.`,
+          key: "oversized",
+          values: { pct: riskPct.toFixed(1), rulePct: String(riskPerTradePct) },
         });
       }
     }
@@ -144,6 +161,8 @@ export function computeRiskGuard(input: RiskGuardInput): RiskGuardResult {
         noStopCount === 1
           ? "One trade today has no stop loss recorded."
           : `${noStopCount} trades today have no stop loss recorded.`,
+      key: noStopCount === 1 ? "noStopOne" : "noStopMany",
+      values: { count: String(noStopCount) },
     });
   }
 

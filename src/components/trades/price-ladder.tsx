@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { formatPrice } from "@/lib/metrics/formatters";
 
@@ -28,6 +29,9 @@ export function PriceLadder({
   exitPrice: number | null;
   className?: string;
 }) {
+  // useTranslations, not getTranslations: this renders inside the server
+  // trade page but is itself synchronous, which next-intl supports.
+  const t = useTranslations("trades.form.ladder");
   const WIDTH = 280;
   const HEIGHT = 200;
   const PAD_Y = 28;
@@ -35,12 +39,12 @@ export function PriceLadder({
 
   type Point = { key: string; price: number; label: string; tone: "loss" | "profit" | "neutral" | "exit" };
 
-  const points: Point[] = [{ key: "entry", price: entryPrice, label: "Entry", tone: "neutral" }];
-  if (stopLoss !== null) points.push({ key: "stop", price: stopLoss, label: "Stop", tone: "loss" });
-  if (takeProfit !== null) points.push({ key: "target", price: takeProfit, label: "Target", tone: "profit" });
+  const points: Point[] = [{ key: "entry", price: entryPrice, label: t("entry"), tone: "neutral" }];
+  if (stopLoss !== null) points.push({ key: "stop", price: stopLoss, label: t("stop"), tone: "loss" });
+  if (takeProfit !== null) points.push({ key: "target", price: takeProfit, label: t("target"), tone: "profit" });
   if (exitPrice !== null) {
     const favourable = direction === "LONG" ? exitPrice >= entryPrice : exitPrice <= entryPrice;
-    points.push({ key: "exit", price: exitPrice, label: "Exit", tone: favourable ? "profit" : "loss" });
+    points.push({ key: "exit", price: exitPrice, label: t("exit"), tone: favourable ? "profit" : "loss" });
   }
 
   const values = points.map((p) => p.price);
@@ -72,10 +76,10 @@ export function PriceLadder({
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className={cn("w-full max-w-[280px]", className)}
       role="img"
-      aria-label={`Price geometry: entry ${formatPrice(entryPrice, digits)}${
-        stopLoss !== null ? `, stop ${formatPrice(stopLoss, digits)}` : ""
-      }${takeProfit !== null ? `, target ${formatPrice(takeProfit, digits)}` : ""}${
-        exitPrice !== null ? `, exit ${formatPrice(exitPrice, digits)}` : ""
+      aria-label={`${t("ariaEntry", { price: formatPrice(entryPrice, digits) })}${
+        stopLoss !== null ? t("ariaStop", { price: formatPrice(stopLoss, digits) }) : ""
+      }${takeProfit !== null ? t("ariaTarget", { price: formatPrice(takeProfit, digits) }) : ""}${
+        exitPrice !== null ? t("ariaExit", { price: formatPrice(exitPrice, digits) }) : ""
       }`}
     >
       {/* axis */}

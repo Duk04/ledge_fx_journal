@@ -3,17 +3,19 @@
 import * as React from "react";
 import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
 import { ChartFrame } from "./chart-frame";
 import { ChartTooltipRow, ChartTooltipShell, ChartTooltipTitle } from "./chart-tooltip";
 import type { EquityPointDTO } from "@/lib/queries/analytics";
 
-const CASH_LABEL: Record<string, string> = {
-  DEPOSIT: "Deposit",
-  WITHDRAWAL: "Withdrawal",
-  ADJUSTMENT: "Adjustment",
-};
+const CASH_KINDS = ["DEPOSIT", "WITHDRAWAL", "ADJUSTMENT"] as const;
+
+/** `kind` is a plain string on the DTO; anything outside these three gets the "Trade close" row label. */
+function isCashKind(kind: string): kind is (typeof CASH_KINDS)[number] {
+  return (CASH_KINDS as readonly string[]).includes(kind);
+}
 
 /**
  * The hero chart: account equity over the selected range. A single soft
@@ -40,14 +42,10 @@ export function EquityChart({
 }) {
   // Hooks must run unconditionally, before the empty-state early return.
   const gradientId = React.useId().replace(/[^a-zA-Z0-9]/g, "");
+  const t = useTranslations("dashboard.charts.equity");
 
   if (data.length === 0) {
-    return (
-      <EmptyState
-        title="No activity in this range"
-        description="Trades and cash movements will plot here once there's something to show."
-      />
-    );
+    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
 
   const points = data.map((p) => ({ ...p, t: new Date(p.at).getTime() }));
@@ -58,7 +56,11 @@ export function EquityChart({
 
   return (
     <ChartFrame
-      label={`Equity from ${formatMoney(startBalance, currency)} to ${formatMoney(last, currency)} over ${points.length} change(s).`}
+      label={t("label", {
+        start: formatMoney(startBalance, currency),
+        end: formatMoney(last, currency),
+        count: points.length,
+      })}
     >
       <ResponsiveContainer width="100%" height="100%" minHeight={180}>
         <ComposedChart data={points} margin={{ top: 8, right: 10, left: 10, bottom: 0 }}>
@@ -98,13 +100,13 @@ export function EquityChart({
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
               const p = payload[0].payload as (typeof points)[number];
-              const cashLabel = p.kind === "TRADE" ? null : CASH_LABEL[p.kind];
+              const cashLabel = p.kind !== "TRADE" && isCashKind(p.kind) ? t(`cash.${p.kind}`) : null;
               return (
                 <ChartTooltipShell>
                   <ChartTooltipTitle>{format(new Date(p.t), "EEE, MMM d yyyy HH:mm")}</ChartTooltipTitle>
-                  <ChartTooltipRow label="Balance" value={formatMoney(p.balance, currency)} />
+                  <ChartTooltipRow label={t("balance")} value={formatMoney(p.balance, currency)} />
                   <ChartTooltipRow
-                    label={cashLabel ?? "Trade close"}
+                    label={cashLabel ?? t("tradeClose")}
                     value={`${p.change >= 0 ? "+" : ""}${formatMoney(p.change, currency)}`}
                     tone={p.change > 0 ? "profit" : p.change < 0 ? "loss" : "neutral"}
                   />

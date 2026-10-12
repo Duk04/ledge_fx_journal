@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import type { AccountType } from "@prisma/client";
 import { setActiveAccount } from "@/lib/actions/accounts";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import Link from "next/link";
@@ -34,6 +36,8 @@ export type AccountOption = {
  */
 export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOption[]; activeId: string | null }) {
   const router = useRouter();
+  const t = useTranslations("shell");
+  const tEnum = useTranslations("enums");
   const active = accounts.find((a) => a.id === activeId) ?? accounts[0];
 
   // The cookie is set by a server action rather than written here, so the
@@ -76,7 +80,7 @@ export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOptio
       </DropdownTrigger>
 
       <DropdownContent align="start" className="w-72">
-        <DropdownLabel>Accounts</DropdownLabel>
+        <DropdownLabel>{t("accounts")}</DropdownLabel>
         {accounts.map((a) => {
           const p = Number(a.netPnl);
           return (
@@ -85,7 +89,7 @@ export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOptio
                 <span className="flex items-center gap-1.5">
                   <span className="truncate text-sm text-ink">{a.label}</span>
                   <Badge tone={a.accountType === "LIVE" ? "brand" : "neutral"} className="shrink-0">
-                    {a.accountType}
+                    {tEnum(`accountType.${a.accountType as AccountType}`)}
                   </Badge>
                 </span>
                 <span className="mono text-2xs text-ink-3">
@@ -104,7 +108,7 @@ export function AccountSwitcher({ accounts, activeId }: { accounts: AccountOptio
         <DropdownSeparator />
         <DropdownItem asChild>
           <Link href="/accounts" className="flex items-center gap-2">
-            <Plus className="size-3.5" /> Manage accounts
+            <Plus className="size-3.5" /> {t("manageAccounts")}
           </Link>
         </DropdownItem>
       </DropdownContent>

@@ -1,3 +1,4 @@
+import { english } from "@/i18n/english";
 import { describe, expect, it } from "vitest";
 import { MAX_PASSWORD_BYTES, MIN_PASSWORD_CHARS, validatePassword } from "./password";
 
@@ -13,7 +14,7 @@ describe("validatePassword", () => {
     it(`rejects fewer than ${MIN_PASSWORD_CHARS} characters`, () => {
       const r = validatePassword("short1!x");
       expect(r.ok).toBe(false);
-      expect(r).toHaveProperty("message", expect.stringContaining(String(MIN_PASSWORD_CHARS)));
+      expect(r.ok ? undefined : english(r.message)).toEqual(expect.stringContaining(String(MIN_PASSWORD_CHARS)));
     });
 
     it("accepts exactly the minimum", () => {
@@ -34,7 +35,7 @@ describe("validatePassword", () => {
     it("rejects 73 bytes of ASCII", () => {
       const r = validatePassword("a1b2".padEnd(MAX_PASSWORD_BYTES + 1, "x"));
       expect(r.ok).toBe(false);
-      expect(r).toHaveProperty("message", expect.stringContaining("too long"));
+      expect(r.ok ? undefined : english(r.message)).toEqual(expect.stringContaining("too long"));
     });
 
     it("rejects 19 emoji, which is 76 bytes despite being 19 characters", () => {
@@ -42,7 +43,7 @@ describe("validatePassword", () => {
       expect(password.length).toBeLessThan(MAX_PASSWORD_BYTES);
       const r = validatePassword(password);
       expect(r.ok).toBe(false);
-      expect(r).toHaveProperty("message", expect.stringContaining("bytes"));
+      expect(r.ok ? undefined : english(r.message)).toEqual(expect.stringContaining("bytes"));
     });
 
     it("counts two-byte Cyrillic correctly", () => {
@@ -75,7 +76,7 @@ describe("validatePassword", () => {
     it("rejects a password containing the email local part", () => {
       const r = validatePassword("dulguun-secret-1", { email: "dulguun@example.com" });
       expect(r.ok).toBe(false);
-      expect(r).toHaveProperty("message", expect.stringContaining("email"));
+      expect(r.ok ? undefined : english(r.message)).toEqual(expect.stringContaining("email"));
     });
 
     it("rejects a password contained by the email local part", () => {

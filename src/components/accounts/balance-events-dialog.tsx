@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Trash2 } from "lucide-react";
 import { useForm, useWatch, Controller } from "react-hook-form";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,8 @@ export function BalanceEventsDialog({
   currency: string;
   events: BalanceEventRow[];
 }) {
+  const t = useTranslations("accounts.events");
+  const tEnum = useTranslations("enums");
   const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
   const { toast } = useToast();
 
@@ -85,7 +88,7 @@ export function BalanceEventsDialog({
     };
     const result = await addBalanceEvent(accountId, input);
     if (result.ok) {
-      toast({ title: "Balance event added." });
+      toast({ title: t("toastAdded") });
       reset({ kind: values.kind, amount: "", occurredAt: values.occurredAt, note: "" });
     } else {
       if (result.formError) setError("root", { message: result.formError });
@@ -99,23 +102,20 @@ export function BalanceEventsDialog({
     setPendingDelete(eventId);
     const result = await deleteBalanceEvent(accountId, eventId);
     setPendingDelete(null);
-    if (result.ok) toast({ title: "Balance event removed." });
-    else toast({ title: "Could not remove", description: result.formError, tone: "loss" });
+    if (result.ok) toast({ title: t("toastRemoved") });
+    else toast({ title: t("toastRemoveFailed"), description: result.formError, tone: "loss" });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
-        <DialogHeader
-          title="Balance events"
-          description="Deposits, withdrawals and manual adjustments for this account."
-        />
+        <DialogHeader title={t("title")} description={t("description")} />
         <DialogBody className="flex flex-col gap-4">
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3 border-b border-line pb-4">
             {errors.root?.message ? <p className="text-xs text-loss">{errors.root.message}</p> : null}
             <FieldRow className="sm:grid-cols-4">
               <Field className="sm:col-span-1">
-                <FieldLabel>Kind</FieldLabel>
+                <FieldLabel>{t("kind")}</FieldLabel>
                 <Controller
                   control={control}
                   name="kind"
@@ -125,38 +125,36 @@ export function BalanceEventsDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DEPOSIT">Deposit</SelectItem>
-                        <SelectItem value="WITHDRAWAL">Withdrawal</SelectItem>
-                        <SelectItem value="ADJUSTMENT">Adjustment</SelectItem>
+                        <SelectItem value="DEPOSIT">{tEnum("balanceEventKind.DEPOSIT")}</SelectItem>
+                        <SelectItem value="WITHDRAWAL">{tEnum("balanceEventKind.WITHDRAWAL")}</SelectItem>
+                        <SelectItem value="ADJUSTMENT">{tEnum("balanceEventKind.ADJUSTMENT")}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
                 />
               </Field>
               <Field className="sm:col-span-1">
-                <FieldLabel>Amount</FieldLabel>
-                <NumberInput {...register("amount", { required: "Required." })} unit={currency} />
+                <FieldLabel>{t("amount")}</FieldLabel>
+                <NumberInput {...register("amount", { required: t("required") })} unit={currency} />
                 <FieldError>{errors.amount?.message}</FieldError>
               </Field>
               <Field className="sm:col-span-1">
-                <FieldLabel>Date</FieldLabel>
-                <Input type="date" {...register("occurredAt", { required: "Required." })} />
+                <FieldLabel>{t("date")}</FieldLabel>
+                <Input type="date" {...register("occurredAt", { required: t("required") })} />
               </Field>
               <Field className="sm:col-span-1">
-                <FieldLabel optional>Note</FieldLabel>
-                <Input {...register("note")} placeholder="Optional" />
+                <FieldLabel optional>{t("note")}</FieldLabel>
+                <Input {...register("note")} placeholder={t("notePlaceholder")} />
               </Field>
             </FieldRow>
-            {kind === "ADJUSTMENT" ? (
-              <p className="text-2xs text-ink-3">Use a negative amount to record a decrease.</p>
-            ) : null}
+            {kind === "ADJUSTMENT" ? <p className="text-2xs text-ink-3">{t("negativeHint")}</p> : null}
             <Button type="submit" variant="primary" size="sm" className="self-start" disabled={isSubmitting}>
-              Add event
+              {t("add")}
             </Button>
           </form>
 
           {events.length === 0 ? (
-            <p className="py-6 text-center text-xs text-ink-3">No balance events yet.</p>
+            <p className="py-6 text-center text-xs text-ink-3">{t("empty")}</p>
           ) : (
             <ul className="flex flex-col divide-y divide-line-faint">
               {events.map((e) => (
@@ -171,7 +169,7 @@ export function BalanceEventsDialog({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Delete balance event"
+                    aria-label={t("deleteAria")}
                     disabled={pendingDelete === e.id}
                     onClick={() => handleDelete(e.id)}
                   >

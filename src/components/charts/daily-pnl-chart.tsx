@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format, parseISO } from "date-fns";
+import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
 import { ChartFrame } from "./chart-frame";
@@ -15,12 +16,13 @@ export interface DailyPnlPoint {
 
 /** One bar per calendar day, coloured by sign — the coarsest-grain "am I up or down today" read in the app. */
 export function DailyPnlChart({ data, currency }: { data: DailyPnlPoint[]; currency: string }) {
+  const t = useTranslations("dashboard.charts");
   if (data.length === 0) {
-    return <EmptyState title="No closed trades yet" description="Daily P&L fills in once trades close." />;
+    return <EmptyState title={t("daily.emptyTitle")} description={t("daily.emptyDescription")} />;
   }
 
   return (
-    <ChartFrame label={dailyLabel(data, currency)}>
+    <ChartFrame label={dailyLabel(data, currency, t)}>
       <ResponsiveContainer width="100%" height="100%" minHeight={160}>
         <BarChart data={data} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="28%">
           <XAxis
@@ -41,11 +43,11 @@ export function DailyPnlChart({ data, currency }: { data: DailyPnlPoint[]; curre
                 <ChartTooltipShell>
                   <ChartTooltipTitle>{format(parseISO(p.date), "EEE, MMM d yyyy")}</ChartTooltipTitle>
                   <ChartTooltipRow
-                    label="Net P&L"
+                    label={t("netPnl")}
                     value={formatMoney(p.netPnl, currency)}
                     tone={p.netPnl > 0 ? "profit" : p.netPnl < 0 ? "loss" : "neutral"}
                   />
-                  <ChartTooltipRow label="Trades" value={p.tradeCount} />
+                  <ChartTooltipRow label={t("trades")} value={p.tradeCount} />
                 </ChartTooltipShell>
               );
             }}
@@ -62,10 +64,21 @@ export function DailyPnlChart({ data, currency }: { data: DailyPnlPoint[]; curre
   );
 }
 
-function dailyLabel(data: DailyPnlPoint[], currency: string) {
-  if (!data.length) return "Daily P&L: no closed trades.";
+function dailyLabel(
+  data: DailyPnlPoint[],
+  currency: string,
+  t: ReturnType<typeof useTranslations<"dashboard.charts">>,
+) {
+  if (!data.length) return t("daily.labelEmpty");
   const best = data.reduce((a, b) => (b.netPnl > a.netPnl ? b : a));
   const worst = data.reduce((a, b) => (b.netPnl < a.netPnl ? b : a));
   const green = data.filter((d) => d.netPnl > 0).length;
-  return `Daily P&L over ${data.length} day(s), ${green} green. Best ${best.date} ${formatMoney(best.netPnl, currency)}, worst ${worst.date} ${formatMoney(worst.netPnl, currency)}.`;
+  return t("daily.label", {
+    days: data.length,
+    green,
+    bestDate: best.date,
+    bestPnl: formatMoney(best.netPnl, currency),
+    worstDate: worst.date,
+    worstPnl: formatMoney(worst.netPnl, currency),
+  });
 }

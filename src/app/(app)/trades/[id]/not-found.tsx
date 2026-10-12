@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { EmptyState } from "@/components/ui";
 
@@ -11,16 +12,14 @@ import { EmptyState } from "@/components/ui";
  * someone else produces exactly this page, and saying "or isn't yours" is what
  * keeps that from being a way to probe which ids exist.
  */
-export default function TradeNotFound() {
+export default async function TradeNotFound() {
+  const t = await getTranslations("trades.detail.notFound");
   return (
     <Page width="reading">
-      <EmptyState
-        title="That trade isn't here"
-        description="It may have been deleted, or it belongs to a different account."
-      />
+      <EmptyState title={t("title")} description={t("description")} />
       <p className="mt-4 text-center text-xs text-ink-3">
         <Link href="/trades" className="text-brand underline-offset-4 hover:underline">
-          Back to all trades
+          {t("back")}
         </Link>
       </p>
     </Page>

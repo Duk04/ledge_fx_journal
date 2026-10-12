@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
 import { ChartFrame } from "./chart-frame";
@@ -14,15 +15,14 @@ import type { BreakdownRow } from "@/lib/queries/analytics";
  * time-of-day chart out of clock order would be unreadable.
  */
 export function HourOfDayChart({ rows, currency }: { rows: BreakdownRow[]; currency: string }) {
+  const t = useTranslations("dashboard.charts");
   const withData = rows.filter((r) => r.count > 0);
   if (withData.length === 0) {
-    return (
-      <EmptyState title="No trades yet" description="The hour-of-day breakdown fills in once you log some trades." />
-    );
+    return <EmptyState title={t("hour.emptyTitle")} description={t("hour.emptyDescription")} />;
   }
 
   return (
-    <ChartFrame label={hourLabel(withData, currency)}>
+    <ChartFrame label={hourLabel(withData, currency, t)}>
       <ResponsiveContainer width="100%" height="100%" minHeight={160}>
         <BarChart data={rows} margin={{ top: 8, right: 10, left: 10, bottom: 0 }} barCategoryGap="20%">
           <XAxis
@@ -42,11 +42,11 @@ export function HourOfDayChart({ rows, currency }: { rows: BreakdownRow[]; curre
                 <ChartTooltipShell>
                   <ChartTooltipTitle>{r.label}</ChartTooltipTitle>
                   <ChartTooltipRow
-                    label="Net P&L"
+                    label={t("netPnl")}
                     value={formatMoney(r.netPnl, currency)}
                     tone={r.netPnl > 0 ? "profit" : r.netPnl < 0 ? "loss" : "neutral"}
                   />
-                  <ChartTooltipRow label="Trades" value={r.count} />
+                  <ChartTooltipRow label={t("trades")} value={r.count} />
                 </ChartTooltipShell>
               );
             }}
@@ -63,9 +63,14 @@ export function HourOfDayChart({ rows, currency }: { rows: BreakdownRow[]; curre
   );
 }
 
-function hourLabel(rows: BreakdownRow[], currency: string) {
-  if (!rows.length) return "Net P&L by hour: no trades.";
+function hourLabel(rows: BreakdownRow[], currency: string, t: ReturnType<typeof useTranslations<"dashboard.charts">>) {
+  if (!rows.length) return t("hour.labelEmpty");
   const best = rows.reduce((a, b) => (b.netPnl > a.netPnl ? b : a));
   const worst = rows.reduce((a, b) => (b.netPnl < a.netPnl ? b : a));
-  return `Net P&L by hour of day. Best ${best.label} ${formatMoney(best.netPnl, currency)}, worst ${worst.label} ${formatMoney(worst.netPnl, currency)}.`;
+  return t("hour.label", {
+    best: best.label,
+    bestPnl: formatMoney(best.netPnl, currency),
+    worst: worst.label,
+    worstPnl: formatMoney(worst.netPnl, currency),
+  });
 }

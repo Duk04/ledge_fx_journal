@@ -1,6 +1,7 @@
 "use client";
 
 import { Controller, useForm } from "react-hook-form";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -40,18 +41,12 @@ type FormValues = {
   minTradingDays: string;
 };
 
-const PLATFORMS: { value: FormValues["platform"]; label: string }[] = [
-  { value: "MT5", label: "MetaTrader 5" },
-  { value: "MT4", label: "MetaTrader 4" },
-  { value: "CTRADER", label: "cTrader" },
-  { value: "OTHER", label: "Other" },
-];
+// Labels are message keys resolved at render: platforms via the shared
+// `enums.platform`, account types via `accounts.form.accountTypeOption`
+// because this picker says "Prop firm" where the shared enum says "Prop".
+const PLATFORMS: FormValues["platform"][] = ["MT5", "MT4", "CTRADER", "OTHER"];
 
-const ACCOUNT_TYPES: { value: FormValues["accountType"]; label: string }[] = [
-  { value: "DEMO", label: "Demo" },
-  { value: "LIVE", label: "Live" },
-  { value: "PROP", label: "Prop firm" },
-];
+const ACCOUNT_TYPES: FormValues["accountType"][] = ["DEMO", "LIVE", "PROP"];
 
 export type EditableAccount = {
   id: string;
@@ -85,6 +80,8 @@ export function AccountFormDialog({
   onOpenChange: (open: boolean) => void;
   account?: EditableAccount;
 }) {
+  const t = useTranslations("accounts.form");
+  const tEnum = useTranslations("enums");
   const { toast } = useToast();
 
   const {
@@ -150,7 +147,7 @@ export function AccountFormDialog({
     const result = account ? await updateAccount(account.id, input) : await createAccount(input);
 
     if (result.ok) {
-      toast({ title: account ? "Account updated." : "Account created." });
+      toast({ title: account ? t("toastUpdated") : t("toastCreated") });
       handleOpenChange(false);
     } else {
       if (result.formError) setError("root", { message: result.formError });
@@ -163,7 +160,7 @@ export function AccountFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="md">
-        <DialogHeader title={account ? "Edit account" : "New trading account"} />
+        <DialogHeader title={account ? t("titleEdit") : t("titleNew")} />
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogBody className="flex flex-col gap-3">
             {errors.root?.message ? (
@@ -173,20 +170,20 @@ export function AccountFormDialog({
             ) : null}
 
             <Field>
-              <FieldLabel>Label</FieldLabel>
-              <Input {...register("label", { required: "Label is required." })} placeholder="e.g. FTMO 50k Challenge" />
+              <FieldLabel>{t("label")}</FieldLabel>
+              <Input {...register("label", { required: t("labelRequired") })} placeholder={t("labelPlaceholder")} />
               <FieldError>{errors.label?.message}</FieldError>
             </Field>
 
             <FieldRow>
               <Field>
-                <FieldLabel optional>Broker</FieldLabel>
-                <Input {...register("broker")} placeholder="e.g. IC Markets" />
+                <FieldLabel optional>{t("broker")}</FieldLabel>
+                <Input {...register("broker")} placeholder={t("brokerPlaceholder")} />
               </Field>
               <Field>
-                <FieldLabel>Currency</FieldLabel>
+                <FieldLabel>{t("currency")}</FieldLabel>
                 <Input
-                  {...register("currency", { required: "Currency is required." })}
+                  {...register("currency", { required: t("currencyRequired") })}
                   maxLength={3}
                   style={{ textTransform: "uppercase" }}
                   placeholder="USD"
@@ -197,7 +194,7 @@ export function AccountFormDialog({
 
             <FieldRow>
               <Field>
-                <FieldLabel>Platform</FieldLabel>
+                <FieldLabel>{t("platform")}</FieldLabel>
                 <Controller
                   control={control}
                   name="platform"
@@ -208,8 +205,8 @@ export function AccountFormDialog({
                       </SelectTrigger>
                       <SelectContent>
                         {PLATFORMS.map((p) => (
-                          <SelectItem key={p.value} value={p.value}>
-                            {p.label}
+                          <SelectItem key={p} value={p}>
+                            {tEnum(`platform.${p}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -218,7 +215,7 @@ export function AccountFormDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel>Account type</FieldLabel>
+                <FieldLabel>{t("accountType")}</FieldLabel>
                 <Controller
                   control={control}
                   name="accountType"
@@ -228,9 +225,9 @@ export function AccountFormDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ACCOUNT_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
+                        {ACCOUNT_TYPES.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {t(`accountTypeOption.${type}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -242,12 +239,12 @@ export function AccountFormDialog({
 
             <FieldRow>
               <Field>
-                <FieldLabel>Starting balance</FieldLabel>
-                <NumberInput {...register("startingBalance", { required: "Required." })} unit="" />
+                <FieldLabel>{t("startingBalance")}</FieldLabel>
+                <NumberInput {...register("startingBalance", { required: t("required") })} unit="" />
                 <FieldError>{errors.startingBalance?.message}</FieldError>
               </Field>
               <Field>
-                <FieldLabel optional>Risk per trade</FieldLabel>
+                <FieldLabel optional>{t("riskPerTrade")}</FieldLabel>
                 <NumberInput {...register("riskPerTradePct")} unit="%" placeholder="1.0" />
                 <FieldError>{errors.riskPerTradePct?.message}</FieldError>
               </Field>
@@ -257,38 +254,36 @@ export function AccountFormDialog({
                 set any of them and the dashboard shows a challenge panel. */}
             <div className="flex flex-col gap-3 border-t border-line pt-3">
               <div>
-                <p className="text-xs font-medium text-ink">Challenge rules</p>
-                <p className="text-2xs text-ink-3">
-                  For a prop-firm evaluation. Percentages are of the starting balance; leave blank to ignore.
-                </p>
+                <p className="text-xs font-medium text-ink">{t("challengeRules")}</p>
+                <p className="text-2xs text-ink-3">{t("challengeHint")}</p>
               </div>
               <FieldRow>
                 <Field>
-                  <FieldLabel optional>Daily loss limit</FieldLabel>
+                  <FieldLabel optional>{t("dailyLossLimit")}</FieldLabel>
                   <NumberInput {...register("dailyLossLimitPct")} unit="%" placeholder="5" />
                   <FieldError>{errors.dailyLossLimitPct?.message}</FieldError>
                 </Field>
                 <Field>
-                  <FieldLabel optional>Profit target</FieldLabel>
+                  <FieldLabel optional>{t("profitTarget")}</FieldLabel>
                   <NumberInput {...register("profitTargetPct")} unit="%" placeholder="10" />
                   <FieldError>{errors.profitTargetPct?.message}</FieldError>
                 </Field>
               </FieldRow>
               <FieldRow>
                 <Field>
-                  <FieldLabel optional>Max drawdown</FieldLabel>
+                  <FieldLabel optional>{t("maxDrawdown")}</FieldLabel>
                   <NumberInput {...register("maxDrawdownPct")} unit="%" placeholder="10" />
                   <FieldError>{errors.maxDrawdownPct?.message}</FieldError>
                 </Field>
                 <Field>
-                  <FieldLabel>Drawdown measured from</FieldLabel>
+                  <FieldLabel>{t("drawdownFrom")}</FieldLabel>
                   <Controller
                     control={control}
                     name="drawdownMode"
                     render={({ field }) => (
                       <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)}>
-                        <SegmentedItem value="STATIC">Starting balance</SegmentedItem>
-                        <SegmentedItem value="TRAILING">Highest balance</SegmentedItem>
+                        <SegmentedItem value="STATIC">{t("drawdownStatic")}</SegmentedItem>
+                        <SegmentedItem value="TRAILING">{t("drawdownTrailing")}</SegmentedItem>
                       </Segmented>
                     )}
                   />
@@ -296,8 +291,13 @@ export function AccountFormDialog({
               </FieldRow>
               <FieldRow>
                 <Field>
-                  <FieldLabel optional>Minimum trading days</FieldLabel>
-                  <NumberInput {...register("minTradingDays")} unit="days" placeholder="4" inputMode="numeric" />
+                  <FieldLabel optional>{t("minTradingDays")}</FieldLabel>
+                  <NumberInput
+                    {...register("minTradingDays")}
+                    unit={t("daysUnit")}
+                    placeholder="4"
+                    inputMode="numeric"
+                  />
                   <FieldError>{errors.minTradingDays?.message}</FieldError>
                 </Field>
                 <div aria-hidden />
@@ -306,10 +306,10 @@ export function AccountFormDialog({
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {account ? "Save changes" : "Create account"}
+              {account ? t("saveChanges") : t("create")}
             </Button>
           </DialogFooter>
         </form>

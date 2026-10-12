@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ChartLine } from "lucide-react";
 import { Button, useToast } from "@/components/ui";
 import { setActiveAccount } from "@/lib/actions/accounts";
@@ -15,6 +16,7 @@ import { setActiveAccount } from "@/lib/actions/accounts";
  * report there already works on a BACKTEST-type account for free.
  */
 export function ViewInAnalyticsButton({ accountId }: { accountId: string }) {
+  const t = useTranslations("backtest.analytics");
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -25,14 +27,14 @@ export function ViewInAnalyticsButton({ accountId }: { accountId: string }) {
       if (result.ok) {
         router.push("/analytics");
       } else {
-        toast({ title: "Couldn't switch to this run's account", description: result.formError, tone: "loss" });
+        toast({ title: t("switchFailed"), description: result.formError, tone: "loss" });
       }
     });
   }
 
   return (
     <Button variant="default" size="sm" onClick={handleClick} disabled={pending}>
-      <ChartLine /> View in Analytics
+      <ChartLine /> {t("view")}
     </Button>
   );
 }

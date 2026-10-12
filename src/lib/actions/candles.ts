@@ -7,6 +7,7 @@ import { fail, ok, type ActionResult } from "./result";
 import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
 import { parseCandleCsv } from "@/lib/candles/parse";
 import { upsertCandles } from "@/lib/candles/upsert";
+import { failT, tr } from "@/i18n/server-t";
 
 /**
  * Candle imports and deletes. Same result-object convention as every other
@@ -55,22 +56,22 @@ export async function importCandles(formData: FormData): Promise<ActionResult<Im
   const user = await requireUser();
 
   const file = formData.get("file");
-  if (!(file instanceof File)) return fail("Choose a CSV file to import.");
-  if (file.size === 0) return fail("That file is empty.");
+  if (!(file instanceof File)) return failT("chooseCsv");
+  if (file.size === 0) return failT("fileEmpty");
   if (file.size > MAX_UPLOAD_BYTES) {
     return {
       ok: false,
-      formError: `That file is too large — the limit is ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))}MB.`,
+      formError: await tr("fileTooLarge", { mb: String(Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))) }),
     };
   }
 
   const symbol = String(formData.get("symbol") ?? "")
     .trim()
     .toUpperCase();
-  if (!symbol) return fail("Choose a symbol.");
+  if (!symbol) return failT("chooseSymbol");
 
   const timeframeRaw = String(formData.get("timeframe") ?? "");
-  if (!TIMEFRAMES.includes(timeframeRaw as Timeframe)) return fail("Choose a timeframe.");
+  if (!TIMEFRAMES.includes(timeframeRaw as Timeframe)) return failT("chooseTimeframe");
   const timeframe = timeframeRaw as Timeframe;
 
   const tzOffsetMinutes = Number(formData.get("tzOffsetMinutes"));
@@ -87,7 +88,7 @@ export async function importCandles(formData: FormData): Promise<ActionResult<Im
   if (parsed.rows.length === 0) {
     return {
       ok: false,
-      formError: parsed.warnings[0] ?? "No valid rows were found in that file.",
+      formError: parsed.warnings[0] ?? (await tr("noValidRows")),
     };
   }
 
@@ -149,14 +150,14 @@ export async function deleteCandles(input: {
     await requireOwner();
   } catch (err) {
     if (err instanceof ForbiddenError) {
-      return fail("Only the instance owner can delete shared market data.");
+      return failT("ownerOnlyMarketData");
     }
     throw err;
   }
 
   const { symbol, timeframe, from, to } = input;
   if (!symbol || !TIMEFRAMES.includes(timeframe)) {
-    return fail("Symbol and timeframe are required.");
+    return failT("symbolTimeframeRequired");
   }
 
   const tsFilter: { gte?: Date; lte?: Date } = {};

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, Button, useToast } from "@/components/ui";
 import { deleteAccount } from "@/lib/actions/accounts";
 
@@ -22,6 +23,7 @@ export function DeleteAccountDialog({
   accountId: string;
   label: string;
 }) {
+  const t = useTranslations("accounts.delete");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const { toast } = useToast();
@@ -32,10 +34,10 @@ export function DeleteAccountDialog({
     const result = await deleteAccount(accountId);
     setPending(false);
     if (result.ok) {
-      toast({ title: "Account deleted." });
+      toast({ title: t("toastDeleted") });
       onOpenChange(false);
     } else {
-      setError(result.formError ?? "Could not delete this account.");
+      setError(result.formError ?? t("failed"));
     }
   }
 
@@ -48,23 +50,20 @@ export function DeleteAccountDialog({
       }}
     >
       <DialogContent size="sm">
-        <DialogHeader title="Delete account" description={`Permanently delete "${label}"? This cannot be undone.`} />
+        <DialogHeader title={t("title")} description={t("description", { label })} />
         <DialogBody>
           {error ? (
             <p className="rounded-control border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">{error}</p>
           ) : (
-            <p className="text-xs text-ink-3">
-              This only works for accounts with no trades. Accounts with trading history should be archived instead, so
-              the history stays intact.
-            </p>
+            <p className="text-xs text-ink-3">{t("explain")}</p>
           )}
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button type="button" variant="danger" onClick={handleDelete} disabled={pending}>
-            Delete
+            {t("confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

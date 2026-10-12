@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import * as React from "react";
 import { Pencil, Check, X, RotateCcw } from "lucide-react";
 import { DataTable, Th, Td, Button, useToast, NumberInput, Input, Badge } from "@/components/ui";
@@ -20,6 +22,7 @@ export function InstrumentsTab({
   initialInstruments: InstrumentRow[];
   canEdit: boolean;
 }) {
+  const t = useTranslations("settings.instruments");
   const [resetting, setResetting] = React.useState(false);
   const { toast } = useToast();
 
@@ -27,30 +30,17 @@ export function InstrumentsTab({
     setResetting(true);
     const result = await resetInstrumentsToDefaults();
     setResetting(false);
-    if (result.ok) toast({ title: "Instruments reset to defaults." });
-    else toast({ title: "Could not reset", description: result.formError, tone: "loss" });
+    if (result.ok) toast({ title: t("resetDone") });
+    else toast({ title: t("couldNotReset"), description: result.formError, tone: "loss" });
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start justify-between gap-3 rounded-[var(--radius-panel)] border border-warn/30 bg-warn-weak px-3 py-2.5 text-xs text-ink-2 sm:flex-row sm:items-center">
-        <p>
-          {canEdit ? (
-            <>
-              These values decide every pip and P&amp;L number in the app, and brokers differ on pip size, contract
-              size, and quote precision for the same symbol. If a number looks wrong, this is the first place to check
-              &mdash; and editing a row changes it for <strong>every</strong> account on this instance.
-            </>
-          ) : (
-            <>
-              These values decide every pip and P&amp;L number in the app. They are shared by every account here, so
-              only the instance owner can change them &mdash; ask them if a symbol looks wrong for your broker.
-            </>
-          )}
-        </p>
+        <p>{canEdit ? t("ownerNote") : t("memberNote")}</p>
         {canEdit ? (
           <Button variant="default" size="sm" className="shrink-0" onClick={handleReset} disabled={resetting}>
-            <RotateCcw /> Reset to defaults
+            <RotateCcw /> {t("reset")}
           </Button>
         ) : null}
       </div>
@@ -58,12 +48,12 @@ export function InstrumentsTab({
       <DataTable>
         <thead>
           <tr>
-            <Th>Symbol</Th>
-            <Th>Class</Th>
-            <Th numeric>Pip size</Th>
-            <Th numeric>Contract size</Th>
-            <Th numeric>Digits</Th>
-            <Th>Quote</Th>
+            <Th>{t("symbol")}</Th>
+            <Th>{t("class")}</Th>
+            <Th numeric>{t("pipSize")}</Th>
+            <Th numeric>{t("contractSize")}</Th>
+            <Th numeric>{t("digits")}</Th>
+            <Th>{t("quote")}</Th>
             <Th />
           </tr>
         </thead>
@@ -78,6 +68,7 @@ export function InstrumentsTab({
 }
 
 function InstrumentRowItem({ instrument, canEdit }: { instrument: InstrumentRow; canEdit: boolean }) {
+  const t = useTranslations("settings.instruments");
   const [editing, setEditing] = React.useState(false);
   const [pipSize, setPipSize] = React.useState(instrument.pipSize);
   const [contractSize, setContractSize] = React.useState(instrument.contractSize);
@@ -107,10 +98,10 @@ function InstrumentRowItem({ instrument, canEdit }: { instrument: InstrumentRow;
     });
     setPending(false);
     if (result.ok) {
-      toast({ title: `${instrument.symbol} updated.` });
+      toast({ title: t("updated", { symbol: instrument.symbol }) });
       setEditing(false);
     } else {
-      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? "Could not save.");
+      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? t("couldNotSave"));
     }
   }
 
@@ -152,10 +143,10 @@ function InstrumentRowItem({ instrument, canEdit }: { instrument: InstrumentRow;
         <div className="flex items-center gap-1">
           {editing ? (
             <>
-              <Button variant="ghost" size="icon-sm" aria-label="Save" onClick={save} disabled={pending}>
+              <Button variant="ghost" size="icon-sm" aria-label={t("save")} onClick={save} disabled={pending}>
                 <Check />
               </Button>
-              <Button variant="ghost" size="icon-sm" aria-label="Cancel" onClick={cancel}>
+              <Button variant="ghost" size="icon-sm" aria-label={t("cancel")} onClick={cancel}>
                 <X />
               </Button>
             </>
@@ -163,10 +154,10 @@ function InstrumentRowItem({ instrument, canEdit }: { instrument: InstrumentRow;
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={`Edit ${instrument.symbol}`}
+              aria-label={t("editSymbol", { symbol: instrument.symbol })}
               onClick={() => setEditing(true)}
               disabled={!canEdit}
-              title={canEdit ? undefined : "Only the instance owner can change shared instrument data."}
+              title={canEdit ? undefined : t("ownerOnly")}
             >
               <Pencil />
             </Button>

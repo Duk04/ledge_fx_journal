@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead, UrlTabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { canWriteSharedData, requireUser } from "@/lib/session";
@@ -10,6 +11,7 @@ import { DataTab } from "@/components/settings/data-tab";
 const TABS = ["profile", "tags", "instruments", "data"] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const t = await getTranslations("settings");
   const { tab: tabParam } = await searchParams;
   const tab = TABS.find((t) => t === tabParam) ?? "profile";
   const user = await requireUser();
@@ -25,13 +27,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   return (
     <Page width="reading">
-      <SectionHead title="Settings" hint="Profile, tags, instrument contracts, and your data." />
+      <SectionHead title={t("title")} hint={t("hint")} />
       <UrlTabs value={tab}>
         <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="tags">Tags</TabsTrigger>
-          <TabsTrigger value="instruments">Instruments</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="profile">{t("tabs.profile")}</TabsTrigger>
+          <TabsTrigger value="tags">{t("tabs.tags")}</TabsTrigger>
+          <TabsTrigger value="instruments">{t("tabs.instruments")}</TabsTrigger>
+          <TabsTrigger value="data">{t("tabs.data")}</TabsTrigger>
         </TabsList>
         <TabsContent value="profile" className="pt-4">
           <ProfileTab profile={profile} />

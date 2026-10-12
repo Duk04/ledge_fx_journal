@@ -3,6 +3,7 @@
 import * as React from "react";
 import { signOutAction } from "@/lib/actions/auth";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, User } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -44,6 +45,8 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations("shell");
+  const tNav = useTranslations("nav");
   const [rail, setRail] = useStoredState(RAIL_KEY, "0" as const, isRailValue);
   const collapsed = rail === "1";
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -85,7 +88,7 @@ export function AppShell({
           variant="ghost"
           size="icon-sm"
           className="lg:hidden"
-          aria-label="Open navigation"
+          aria-label={t("openNavigation")}
           onClick={() => setMobileOpen((o) => !o)}
         >
           <Menu />
@@ -103,7 +106,7 @@ export function AppShell({
 
         <Button asChild variant="primary" size="md" className="hidden sm:inline-flex">
           <Link href="/trades/new">
-            <Plus /> Log trade
+            <Plus /> {t("logTrade")}
             <Kbd className="ml-1 hidden md:inline-flex">N</Kbd>
           </Link>
         </Button>
@@ -112,7 +115,7 @@ export function AppShell({
 
         <Dropdown>
           <DropdownTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Account menu">
+            <Button variant="ghost" size="icon-sm" aria-label={t("accountMenu")}>
               <User />
             </Button>
           </DropdownTrigger>
@@ -121,7 +124,7 @@ export function AppShell({
             <div className="px-2 pb-1.5 text-2xs text-ink-3">{user.timezone}</div>
             <DropdownSeparator />
             <DropdownItem asChild>
-              <Link href="/settings">Settings</Link>
+              <Link href="/settings">{t("settings")}</Link>
             </DropdownItem>
             <DropdownSeparator />
             {/*
@@ -147,7 +150,7 @@ export function AppShell({
                 });
               }}
             >
-              <LogOut className="size-3.5" /> Sign out
+              <LogOut className="size-3.5" /> {t("signOut")}
             </DropdownItem>
           </DropdownContent>
         </Dropdown>
@@ -156,7 +159,7 @@ export function AppShell({
       <div className="flex min-h-0 flex-1">
         {/* --------------------------------------------------------------- rail */}
         <nav
-          aria-label="Main"
+          aria-label={t("main")}
           className={cn(
             "sticky top-topbar hidden h-[calc(100dvh-var(--topbar-h))] shrink-0 flex-col gap-4",
             "border-r border-line bg-panel px-2 py-3 lg:flex",
@@ -165,12 +168,13 @@ export function AppShell({
           )}
         >
           {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="flex flex-col gap-0.5">
-              {!collapsed ? <span className="label px-2 pb-1">{group.label}</span> : null}
+            <div key={tNav(group.label)} className="flex flex-col gap-0.5">
+              {!collapsed ? <span className="label px-2 pb-1">{tNav(group.label)}</span> : null}
               {group.items.map((item) => (
                 <RailLink
                   key={item.href}
                   {...item}
+                  label={tNav(item.label)}
                   collapsed={collapsed}
                   active={isActive(pathname, item.href, "exact" in item ? item.exact : false)}
                 />
@@ -187,14 +191,14 @@ export function AppShell({
               "flex h-8 items-center gap-2 rounded-control px-2 text-ink-3",
               "hover:bg-hover hover:text-ink-2",
             )}
-            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-label={collapsed ? t("expandNavigation") : t("collapseNavigation")}
           >
             {collapsed ? (
               <PanelLeftOpen className="size-4" />
             ) : (
               <>
                 <PanelLeftClose className="size-4" />
-                <span className="text-xs">Collapse</span>
+                <span className="text-xs">{t("collapse")}</span>
               </>
             )}
           </button>
@@ -212,15 +216,16 @@ export function AppShell({
               navButtonRef.current?.focus();
             }}
           >
-            <DialogTitle className="sr-only">Navigation</DialogTitle>
-            <nav aria-label="Main" className="flex flex-col gap-4 overflow-y-auto px-2 py-3">
+            <DialogTitle className="sr-only">{t("navigation")}</DialogTitle>
+            <nav aria-label={t("main")} className="flex flex-col gap-4 overflow-y-auto px-2 py-3">
               {NAV_GROUPS.map((group) => (
-                <div key={group.label} className="flex flex-col gap-0.5">
-                  <span className="label px-2 pb-1">{group.label}</span>
+                <div key={tNav(group.label)} className="flex flex-col gap-0.5">
+                  <span className="label px-2 pb-1">{tNav(group.label)}</span>
                   {group.items.map((item) => (
                     <RailLink
                       key={item.href}
                       {...item}
+                      label={tNav(item.label)}
                       onNavigate={() => setMobileOpen(false)}
                       active={isActive(pathname, item.href, "exact" in item ? item.exact : false)}
                     />
@@ -239,7 +244,7 @@ export function AppShell({
 
       {/* ------------------------------------------------------- mobile tab bar */}
       <nav
-        aria-label="Sections"
+        aria-label={t("sections")}
         className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-start border-t border-line bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
       >
         {MOBILE_NAV.map((item) => {
@@ -255,13 +260,13 @@ export function AppShell({
               )}
             >
               <item.icon className="size-[1.15rem]" />
-              <span className="text-2xs">{item.label}</span>
+              <span className="text-2xs">{tNav(item.label)}</span>
             </Link>
           );
         })}
         <Link
           href="/trades/new"
-          aria-label="Log trade"
+          aria-label={t("logTrade")}
           className="mx-2 mt-2 grid size-10 shrink-0 place-items-center rounded-control bg-brand text-brand-ink"
         >
           <Plus className="size-5" />

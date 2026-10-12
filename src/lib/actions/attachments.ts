@@ -3,9 +3,11 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
+import { vmsg } from "@/i18n/encoded";
+import { failT, failZod } from "@/i18n/server-t";
 
 /**
  * Attachment writes that aren't "upload a file" (that one's a multipart
@@ -45,7 +47,7 @@ const addExternalLinkSchema = z.object({
   url: z
     .string()
     .url()
-    .refine((u) => u.startsWith("https://"), { message: "Must be an https:// URL." }),
+    .refine((u) => u.startsWith("https://"), { message: vmsg("httpsUrl") }),
   kind: z.enum(["BEFORE", "AFTER", "OTHER"]).default("OTHER"),
   caption: z.string().max(500).optional(),
 });
@@ -58,12 +60,12 @@ export async function addExternalLink(
 ): Promise<ActionResult<{ id: string }>> {
   const parsed = addExternalLinkSchema.safeParse({ tradeId, url, kind, caption });
   if (!parsed.success) {
-    return failFields(fieldErrorsFrom(parsed.error));
+    return failZod(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
   const trade = await ownedTrade(user.id, parsed.data.tradeId);
-  if (!trade) return fail("Trade not found.");
+  if (!trade) return failT("tradeNotFound");
 
   const row = await prisma.attachment.create({
     data: {
@@ -90,12 +92,12 @@ const setCaptionSchema = z.object({
 export async function setCaption(attachmentId: string, caption: string | null): Promise<ActionResult> {
   const parsed = setCaptionSchema.safeParse({ attachmentId, caption });
   if (!parsed.success) {
-    return failFields(fieldErrorsFrom(parsed.error));
+    return failZod(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
   const attachment = await ownedAttachment(user.id, parsed.data.attachmentId);
-  if (!attachment) return fail("Attachment not found.");
+  if (!attachment) return failT("attachmentNotFound");
 
   const value = parsed.data.caption?.trim();
   await prisma.attachment.update({
@@ -122,12 +124,12 @@ export async function setAttachmentKind(
 ): Promise<ActionResult> {
   const parsed = setKindSchema.safeParse({ attachmentId, kind });
   if (!parsed.success) {
-    return failFields(fieldErrorsFrom(parsed.error));
+    return failZod(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
   const attachment = await ownedAttachment(user.id, parsed.data.attachmentId);
-  if (!attachment) return fail("Attachment not found.");
+  if (!attachment) return failT("attachmentNotFound");
 
   await prisma.attachment.update({ where: { id: attachment.id }, data: { kind: parsed.data.kind } });
 
@@ -140,11 +142,11 @@ export async function setAttachmentKind(
 // ---------------------------------------------------------------------------
 
 export async function deleteAttachment(attachmentId: string): Promise<ActionResult> {
-  if (!attachmentId) return fail("Missing attachment id.");
+  if (!attachmentId) return failT("missingAttachmentId");
 
   const user = await requireUser();
   const attachment = await ownedAttachment(user.id, attachmentId);
-  if (!attachment) return fail("Attachment not found.");
+  if (!attachment) return failT("attachmentNotFound");
 
   if (attachment.storageKey) {
     await getStorage().deleteObject(attachment.storageKey);

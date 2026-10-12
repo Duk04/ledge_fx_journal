@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { translateVmsg } from "@/i18n/encoded";
+
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
@@ -114,6 +117,7 @@ export function FieldLabel({
   ...props
 }: React.ComponentProps<"label"> & { optional?: boolean }) {
   const { id, ctx } = useFieldContext(htmlFor);
+  const t = useTranslations("ui");
   return (
     <label
       id={id ? fieldLabelId(id) : undefined}
@@ -122,7 +126,7 @@ export function FieldLabel({
       {...props}
     >
       {children}
-      {optional ? <span className="ml-1 text-2xs font-normal text-ink-3">optional</span> : null}
+      {optional ? <span className="ml-1 text-2xs font-normal text-ink-3">{t("optional")}</span> : null}
     </label>
   );
 }
@@ -147,6 +151,7 @@ export function FieldHint({ className, children, ...props }: React.ComponentProp
 
 export function FieldError({ className, children, ...props }: React.ComponentProps<"p">) {
   const ctx = React.useContext(FieldContext);
+  const tv = useTranslations("validation");
   const errId = React.useId();
   const fullId = `${ctx?.id ?? "field"}-error-${errId}`;
   const register = ctx?.register;
@@ -166,7 +171,9 @@ export function FieldError({ className, children, ...props }: React.ComponentPro
 
   return (
     <p id={fullId} role="alert" className={cn("text-2xs text-loss", className)} {...props}>
-      {children}
+      {/* Schema messages arrive as keys (i18n/encoded.ts); this is the one
+          place every field error passes through on its way to the screen. */}
+      {typeof children === "string" ? translateVmsg(tv, children) : children}
     </p>
   );
 }

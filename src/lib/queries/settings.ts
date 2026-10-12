@@ -15,12 +15,13 @@ export type ProfileView = {
   name: string | null;
   email: string;
   timezone: string;
+  locale: string;
 };
 
 export async function getProfile(userId: string): Promise<ProfileView> {
   return prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, name: true, email: true, timezone: true },
+    select: { id: true, name: true, email: true, timezone: true, locale: true },
   });
 }
 

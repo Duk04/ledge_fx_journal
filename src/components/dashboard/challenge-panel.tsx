@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Badge, Panel, PanelBody, PanelHeader } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { formatMoney } from "@/lib/metrics/formatters";
@@ -10,58 +11,68 @@ import type { PropDTO } from "@/lib/queries/analytics";
  * challenge is one continuous evaluation, not a window.
  */
 export function ChallengePanel({ prop, currency }: { prop: PropDTO; currency: string }) {
+  const t = useTranslations("dashboard.challenge");
   const verdict = {
-    IN_PROGRESS: { label: "In progress", tone: "neutral" as const },
-    PASSED: { label: "Passed", tone: "profit" as const },
-    FAILED: { label: "Breached", tone: "loss" as const },
+    IN_PROGRESS: { label: t("inProgress"), tone: "neutral" as const },
+    PASSED: { label: t("passed"), tone: "profit" as const },
+    FAILED: { label: t("breached"), tone: "loss" as const },
   }[prop.verdict];
 
   return (
     <Panel>
-      <PanelHeader title="Challenge" actions={<Badge tone={verdict.tone}>{verdict.label}</Badge>} />
+      <PanelHeader title={t("title")} actions={<Badge tone={verdict.tone}>{verdict.label}</Badge>} />
       <PanelBody className="flex flex-col gap-3">
         {prop.profitTarget ? (
           <Meter
-            label="Profit target"
+            label={t("profitTarget")}
             value={prop.profitTarget.progress}
             tone={prop.profitTarget.met ? "profit" : "brand"}
             detail={
               prop.profitTarget.met
-                ? `Reached ${formatMoney(prop.profitTarget.threshold, currency)}`
-                : `${formatMoney(prop.profitTarget.remaining, currency)} to ${formatMoney(prop.profitTarget.threshold, currency)}`
+                ? t("reached", { amount: formatMoney(prop.profitTarget.threshold, currency) })
+                : t("toTarget", {
+                    remaining: formatMoney(prop.profitTarget.remaining, currency),
+                    threshold: formatMoney(prop.profitTarget.threshold, currency),
+                  })
             }
           />
         ) : null}
         {prop.maxDrawdown ? (
           <Meter
-            label={`Max drawdown · ${prop.maxDrawdown.mode === "TRAILING" ? "trailing" : "static"}`}
+            label={t("maxDrawdown", { mode: prop.maxDrawdown.mode })}
             value={prop.maxDrawdown.progress}
             tone={prop.maxDrawdown.breached ? "loss" : prop.maxDrawdown.progress > 0.75 ? "warn" : "neutral"}
             detail={
               prop.maxDrawdown.breached
-                ? `Closed below the ${formatMoney(prop.maxDrawdown.floor, currency)} floor`
-                : `${formatMoney(prop.maxDrawdown.remaining, currency)} above the ${formatMoney(prop.maxDrawdown.floor, currency)} floor`
+                ? t("belowFloor", { floor: formatMoney(prop.maxDrawdown.floor, currency) })
+                : t("aboveFloor", {
+                    remaining: formatMoney(prop.maxDrawdown.remaining, currency),
+                    floor: formatMoney(prop.maxDrawdown.floor, currency),
+                  })
             }
           />
         ) : null}
         {prop.dailyLoss ? (
           <Meter
-            label="Today's loss allowance"
+            label={t("dailyLoss")}
             value={prop.dailyLoss.progress}
             tone={prop.dailyLoss.breached ? "loss" : prop.dailyLoss.progress > 0.75 ? "warn" : "neutral"}
             detail={
               prop.dailyLoss.breached
-                ? `Used up (${formatMoney(prop.dailyLoss.threshold, currency)})`
-                : `${formatMoney(prop.dailyLoss.remaining, currency)} of ${formatMoney(prop.dailyLoss.threshold, currency)} left · closed trades only`
+                ? t("usedUp", { amount: formatMoney(prop.dailyLoss.threshold, currency) })
+                : t("dailyLeft", {
+                    remaining: formatMoney(prop.dailyLoss.remaining, currency),
+                    threshold: formatMoney(prop.dailyLoss.threshold, currency),
+                  })
             }
           />
         ) : null}
         {prop.minTradingDays ? (
           <Meter
-            label="Trading days"
+            label={t("tradingDays")}
             value={prop.minTradingDays.required ? prop.minTradingDays.done / prop.minTradingDays.required : 1}
             tone={prop.minTradingDays.met ? "profit" : "brand"}
-            detail={`${prop.minTradingDays.done} of ${prop.minTradingDays.required}`}
+            detail={t("daysProgress", { done: prop.minTradingDays.done, required: prop.minTradingDays.required })}
           />
         ) : null}
       </PanelBody>

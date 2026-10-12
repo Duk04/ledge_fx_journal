@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead } from "@/components/ui";
 import { SimulatorView } from "@/components/simulate/simulator-view";
@@ -12,13 +13,11 @@ export default async function SimulatePage() {
   if (!accountId) redirect("/accounts");
   const account = await requireAccountAccess(accountId);
   const inputs = await simulationInputs(user.id, account.id);
+  const t = await getTranslations("simulate");
 
   return (
     <Page>
-      <SectionHead
-        title="Simulate"
-        hint={`${account.label} — your own closed trades, replayed. Nothing here changes your journal.`}
-      />
+      <SectionHead title={t("title")} hint={t("hint", { account: account.label })} />
       <SimulatorView inputs={inputs} />
     </Page>
   );

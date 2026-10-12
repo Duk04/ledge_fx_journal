@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { Panel, PanelHeader, PanelBody, SectionHead, Button } from "@/components/ui";
 import { CalendarGrid } from "@/components/journal/calendar-grid";
@@ -19,34 +20,28 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   const currency = accountId ? ((await getAccountCurrency(accountId)) ?? "USD") : "USD";
 
   const view = await monthView(user.id, accountId, month, user.timezone);
+  const t = await getTranslations("journal.month");
 
   return (
     <Page>
       <SectionHead
-        title="Journal"
-        hint={
-          accountId
-            ? "The discipline half of the ledger — what you planned, what you did, and how it went."
-            : "No trading account yet — trades won't show on the calendar until you add one."
-        }
+        title={t("title")}
+        hint={accountId ? t("hint") : t("hintNoAccount")}
         actions={<MonthNav month={month} currentMonth={currentMonth} />}
       />
 
       <Panel>
-        <PanelHeader
-          title={monthLabel(month)}
-          caption={`${view.entries.length} entr${view.entries.length === 1 ? "y" : "ies"} this month`}
-        />
+        <PanelHeader title={monthLabel(month)} caption={t("entriesCaption", { count: view.entries.length })} />
         <CalendarGrid month={month} days={view.days} currency={currency} today={today} />
       </Panel>
 
       <Panel>
         <PanelHeader
-          title="Entries"
+          title={t("entries")}
           actions={
             !accountId ? (
               <Button asChild variant="link" size="sm">
-                <Link href="/accounts">Add a trading account</Link>
+                <Link href="/accounts">{t("addAccount")}</Link>
               </Button>
             ) : undefined
           }

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, UploadCloud } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
@@ -33,17 +34,13 @@ import { importStatement, undoImport, type PreviewRow, type StatementReport } fr
 import { formatInZone } from "@/lib/metrics/formatters";
 import type { RecentImport } from "@/lib/queries/statements";
 
-const STATUS: Record<PreviewRow["status"], { label: string; tone: "brand" | "neutral" | "warn" | "profit" }> = {
-  new: { label: "New", tone: "brand" },
-  close: { label: "Closes open", tone: "profit" },
-  duplicate: { label: "Already imported", tone: "neutral" },
-  unmapped: { label: "Unknown symbol", tone: "warn" },
-};
-
-const SOURCE_LABEL: Record<StatementReport["source"], string> = {
-  MT4_HTML: "MT4 detailed statement",
-  MT5_HTML: "MT5 report",
-  CSV: "CSV",
+// Labels live in messages under `trades.import.rowStatus` / `trades.import.source`,
+// keyed by the same values, and are translated at the render site.
+const STATUS_TONE: Record<PreviewRow["status"], "brand" | "neutral" | "warn" | "profit"> = {
+  new: "brand",
+  close: "profit",
+  duplicate: "neutral",
+  unmapped: "warn",
 };
 
 export function StatementImport({
@@ -59,6 +56,8 @@ export function StatementImport({
   instruments: { symbol: string; displayName: string }[];
   recent: RecentImport[];
 }) {
+  const t = useTranslations("trades.import");
+  const tCommon = useTranslations("trades.common");
   const router = useRouter();
   const { toast } = useToast();
   const [file, setFile] = React.useState<File | null>(null);
@@ -90,7 +89,7 @@ export function StatementImport({
     const result = await importStatement(accountId, fd);
     setBusy(null);
     if (!result.ok) {
-      setError(result.formError ?? "Something went wrong reading that file.");
+      setError(result.formError ?? t("readError"));
       return;
     }
     if (mode === "preview") {
@@ -98,8 +97,8 @@ export function StatementImport({
       return;
     }
     toast({
-      title: `Imported ${result.counts.new} trade${result.counts.new === 1 ? "" : "s"}`,
-      description: result.counts.close ? `${result.counts.close} open position(s) closed.` : undefined,
+      title: t("importedToast", { count: result.counts.new }),
+      description: result.counts.close ? t("closedToast", { count: result.counts.close }) : undefined,
     });
     setPreview(null);
     setFile(null);
@@ -116,10 +115,10 @@ export function StatementImport({
   async function handleUndo(importId: string) {
     const result = await undoImport(importId);
     if (!result.ok) {
-      toast({ title: "Couldn't undo that import", description: result.formError, tone: "loss" });
+      toast({ title: t("undoFailed"), description: result.formError, tone: "loss" });
       return;
     }
-    toast({ title: `Removed ${result.trades} trade(s) and ${result.balanceEvents} cash movement(s)` });
+    toast({ title: t("undone", { trades: result.trades, events: result.balanceEvents }) });
     router.refresh();
   }
 
@@ -128,20 +127,20 @@ export function StatementImport({
   return (
     <div className="flex flex-col gap-4">
       <Panel>
-        <PanelHeader title="Statement" caption={`Into ${accountLabel}`} />
+        <PanelHeader title={t("statement")} caption={t("into", { account: accountLabel })} />
         <PanelBody className="flex flex-col gap-4">
           <DropZone file={file} dragging={dragging} onDragStateChange={setDragging} onFile={setFile} />
 
           <Field>
-            <FieldLabel>Broker server time</FieldLabel>
+            <FieldLabel>{t("serverTime")}</FieldLabel>
             <div className="flex flex-wrap items-center gap-2">
               <Segmented value={tzMode} onValueChange={(v) => v && setTzMode(v as "ny-close" | "fixed")}>
-                <SegmentedItem value="ny-close">New York close (UTC+2/+3)</SegmentedItem>
-                <SegmentedItem value="fixed">Fixed offset</SegmentedItem>
+                <SegmentedItem value="ny-close">{t("nyClose")}</SegmentedItem>
+                <SegmentedItem value="fixed">{t("fixedOffset")}</SegmentedItem>
               </Segmented>
               {tzMode === "fixed" ? (
                 <Input
-                  aria-label="UTC offset in hours"
+                  aria-label={t("offsetLabel")}
                   className="w-24"
                   inputMode="decimal"
                   value={offsetHours}
@@ -149,10 +148,7 @@ export function StatementImport({
                 />
               ) : null}
             </div>
-            <FieldHint>
-              MetaTrader writes times in the broker&rsquo;s server clock with no timezone. Most retail FX brokers run
-              New York + 7h, which follows US daylight saving — pick a fixed offset only if yours doesn&rsquo;t.
-            </FieldHint>
+            <FieldHint>{t("serverTimeHint")}</FieldHint>
           </Field>
 
           {error ? (
@@ -169,7 +165,7 @@ export function StatementImport({
             disabled={!file || busy !== null}
             onClick={() => run("preview")}
           >
-            {busy === "preview" ? "Reading…" : "Preview"}
+            {busy === "preview" ? t("reading") : t("preview")}
           </Button>
         </PanelFooter>
       </Panel>
@@ -184,10 +180,10 @@ export function StatementImport({
           footer={
             <Button variant="primary" disabled={writable === 0 || busy !== null} onClick={() => run("import")}>
               {busy === "import"
-                ? "Importing…"
-                : `Import ${report.counts.new} trade${report.counts.new === 1 ? "" : "s"}${
-                    report.balanceEvents.new ? ` and ${report.balanceEvents.new} cash movement(s)` : ""
-                  }`}
+                ? t("importing")
+                : report.balanceEvents.new
+                  ? t("importTradesAndCash", { count: report.counts.new, events: report.balanceEvents.new })
+                  : t("importTrades", { count: report.counts.new })}
             </Button>
           }
         />
@@ -195,15 +191,15 @@ export function StatementImport({
 
       {recent.length ? (
         <Panel flush>
-          <PanelHeader title="Recent imports" caption="Undo removes the trades and cash movements an import created" />
+          <PanelHeader title={t("recent")} caption={t("recentCaption")} />
           <DataTable>
             <thead>
               <tr>
-                <Th>When</Th>
-                <Th>File</Th>
-                <Th>Time reading</Th>
-                <Th numeric>Trades</Th>
-                <Th aria-label="Actions" />
+                <Th>{t("when")}</Th>
+                <Th>{t("file")}</Th>
+                <Th>{t("timeReading")}</Th>
+                <Th numeric>{t("trades")}</Th>
+                <Th aria-label={tCommon("actions")} />
               </tr>
             </thead>
             <tbody>
@@ -211,12 +207,12 @@ export function StatementImport({
                 <tr key={r.id}>
                   <Td className="mono text-xs">{formatInZone(r.createdAt, timezone, "MMM d, HH:mm")}</Td>
                   <Td className="text-xs">
-                    {r.fileName ?? "—"} <span className="text-ink-3">· {SOURCE_LABEL[r.source]}</span>
+                    {r.fileName ?? "—"} <span className="text-ink-3">· {t(`source.${r.source}`)}</span>
                   </Td>
                   <Td className="text-xs text-ink-2">
                     {r.tzMode === "fixed"
                       ? `UTC${(r.tzOffsetMinutes ?? 0) >= 0 ? "+" : ""}${(r.tzOffsetMinutes ?? 0) / 60}`
-                      : "NY close"}
+                      : t("nyCloseShort")}
                   </Td>
                   <Td numeric className="mono text-xs">
                     {r.tradesRemaining}
@@ -226,7 +222,7 @@ export function StatementImport({
                   </Td>
                   <Td numeric>
                     <Button variant="ghost" size="sm" onClick={() => handleUndo(r.id)}>
-                      Undo
+                      {t("undo")}
                     </Button>
                   </Td>
                 </tr>
@@ -254,23 +250,27 @@ function Preview({
   onAlias: (brokerSymbol: string, symbol: string) => void;
   footer: React.ReactNode;
 }) {
+  const t = useTranslations("trades.import");
+  const tCommon = useTranslations("trades.common");
   const mismatches = report.rows.filter((r) => r.mismatch).length;
   return (
     <Panel flush>
       <PanelHeader
-        title="Preview"
-        caption={`${SOURCE_LABEL[report.source]}${report.statementCurrency ? ` · ${report.statementCurrency}` : ""}`}
+        title={t("preview")}
+        caption={`${t(`source.${report.source}`)}${report.statementCurrency ? ` · ${report.statementCurrency}` : ""}`}
       />
       <PanelBody className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2 text-xs">
-          <Badge tone="brand">{report.counts.new} new</Badge>
-          {report.counts.close ? <Badge tone="profit">{report.counts.close} closing open positions</Badge> : null}
-          {report.counts.duplicate ? <Badge>{report.counts.duplicate} already imported</Badge> : null}
-          {report.counts.unmapped ? <Badge tone="warn">{report.counts.unmapped} unknown symbol</Badge> : null}
-          {report.balanceEvents.new ? (
-            <Badge tone="outline">{report.balanceEvents.new} deposits/withdrawals</Badge>
+          <Badge tone="brand">{t("countNew", { count: report.counts.new })}</Badge>
+          {report.counts.close ? <Badge tone="profit">{t("countClose", { count: report.counts.close })}</Badge> : null}
+          {report.counts.duplicate ? <Badge>{t("countDuplicate", { count: report.counts.duplicate })}</Badge> : null}
+          {report.counts.unmapped ? (
+            <Badge tone="warn">{t("countUnmapped", { count: report.counts.unmapped })}</Badge>
           ) : null}
-          {report.skipped ? <Badge tone="warn">{report.skipped} unreadable rows</Badge> : null}
+          {report.balanceEvents.new ? (
+            <Badge tone="outline">{t("countCash", { count: report.balanceEvents.new })}</Badge>
+          ) : null}
+          {report.skipped ? <Badge tone="warn">{t("countSkipped", { count: report.skipped })}</Badge> : null}
         </div>
 
         {report.warnings.map((w) => (
@@ -278,25 +278,17 @@ function Preview({
             {w}
           </p>
         ))}
-        {mismatches ? (
-          <p className="text-xs text-warn">
-            {mismatches} trade(s) compute a different gross P&amp;L from the broker&rsquo;s. That usually means this
-            broker&rsquo;s contract size for the instrument differs from the journal&rsquo;s — check those rows after
-            importing.
-          </p>
-        ) : null}
+        {mismatches ? <p className="text-xs text-warn">{t("mismatchWarning", { count: mismatches })}</p> : null}
 
         {report.unmappedSymbols.length ? (
           <div className="flex flex-col gap-2 rounded-control border border-warn/30 bg-warn-weak p-3">
-            <p className="text-xs text-ink">
-              Which instrument is each of these? Your answer is remembered for next time.
-            </p>
+            <p className="text-xs text-ink">{t("unmappedPrompt")}</p>
             {report.unmappedSymbols.map((broker) => (
               <Field key={broker} className="flex-row items-center gap-3">
                 <FieldLabel className="mono w-32">{broker}</FieldLabel>
                 <Select value={aliases[broker] ?? ""} onValueChange={(v) => onAlias(broker, v)}>
                   <SelectTrigger className="w-56">
-                    <SelectValue placeholder="Skip these trades" />
+                    <SelectValue placeholder={t("skipThese")} />
                   </SelectTrigger>
                   <SelectContent>
                     {instruments.map((i) => (
@@ -308,7 +300,7 @@ function Preview({
                 </Select>
               </Field>
             ))}
-            <FieldHint>Picking an instrument re-runs the preview before anything is imported.</FieldHint>
+            <FieldHint>{t("unmappedHint")}</FieldHint>
           </div>
         ) : null}
       </PanelBody>
@@ -316,14 +308,14 @@ function Preview({
       <DataTable>
         <thead>
           <tr>
-            <Th>Ticket</Th>
-            <Th>Opened</Th>
-            <Th>Symbol</Th>
-            <Th>Dir</Th>
-            <Th numeric>Lots</Th>
-            <Th numeric>Net P&amp;L</Th>
-            <Th numeric>Broker gross</Th>
-            <Th>Status</Th>
+            <Th>{t("ticket")}</Th>
+            <Th>{tCommon("opened")}</Th>
+            <Th>{tCommon("symbol")}</Th>
+            <Th>{tCommon("dir")}</Th>
+            <Th numeric>{tCommon("lots")}</Th>
+            <Th numeric>{tCommon("netPnl")}</Th>
+            <Th numeric>{t("brokerGross")}</Th>
+            <Th>{tCommon("status")}</Th>
           </tr>
         </thead>
         <tbody>
@@ -347,22 +339,22 @@ function Preview({
                 {r.closedAt ? (
                   <Money value={r.netPnl} currency={report.accountCurrency} signed />
                 ) : (
-                  <span className="text-xs text-ink-3">open</span>
+                  <span className="text-xs text-ink-3">{t("openPnl")}</span>
                 )}
               </Td>
               <Td numeric>
                 <Money value={r.brokerProfit} currency={report.accountCurrency} colour={false} />
                 {r.mismatch ? (
-                  <Badge tone="warn" className="ml-1" title="Our gross P&L differs from the broker's">
+                  <Badge tone="warn" className="ml-1" title={t("mismatchTitle")}>
                     ≠
                   </Badge>
                 ) : null}
               </Td>
               <Td>
-                <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
+                <Badge tone={STATUS_TONE[r.status]}>{t(`rowStatus.${r.status}`)}</Badge>
                 {r.impliedRate ? (
-                  <Badge tone="outline" className="ml-1" title="Conversion rate taken from the broker's profit">
-                    rate from broker
+                  <Badge tone="outline" className="ml-1" title={t("impliedRateTitle")}>
+                    {t("rateFromBroker")}
                   </Badge>
                 ) : null}
               </Td>
@@ -372,7 +364,7 @@ function Preview({
       </DataTable>
       <PanelFooter className="justify-between">
         <Link href="/trades" className="text-xs text-ink-2 hover:text-ink">
-          Back to trades
+          {t("backToTrades")}
         </Link>
         {footer}
       </PanelFooter>
@@ -391,12 +383,13 @@ function DropZone({
   onDragStateChange: (dragging: boolean) => void;
   onFile: (file: File | null) => void;
 }) {
+  const t = useTranslations("trades.import");
   const inputRef = React.useRef<HTMLInputElement>(null);
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={file ? `Statement file: ${file.name}. Choose another` : "Choose a statement file"}
+      aria-label={file ? t("fileChosen", { name: file.name }) : t("chooseFile")}
       onClick={() => inputRef.current?.click()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
@@ -428,15 +421,13 @@ function DropZone({
         <>
           <FileText className="size-5 text-ink-2" aria-hidden />
           <span className="text-sm text-ink">{file.name}</span>
-          <span className="text-xs text-ink-3">click or drop to replace</span>
+          <span className="text-xs text-ink-3">{t("replaceFile")}</span>
         </>
       ) : (
         <>
           <UploadCloud className="size-5 text-ink-3" aria-hidden />
-          <span className="text-sm text-ink-2">Drop a statement here, or click to choose one</span>
-          <span className="text-xs text-ink-3">
-            MT4 Detailed Statement (.htm), MT5 Report (.html), or a CSV — up to 10MB
-          </span>
+          <span className="text-sm text-ink-2">{t("dropPrompt")}</span>
+          <span className="text-xs text-ink-3">{t("formats")}</span>
         </>
       )}
     </div>

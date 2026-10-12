@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead } from "@/components/ui/panel";
 import { requireUser } from "@/lib/session";
@@ -14,6 +15,7 @@ import { formatInZone } from "@/lib/metrics/formatters";
 export default async function EditTradePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
+  const t = await getTranslations("trades.form.page");
   const trade = await getTrade(user.id, id);
   if (!trade) notFound();
 
@@ -54,8 +56,8 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   return (
     <Page width="reading">
       <SectionHead
-        title={`Edit ${trade.symbol}`}
-        hint={`Opened ${formatInZone(trade.openedAt, user.timezone, "EEE, MMM d yyyy · HH:mm")}`}
+        title={t("editTitle", { symbol: trade.symbol })}
+        hint={t("opened", { date: formatInZone(trade.openedAt, user.timezone, "EEE, MMM d yyyy · HH:mm") })}
       />
       <TradeForm
         mode="edit"

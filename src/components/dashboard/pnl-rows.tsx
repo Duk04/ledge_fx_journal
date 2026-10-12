@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Money } from "@/components/ui";
 
 /** Today / this week / this month P&L — fixed calendar windows in the
@@ -13,10 +14,11 @@ export function PnlRows({
   weekPnl: number;
   monthPnl: number;
 }) {
+  const t = useTranslations("dashboard.pnl");
   const rows: { label: string; value: number }[] = [
-    { label: "Today", value: todayPnl },
-    { label: "This week", value: weekPnl },
-    { label: "This month", value: monthPnl },
+    { label: t("today"), value: todayPnl },
+    { label: t("week"), value: weekPnl },
+    { label: t("month"), value: monthPnl },
   ];
   return (
     <div className="flex flex-col divide-y divide-line-faint">

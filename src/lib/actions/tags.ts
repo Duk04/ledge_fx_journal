@@ -4,24 +4,30 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { failT, failZod } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 function revalidateTags() {
   revalidatePath("/settings");
 }
 
-const nameSchema = z.string().trim().min(1, "Name is required.").max(60, "Keep it under 60 characters.");
+const nameSchema = z
+  .string()
+  .trim()
+  .min(1, vmsg("nameRequired"))
+  .max(60, vmsg("maxChars", { max: "60" }));
 const colorSchema = z
   .string()
   .trim()
-  .regex(/^#[0-9a-fA-F]{6}$/, "Use a 6-digit hex colour, e.g. #33488F.");
-const kindSchema = z.enum(["SETUP", "MISTAKE"], { message: "Choose SETUP or MISTAKE." });
+  .regex(/^#[0-9a-fA-F]{6}$/, vmsg("hexColour"));
+const kindSchema = z.enum(["SETUP", "MISTAKE"], { message: vmsg("chooseTagKind") });
 
 const createSchema = z.object({ name: nameSchema, kind: kindSchema, color: colorSchema });
 
 export async function createTag(input: z.input<typeof createSchema>): Promise<ActionResult> {
   const parsed = createSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
   const user = await requireUser();
 
@@ -56,11 +62,11 @@ const updateSchema = z.object({ name: nameSchema, color: colorSchema });
 /** Renames and/or recolours a tag. Reordering is a separate action (`reorderTag`). */
 export async function updateTag(tagId: string, input: z.input<typeof updateSchema>): Promise<ActionResult> {
   const parsed = updateSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
   const user = await requireUser();
   const tag = await prisma.tag.findFirst({ where: { id: tagId, userId: user.id } });
-  if (!tag) return fail("Tag not found.");
+  if (!tag) return failT("tagNotFound");
 
   const clash = await prisma.tag.findFirst({
     where: { userId: user.id, kind: tag.kind, name: parsed.data.name, NOT: { id: tagId } },
@@ -81,7 +87,7 @@ export async function updateTag(tagId: string, input: z.input<typeof updateSchem
 export async function reorderTag(tagId: string, direction: "up" | "down"): Promise<ActionResult> {
   const user = await requireUser();
   const tag = await prisma.tag.findFirst({ where: { id: tagId, userId: user.id } });
-  if (!tag) return fail("Tag not found.");
+  if (!tag) return failT("tagNotFound");
 
   const neighbor = await prisma.tag.findFirst({
     where: {
@@ -107,7 +113,7 @@ export async function reorderTag(tagId: string, direction: "up" | "down"): Promi
 export async function deleteTag(tagId: string): Promise<ActionResult> {
   const user = await requireUser();
   const tag = await prisma.tag.findFirst({ where: { id: tagId, userId: user.id } });
-  if (!tag) return fail("Tag not found.");
+  if (!tag) return failT("tagNotFound");
 
   await prisma.tag.delete({ where: { id: tagId } });
   revalidateTags();

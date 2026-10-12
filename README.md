@@ -37,6 +37,8 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   skip weekdays/sessions/tags, fixed % sizing), Monte Carlo on your R
   multiples, and a position-size calculator that warns before the trade.
   See `docs/SIMULATE.md`.
+- **English and Mongolian** — pick the language in Settings; it follows you
+  to other devices at sign-in. See `docs/I18N.md`.
 - **A same-day risk guard** — a plain-language strip that appears only when
   something's actually off today: a daily loss limit reached, two-plus
   losses in a row, a trade sized well past the account's per-trade risk

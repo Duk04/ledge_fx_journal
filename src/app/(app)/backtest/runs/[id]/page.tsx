@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead, Panel, PanelHeader, PanelBody, Stat, StatRow, Badge } from "@/components/ui";
 import { Percent } from "@/components/ui/value";
@@ -25,6 +26,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
   const user = await requireUser();
   const run = await getRun(user.id, id);
   if (!run) notFound();
+  const t = await getTranslations("backtest");
 
   const s = run.summary;
   const equityData: EquityPointDTO[] = run.equity.map((p) => ({
@@ -41,10 +43,10 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
         hint={
           <>
             <Badge tone={run.kind === "STRATEGY" ? "brand" : "neutral"} className="mr-1.5">
-              {run.kind}
+              {t(`runKind.${run.kind}`)}
             </Badge>
             {run.symbol} · {run.timeframe} · {formatDateRange(run.fromTs, run.toTs)}
-            {run.strategy ? <> · strategy: {run.strategy.name}</> : null}
+            {run.strategy ? <> · {t("run.strategyLabel", { name: run.strategy.name })}</> : null}
           </>
         }
         actions={<ViewInAnalyticsButton accountId={run.accountId} />}
@@ -54,64 +56,83 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
         <Panel>
           <PanelBody>
             <p className="text-sm text-loss">
-              This run ended with an error: <span className="mono text-xs">{run.error}</span>
-              {run.trades.length > 0 ? " Trades made before the error are still recorded below." : null}
+              {t.rich("run.endedWithError", {
+                error: run.error,
+                err: (chunks) => <span className="mono text-xs">{chunks}</span>,
+              })}
+              {run.trades.length > 0 ? ` ${t("run.tradesKept")}` : null}
             </p>
           </PanelBody>
         </Panel>
       ) : null}
 
       <Panel>
-        <PanelHeader title="Summary" />
+        <PanelHeader title={t("run.summary")} />
         <PanelBody>
           <StatRow>
-            <Stat label="Net P&L" value={formatMoney(s.netPnl, run.currency)} tone={toneOf(s.netPnl)} />
-            <Stat label="Win rate" value={<Percent value={s.winRate} />} />
-            <Stat label="Profit factor" value={s.profitFactor !== null ? s.profitFactor.toFixed(2) : "—"} />
-            <Stat label="Expectancy" value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
+            <Stat label={t("run.netPnl")} value={formatMoney(s.netPnl, run.currency)} tone={toneOf(s.netPnl)} />
+            <Stat label={t("run.winRate")} value={<Percent value={s.winRate} />} />
+            <Stat label={t("run.profitFactor")} value={s.profitFactor !== null ? s.profitFactor.toFixed(2) : "—"} />
+            <Stat label={t("run.expectancy")} value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
             <Stat
-              label="Max drawdown"
+              label={t("run.maxDrawdown")}
               value={s.maxDrawdownAmount !== null ? formatMoney(-Math.abs(s.maxDrawdownAmount), run.currency) : "—"}
-              hint={s.maxDrawdownPct !== null ? `${s.maxDrawdownPct.toFixed(1)}% of peak` : undefined}
+              hint={s.maxDrawdownPct !== null ? t("run.ofPeak", { pct: s.maxDrawdownPct.toFixed(1) }) : undefined}
               tone={s.maxDrawdownAmount ? "loss" : "neutral"}
             />
-            <Stat label="Trades" value={String(s.tradeCount)} hint={`${s.wins}W / ${s.losses}L / ${s.breakevens} BE`} />
+            <Stat
+              label={t("run.trades")}
+              value={String(s.tradeCount)}
+              hint={t("run.winLossBe", {
+                wins: String(s.wins),
+                losses: String(s.losses),
+                breakevens: String(s.breakevens),
+              })}
+            />
           </StatRow>
         </PanelBody>
       </Panel>
 
       <Panel>
-        <PanelHeader title="Equity curve" />
+        <PanelHeader title={t("run.equityCurve")} />
         <PanelBody className="h-72">
           <EquityChart data={equityData} startBalance={Number(run.initialBalance)} currency={run.currency} />
         </PanelBody>
       </Panel>
 
       <Panel>
-        <PanelHeader title="Fill assumptions" caption="what this run treated as realistic execution" />
+        <PanelHeader title={t("run.fillTitle")} caption={t("run.fillCaption")} />
         <PanelBody>
           <StatRow>
-            <Stat label="Initial balance" value={formatMoney(Number(run.initialBalance), run.currency)} />
-            <Stat label="Spread" value={`${run.fill.spreadPoints} pts`} hint="charged on entry and exit" />
-            <Stat label="Slippage" value={`${run.fill.slippagePoints} pts`} hint="against the trader, every fill" />
+            <Stat label={t("run.initialBalance")} value={formatMoney(Number(run.initialBalance), run.currency)} />
             <Stat
-              label="Commission"
+              label={t("run.spread")}
+              value={t("run.points", { value: String(run.fill.spreadPoints) })}
+              hint={t("run.spreadHint")}
+            />
+            <Stat
+              label={t("run.slippage")}
+              value={t("run.points", { value: String(run.fill.slippagePoints) })}
+              hint={t("run.slippageHint")}
+            />
+            <Stat
+              label={t("run.commission")}
               value={formatMoney(Number(run.fill.commissionPerLot), run.currency)}
-              hint="per lot, per side"
+              hint={t("run.commissionHint")}
             />
             <Stat
-              label="Same-bar stop+target"
-              value={run.fill.pessimisticFills ? "Stop wins" : "Target wins"}
-              hint={run.fill.pessimisticFills ? "the honest default" : "optimistic — sensitivity check only"}
+              label={t("run.sameBar")}
+              value={run.fill.pessimisticFills ? t("run.stopWins") : t("run.targetWins")}
+              hint={run.fill.pessimisticFills ? t("run.honestDefault") : t("run.optimistic")}
             />
-            <Stat label="Bars processed" value={s.barsProcessed.toLocaleString()} />
+            <Stat label={t("run.barsProcessed")} value={s.barsProcessed.toLocaleString()} />
           </StatRow>
         </PanelBody>
       </Panel>
 
       {run.strategy ? (
         <Panel>
-          <PanelHeader title="Strategy parameters" caption={run.strategy.name} />
+          <PanelHeader title={t("run.params")} caption={run.strategy.name} />
           <PanelBody>
             {run.params && Object.keys(run.params).length > 0 ? (
               <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-4">
@@ -123,14 +144,17 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
                 ))}
               </dl>
             ) : (
-              <p className="text-xs text-ink-3">This strategy declares no parameters.</p>
+              <p className="text-xs text-ink-3">{t("common.noParams")}</p>
             )}
           </PanelBody>
         </Panel>
       ) : null}
 
       <Panel flush>
-        <PanelHeader title="Trades" caption={`${run.trades.length} trade(s)`} />
+        <PanelHeader
+          title={t("run.tradesTitle")}
+          caption={t("run.tradesCaption", { count: String(run.trades.length) })}
+        />
         <RunTradeTable trades={run.trades} currency={run.currency} />
       </Panel>
     </Page>

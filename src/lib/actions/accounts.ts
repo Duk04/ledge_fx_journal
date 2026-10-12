@@ -6,8 +6,10 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { accountOrFailure } from "./guard";
 import { prisma } from "@/lib/db";
-import { failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { ACCOUNT_COOKIE } from "@/lib/active-account";
+import { failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /** `requireAccountAccess` throws NotFoundError for a missing/foreign account —
  * actions must never throw at a form, so every write funnels the lookup
@@ -25,35 +27,40 @@ function revalidateAccounts() {
 const blankToUndefined = (v: unknown) => (v === "" || v === null || v === undefined ? undefined : v);
 const optionalPercent = z.preprocess(
   blankToUndefined,
-  z.coerce.number().min(0, "Must be zero or more.").max(100, "Must be 100 or less.").optional(),
+  z.coerce.number().min(0, vmsg("zeroOrMore")).max(100, vmsg("max100")).optional(),
 );
 
 const accountSchema = z.object({
-  label: z.string().trim().min(1, "Label is required.").max(80, "Keep it under 80 characters."),
+  label: z
+    .string()
+    .trim()
+    .min(1, vmsg("labelRequired"))
+    .max(80, vmsg("maxChars", { max: "80" })),
   broker: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.string().trim().max(80, "Keep it under 80 characters.").optional(),
+    z
+      .string()
+      .trim()
+      .max(80, vmsg("maxChars", { max: "80" }))
+      .optional(),
   ),
-  platform: z.enum(["MT5", "MT4", "CTRADER", "OTHER"], { message: "Choose a platform." }),
-  accountType: z.enum(["DEMO", "LIVE", "PROP"], { message: "Choose an account type." }),
+  platform: z.enum(["MT5", "MT4", "CTRADER", "OTHER"], { message: vmsg("choosePlatform") }),
+  accountType: z.enum(["DEMO", "LIVE", "PROP"], { message: vmsg("chooseAccountType") }),
   currency: z
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code, e.g. USD."),
-  startingBalance: z.coerce.number({ message: "Enter a starting balance." }).min(0, "Must be zero or more."),
+    .regex(/^[A-Z]{3}$/, vmsg("currencyCode")),
+  startingBalance: z.coerce.number({ message: vmsg("enterStartingBalance") }).min(0, vmsg("zeroOrMore")),
   riskPerTradePct: optionalPercent,
   // Prop-firm challenge rules (src/lib/prop.ts). All optional.
   dailyLossLimitPct: optionalPercent,
   maxDrawdownPct: optionalPercent,
   drawdownMode: z.enum(["STATIC", "TRAILING"]).default("STATIC"),
-  profitTargetPct: z.preprocess(
-    blankToUndefined,
-    z.coerce.number().min(0, "Must be zero or more.").max(1000).optional(),
-  ),
+  profitTargetPct: z.preprocess(blankToUndefined, z.coerce.number().min(0, vmsg("zeroOrMore")).max(1000).optional()),
   minTradingDays: z.preprocess(
     blankToUndefined,
-    z.coerce.number().int("Whole days only.").min(0, "Must be zero or more.").max(365).optional(),
+    z.coerce.number().int(vmsg("wholeDays")).min(0, vmsg("zeroOrMore")).max(365).optional(),
   ),
 });
 
@@ -72,7 +79,7 @@ function ruleColumns(d: z.output<typeof accountSchema>) {
 
 export async function createAccount(input: AccountInput): Promise<ActionResult> {
   const parsed = accountSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
   const user = await requireUser();
 
@@ -96,9 +103,9 @@ export async function createAccount(input: AccountInput): Promise<ActionResult> 
 
 export async function updateAccount(accountId: string, input: AccountInput): Promise<ActionResult> {
   const parsed = accountSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
-  const found = await accountOrFailure(accountId, "That account was not found.");
+  const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
   await prisma.tradingAccount.update({
@@ -124,7 +131,7 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
 // ---------------------------------------------------------------------------
 
 export async function archiveAccount(accountId: string, archived: boolean): Promise<ActionResult> {
-  const found = await accountOrFailure(accountId, "That account was not found.");
+  const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
   await prisma.tradingAccount.update({ where: { id: accountId }, data: { isArchived: archived } });
@@ -138,14 +145,14 @@ export async function archiveAccount(accountId: string, archived: boolean): Prom
  * hundreds of trade rows. See docs/JOURNAL.md for the rationale.
  */
 export async function deleteAccount(accountId: string): Promise<ActionResult> {
-  const found = await accountOrFailure(accountId, "That account was not found.");
+  const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
   const tradeCount = await prisma.trade.count({ where: { accountId } });
   if (tradeCount > 0) {
     return {
       ok: false,
-      formError: `This account still has ${tradeCount} trade${tradeCount === 1 ? "" : "s"} — archive it instead, or delete its trades first.`,
+      formError: await tr("accountHasTrades", { count: tradeCount }),
     };
   }
 
@@ -159,14 +166,18 @@ export async function deleteAccount(accountId: string): Promise<ActionResult> {
 // ---------------------------------------------------------------------------
 
 const balanceEventSchema = z.object({
-  kind: z.enum(["DEPOSIT", "WITHDRAWAL", "ADJUSTMENT"], { message: "Choose a kind." }),
+  kind: z.enum(["DEPOSIT", "WITHDRAWAL", "ADJUSTMENT"], { message: vmsg("chooseKind") }),
   // Users always type a plain magnitude; the sign is applied below based on
   // `kind` so a withdrawal can never accidentally increase the balance.
-  amount: z.coerce.number({ message: "Enter an amount." }).refine((n) => n !== 0, "Amount can't be zero."),
-  occurredAt: z.string().min(1, "Date is required."),
+  amount: z.coerce.number({ message: vmsg("enterAmount") }).refine((n) => n !== 0, vmsg("amountNonZero")),
+  occurredAt: z.string().min(1, vmsg("dateRequired")),
   note: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.string().trim().max(500, "Keep it under 500 characters.").optional(),
+    z
+      .string()
+      .trim()
+      .max(500, vmsg("maxChars", { max: "500" }))
+      .optional(),
   ),
 });
 
@@ -181,9 +192,9 @@ export type BalanceEventInput = z.input<typeof balanceEventSchema>;
  */
 export async function addBalanceEvent(accountId: string, input: BalanceEventInput): Promise<ActionResult> {
   const parsed = balanceEventSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
-  const found = await accountOrFailure(accountId, "That account was not found.");
+  const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
   const magnitude = Math.abs(parsed.data.amount);
@@ -205,7 +216,7 @@ export async function addBalanceEvent(accountId: string, input: BalanceEventInpu
 }
 
 export async function deleteBalanceEvent(accountId: string, eventId: string): Promise<ActionResult> {
-  const found = await accountOrFailure(accountId, "That account was not found.");
+  const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
   await prisma.balanceEvent.deleteMany({ where: { id: eventId, accountId } });
@@ -219,7 +230,7 @@ export async function deleteBalanceEvent(accountId: string, eventId: string): Pr
 
 /** Sets the `ledger.account` cookie the whole app reads to scope trades/journal. */
 export async function setActiveAccount(accountId: string): Promise<ActionResult> {
-  const found = await accountOrFailure(accountId, "That account was not found.");
+  const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
   const jar = await cookies();

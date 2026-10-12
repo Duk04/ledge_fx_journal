@@ -11,9 +11,14 @@ import { env } from "@/lib/env";
 import { prisma } from "@/lib/db";
 import { fail, fieldErrorsFrom, type ActionResult } from "./result";
 import { safeNext } from "@/lib/auth/safe-next";
+import { getLocale } from "next-intl/server";
+import { isLocale } from "@/i18n/config";
+import { setLocaleCookie } from "@/lib/locale-cookie";
 import { validatePassword } from "@/lib/auth/password";
 import { resolveInitialRole } from "@/lib/auth/roles";
 import { checkThrottle, clientIpFrom, pruneOldAttempts, recordAttempt } from "@/lib/auth/throttle";
+import { failT, localizedFieldErrors, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * These used to return `{ error?: string; fieldErrors?: Record<string, string> }`
@@ -33,8 +38,8 @@ async function requestIp(): Promise<string | null> {
 }
 
 const signInSchema = z.object({
-  email: z.email("Enter a valid email address."),
-  password: z.string().min(1, "Password is required."),
+  email: z.email(vmsg("validEmail")),
+  password: z.string().min(1, vmsg("passwordRequired")),
 });
 
 /**
@@ -54,7 +59,7 @@ const signInSchema = z.object({
  */
 export async function signInWithPassword(formData: FormData): Promise<AuthResult | undefined> {
   if (!authFeatures.passwordLogin) {
-    return fail("Password sign-in is disabled on this instance.");
+    return failT("passwordLoginDisabled");
   }
 
   const parsed = signInSchema.safeParse({
@@ -63,7 +68,11 @@ export async function signInWithPassword(formData: FormData): Promise<AuthResult
   });
 
   if (!parsed.success) {
-    return { ok: false, formError: "Check your email and password.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return {
+      ok: false,
+      formError: await tr("checkEmailPassword"),
+      fieldErrors: await localizedFieldErrors(fieldErrorsFrom(parsed.error)),
+    };
   }
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -88,10 +97,14 @@ export async function signInWithPassword(formData: FormData): Promise<AuthResult
     if (err instanceof AuthError) {
       // Deliberately generic: don't reveal whether the email exists. The
       // provider has already recorded the failed attempt.
-      return fail("Invalid email or password.");
+      return failT("invalidCredentials");
     }
     throw err;
   }
+
+  // Signed in: switch this browser to the user's own language.
+  const row = await prisma.user.findUnique({ where: { email }, select: { locale: true } });
+  if (row && isLocale(row.locale)) await setLocaleCookie(row.locale);
 
   redirect(next);
 }
@@ -130,11 +143,11 @@ export async function signOutAction() {
 }
 
 const registerSchema = z.object({
-  name: z.string().trim().min(1, "Name is required.").max(120, "Name is too long."),
-  email: z.email("Enter a valid email address."),
+  name: z.string().trim().min(1, vmsg("nameRequired")).max(120, vmsg("nameTooLong")),
+  email: z.email(vmsg("validEmail")),
   // Length and content rules are applied by `validatePassword` below, so the
   // message can explain WHICH rule failed rather than a generic minimum.
-  password: z.string().min(1, "Password is required."),
+  password: z.string().min(1, vmsg("passwordRequired")),
 });
 
 /**
@@ -150,7 +163,7 @@ const registerSchema = z.object({
  */
 export async function registerUser(formData: FormData): Promise<AuthResult | undefined> {
   if (!authFeatures.registration) {
-    return fail("Registration is currently disabled.");
+    return failT("registrationDisabled");
   }
 
   const parsed = registerSchema.safeParse({
@@ -160,7 +173,11 @@ export async function registerUser(formData: FormData): Promise<AuthResult | und
   });
 
   if (!parsed.success) {
-    return { ok: false, formError: "Fix the errors below.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return {
+      ok: false,
+      formError: await tr("fixErrorsBelow"),
+      fieldErrors: await localizedFieldErrors(fieldErrorsFrom(parsed.error)),
+    };
   }
 
   const { name, password } = parsed.data;
@@ -174,7 +191,11 @@ export async function registerUser(formData: FormData): Promise<AuthResult | und
 
   const policy = validatePassword(password, { email });
   if (!policy.ok) {
-    return { ok: false, formError: "Fix the errors below.", fieldErrors: { password: [policy.message] } };
+    return {
+      ok: false,
+      formError: await tr("fixErrorsBelow"),
+      fieldErrors: await localizedFieldErrors({ password: [policy.message] }),
+    };
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -185,8 +206,8 @@ export async function registerUser(formData: FormData): Promise<AuthResult | und
     await recordAttempt({ kind: "REGISTER", email, ip, success: false });
     return {
       ok: false,
-      formError: "Fix the errors below.",
-      fieldErrors: { email: ["An account with this email already exists."] },
+      formError: await tr("fixErrorsBelow"),
+      fieldErrors: { email: [await tr("emailTaken")] },
     };
   }
 
@@ -211,6 +232,8 @@ export async function registerUser(formData: FormData): Promise<AuthResult | und
       name,
       passwordHash,
       role,
+      // Whatever language the sign-up page was shown in.
+      locale: await getLocale(),
       accounts: {
         create: {
           label: "Main",

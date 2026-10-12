@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Textarea, Segmented, SegmentedItem, Label2 } from "@/components/ui";
 import { saveJournalEntry, setMood as setMoodAction } from "@/lib/actions/journal";
 
@@ -34,6 +35,7 @@ function FieldEditor({
   initialValue: string;
   initialSavedAt: string | null;
 }) {
+  const t = useTranslations("journal.editor");
   const [value, setValue] = React.useState(initialValue);
   const [status, setStatus] = React.useState<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
   const [savedAt, setSavedAt] = React.useState<string | null>(initialSavedAt);
@@ -51,7 +53,7 @@ function FieldEditor({
       setStatus("saved");
     } else {
       setStatus("error");
-      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? "Could not save.");
+      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? t("couldNotSave"));
     }
   }
 
@@ -60,8 +62,8 @@ function FieldEditor({
       <div className="flex items-baseline justify-between gap-2">
         <label className="text-xs font-medium text-ink-2">{label}</label>
         <span className="shrink-0 text-2xs text-ink-3">
-          {status === "saving" ? "Saving…" : null}
-          {status === "saved" && savedAt ? `Saved ${formatSavedAt(savedAt)}` : null}
+          {status === "saving" ? t("saving") : null}
+          {status === "saved" && savedAt ? t("saved", { time: formatSavedAt(savedAt) }) : null}
           {status === "error" ? <span className="text-loss">{error}</span> : null}
         </span>
       </div>
@@ -92,6 +94,7 @@ export function DayEditor({
   updatedAt: string | null;
   mood: number | null;
 }) {
+  const t = useTranslations("journal.editor");
   const [currentMood, setCurrentMood] = React.useState<number | null>(mood);
   const [moodStatus, setMoodStatus] = React.useState<"idle" | "error">("idle");
 
@@ -108,12 +111,12 @@ export function DayEditor({
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-2">
-          <Label2>Mood</Label2>
-          {moodStatus === "error" ? <span className="text-2xs text-loss">Could not save mood.</span> : null}
+          <Label2>{t("mood")}</Label2>
+          {moodStatus === "error" ? <span className="text-2xs text-loss">{t("couldNotSaveMood")}</span> : null}
         </div>
         <Segmented value={currentMood ? String(currentMood) : ""} onValueChange={handleMoodChange}>
           {MOOD_VALUES.map((v) => (
-            <SegmentedItem key={v} value={v} aria-label={`Mood ${v} of 5`}>
+            <SegmentedItem key={v} value={v} aria-label={t("moodAria", { value: v })}>
               <span aria-hidden>{MOOD_LABELS[v]}</span>
             </SegmentedItem>
           ))}
@@ -123,8 +126,8 @@ export function DayEditor({
       <FieldEditor
         date={date}
         field="preMarket"
-        label="Pre-market plan"
-        placeholder="What's the plan today? Bias, key levels, what would invalidate it…"
+        label={t("preMarket")}
+        placeholder={t("preMarketPlaceholder")}
         initialValue={preMarket}
         initialSavedAt={updatedAt}
       />
@@ -132,8 +135,8 @@ export function DayEditor({
       <FieldEditor
         date={date}
         field="review"
-        label="Post-session review"
-        placeholder="How did it actually go? Did you follow the plan?"
+        label={t("review")}
+        placeholder={t("reviewPlaceholder")}
         initialValue={review}
         initialSavedAt={updatedAt}
       />

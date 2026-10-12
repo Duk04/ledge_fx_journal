@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Field,
   FieldHint,
@@ -45,6 +46,7 @@ export function PositionCalculator({
   /** From the account's challenge rules; null when it has none. */
   dailyLossRemaining: number | null;
 }) {
+  const t = useTranslations("calculator");
   const [symbol, setSymbol] = React.useState(
     instruments.find((i) => i.symbol === "EURUSD")?.symbol ?? instruments[0]?.symbol,
   );
@@ -69,27 +71,28 @@ export function PositionCalculator({
 
   const warnings: string[] = [];
   if (riskPerTradePct !== null && Number(riskPct) > riskPerTradePct * 1.5) {
-    warnings.push(`That is more than 1.5× your ${riskPerTradePct}% per-trade rule — the risk guard will flag it.`);
+    warnings.push(t("warnOverRisk", { pct: String(riskPerTradePct) }));
   }
   if (size && dailyLossRemaining !== null && size.riskAmount.toNumber() > dailyLossRemaining) {
     warnings.push(
-      `A full loss (${formatMoney(size.riskAmount.toNumber(), currency)}) is more than today's remaining loss allowance (${formatMoney(dailyLossRemaining, currency)}).`,
+      t("warnDailyLoss", {
+        risk: formatMoney(size.riskAmount.toNumber(), currency),
+        remaining: formatMoney(dailyLossRemaining, currency),
+      }),
     );
   }
   if (conversion?.needsAttention && !rate) {
-    warnings.push(
-      `${instrument?.quoteCurrency}→${currency} can't be derived from this pair's price — enter the conversion rate for an exact size.`,
-    );
+    warnings.push(t("warnConversion", { quote: String(instrument?.quoteCurrency), currency }));
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
       <Panel className="lg:col-span-3">
-        <PanelHeader title="Trade" />
+        <PanelHeader title={t("trade")} />
         <PanelBody className="flex flex-col gap-4">
           <FieldRow>
             <Field>
-              <FieldLabel>Instrument</FieldLabel>
+              <FieldLabel>{t("instrument")}</FieldLabel>
               <Select value={symbol} onValueChange={setSymbol}>
                 <SelectTrigger>
                   <SelectValue />
@@ -104,61 +107,63 @@ export function PositionCalculator({
               </Select>
             </Field>
             <Field>
-              <FieldLabel>Risk</FieldLabel>
+              <FieldLabel>{t("risk")}</FieldLabel>
               <NumberInput value={riskPct} onChange={(e) => setRiskPct(e.target.value)} unit="%" />
             </Field>
           </FieldRow>
           <FieldRow>
             <Field>
-              <FieldLabel>Entry price</FieldLabel>
+              <FieldLabel>{t("entry")}</FieldLabel>
               <NumberInput value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="0.00000" />
             </Field>
             <Field>
-              <FieldLabel>Stop loss</FieldLabel>
+              <FieldLabel>{t("stop")}</FieldLabel>
               <NumberInput value={stop} onChange={(e) => setStop(e.target.value)} placeholder="0.00000" />
             </Field>
           </FieldRow>
           <FieldRow>
             <Field>
-              <FieldLabel>Balance</FieldLabel>
+              <FieldLabel>{t("balance")}</FieldLabel>
               <NumberInput value={balance} onChange={(e) => setBalance(e.target.value)} unit={currency} />
-              <FieldHint>Defaults to this account&rsquo;s current balance.</FieldHint>
+              <FieldHint>{t("balanceHint")}</FieldHint>
             </Field>
             <Field>
-              <FieldLabel optional>Conversion rate</FieldLabel>
-              <NumberInput value={rate} onChange={(e) => setRate(e.target.value)} placeholder="auto" />
-              <FieldHint>
-                {instrument?.quoteCurrency} → {currency}. Only needed when the pair doesn&rsquo;t imply it.
-              </FieldHint>
+              <FieldLabel optional>{t("conversionRate")}</FieldLabel>
+              <NumberInput
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                placeholder={t("conversionPlaceholder")}
+              />
+              <FieldHint>{t("conversionHint", { quote: instrument?.quoteCurrency ?? "", currency })}</FieldHint>
             </Field>
           </FieldRow>
         </PanelBody>
       </Panel>
 
       <Panel className="lg:col-span-2">
-        <PanelHeader title="Size" />
+        <PanelHeader title={t("size")} />
         <PanelBody className="flex flex-col gap-3">
           <div className="flex flex-col">
-            <span className="text-xs text-ink-3">Lots</span>
+            <span className="text-xs text-ink-3">{t("lots")}</span>
             <span className="mono text-3xl text-ink" aria-live="polite" data-testid="lots">
               {size ? size.lots.toFixed(2) : "—"}
             </span>
           </div>
           <dl className="flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between">
-              <dt className="text-ink-2">Stop distance</dt>
-              <dd className="mono">{size ? `${size.stopPips.toDecimalPlaces(1).toString()} pips` : "—"}</dd>
+              <dt className="text-ink-2">{t("stopDistance")}</dt>
+              <dd className="mono">{size ? t("pips", { value: size.stopPips.toDecimalPlaces(1).toString() }) : "—"}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-2">Risk budget</dt>
+              <dt className="text-ink-2">{t("riskBudget")}</dt>
               <dd className="mono">{size ? formatMoney(size.budget.toNumber(), currency) : "—"}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-2">Actually risked</dt>
+              <dt className="text-ink-2">{t("actuallyRisked")}</dt>
               <dd className="mono">{size ? formatMoney(size.riskAmount.toNumber(), currency) : "—"}</dd>
             </div>
           </dl>
-          <p className="text-2xs text-ink-3">Rounded down to 0.01 lots — never more risk than the budget.</p>
+          <p className="text-2xs text-ink-3">{t("roundingNote")}</p>
           {warnings.map((w) => (
             <p
               key={w}

@@ -16,6 +16,7 @@ import {
   type ImportPlan,
   type StatementSource,
 } from "@/lib/statements";
+import { failT, tr } from "@/i18n/server-t";
 
 /**
  * Broker statement import. docs/IMPORT.md is the overview; the parsing and
@@ -90,11 +91,11 @@ function readAliases(formData: FormData, instruments: ReadonlyMap<string, Instru
   return out;
 }
 
-function toReport(
+async function toReport(
   plan: ImportPlan,
   parsed: { source: StatementSource; currency: string | null; skipped: number; warnings: string[] },
   accountCurrency: string,
-): StatementReport {
+): Promise<StatementReport> {
   const rows: PreviewRow[] = plan.positions.map((p) => ({
     ticket: p.position.ticket,
     symbolRaw: p.position.symbolRaw,
@@ -113,9 +114,7 @@ function toReport(
   const count = (s: PreviewRow["status"]) => rows.filter((r) => r.status === s).length;
   const warnings = [...parsed.warnings];
   if (parsed.currency && parsed.currency !== accountCurrency) {
-    warnings.unshift(
-      `This statement is in ${parsed.currency} but the account is in ${accountCurrency}. Broker profits will not match — import into an account with the statement's currency.`,
-    );
+    warnings.unshift(await tr("statementCurrency", { statement: parsed.currency, account: accountCurrency }));
   }
   return {
     source: parsed.source,
@@ -145,20 +144,20 @@ type Derived = {
 
 export async function importStatement(accountId: string, formData: FormData): Promise<ActionResult<StatementReport>> {
   const user = await requireUser();
-  const found = await accountOrFailure(accountId, "That trading account was not found.");
+  const found = await accountOrFailure(accountId, await tr("tradingAccountNotFound"));
   if ("failure" in found) return found.failure;
   const account = found.account;
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return fail("Choose a statement file to import.");
-  if (file.size > MAX_STATEMENT_BYTES) return fail("That file is larger than 10MB — is it really a statement?");
+  if (!(file instanceof File) || file.size === 0) return failT("chooseStatement");
+  if (file.size > MAX_STATEMENT_BYTES) return failT("statementTooLarge");
 
   const tz = readTimezone(formData);
-  if (!tz) return fail("Choose how the statement's times map to UTC.");
+  if (!tz) return failT("chooseStatementTz");
 
   const parsed = parseStatement(decodeStatement(new Uint8Array(await file.arrayBuffer())), tz);
   if (parsed.positions.length === 0 && parsed.balanceEvents.length === 0) {
-    return fail(parsed.warnings[0] ?? "No trades were found in that file.");
+    return fail(parsed.warnings[0] ?? (await tr("noTradesInFile")));
   }
 
   const instrumentRows = await prisma.instrument.findMany({ where: { isActive: true } });
@@ -186,15 +185,14 @@ export async function importStatement(accountId: string, formData: FormData): Pr
     existingTrades: new Map(existingTrades.map((t) => [t.externalTicket!, { id: t.id, status: t.status }])),
     existingBalanceTickets: new Set(existingCash.map((e) => e.externalTicket!)),
   });
-  const report = toReport(plan, parsed, account.currency);
+  const report = await toReport(plan, parsed, account.currency);
 
   if (String(formData.get("mode")) !== "import") return ok(report);
 
   const creates = plan.positions.filter((p) => p.status === "new");
   const closes = plan.positions.filter((p) => p.status === "close");
   const cash = plan.balanceEvents.filter((b) => b.status === "new");
-  if (creates.length + closes.length + cash.length === 0)
-    return fail("Nothing new to import — every row is already in this account.");
+  if (creates.length + closes.length + cash.length === 0) return failT("nothingNewToImport");
 
   const importRow = await prisma.$transaction(async (tx) => {
     for (const [brokerSymbol, symbol] of submittedAliases) {
@@ -325,7 +323,7 @@ export async function importStatement(accountId: string, formData: FormData): Pr
 export async function undoImport(importId: string): Promise<ActionResult<{ trades: number; balanceEvents: number }>> {
   const user = await requireUser();
   const row = await prisma.tradeImport.findFirst({ where: { id: importId, userId: user.id } });
-  if (!row) return fail("That import was not found.");
+  if (!row) return failT("importNotFound");
 
   const [trades, cash] = await prisma.$transaction([
     prisma.trade.deleteMany({ where: { importId: row.id, accountId: row.accountId } }),

@@ -4,7 +4,9 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { failT, failZod } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * Journal writes. See docs/JOURNAL.md for the autosave contract these back:
@@ -14,7 +16,7 @@ import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./resu
  * that the form is always there, ready.
  */
 
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date.");
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, vmsg("invalidDate"));
 
 function toEntryDate(date: string): Date {
   return new Date(`${date}T00:00:00.000Z`);
@@ -28,7 +30,7 @@ function revalidateDay(date: string) {
 const fieldInputSchema = z.object({
   date: dateSchema,
   field: z.enum(["preMarket", "review"]),
-  value: z.string().max(20_000, "That note is too long."),
+  value: z.string().max(20_000, vmsg("noteTooLong")),
 });
 
 /**
@@ -42,7 +44,7 @@ export async function saveJournalEntry(
 ): Promise<ActionResult<{ savedAt: string }>> {
   const parsed = fieldInputSchema.safeParse(input);
   if (!parsed.success) {
-    return failFields(fieldErrorsFrom(parsed.error));
+    return failZod(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
@@ -69,7 +71,7 @@ const moodInputSchema = z.object({
 export async function setMood(input: z.infer<typeof moodInputSchema>): Promise<ActionResult> {
   const parsed = moodInputSchema.safeParse(input);
   if (!parsed.success) {
-    return failFields(fieldErrorsFrom(parsed.error));
+    return failZod(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
@@ -89,7 +91,7 @@ export async function setMood(input: z.infer<typeof moodInputSchema>): Promise<A
 export async function deleteEntry(date: string): Promise<ActionResult> {
   const parsed = dateSchema.safeParse(date);
   if (!parsed.success) {
-    return fail("Invalid date.");
+    return failT("invalidDate");
   }
 
   const user = await requireUser();

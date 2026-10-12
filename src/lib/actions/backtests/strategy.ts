@@ -6,7 +6,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { type Prisma, type Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, type ActionResult } from "../result";
+import { fieldErrorsFrom, type ActionResult } from "../result";
 import { requireUser } from "@/lib/session";
 import { lastCloseIn } from "@/lib/queries/candles";
 import { toRunStats } from "@/lib/queries/backtests";
@@ -17,6 +17,8 @@ import { simRunResultSchema } from "@/lib/backtest/sim-trade-schema";
 import { BACKTEST_ACCOUNT_CURRENCY, resolveRunConversionRate } from "@/lib/backtest/run-setup";
 import { TIMEFRAMES, fillSchema, labelFor, loadInstrumentOrError, simTradesToRows } from "./shared";
 import { paramValue } from "./shared";
+import { failT, failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * Coded strategy runs.
@@ -32,18 +34,18 @@ const recordStrategyRunSchema = z
      * ownership, to seed `params`, and to link the run. Absent for a run of
      * unsaved code in the editor, which the server needs no copy of. */
     strategyId: z.string().optional(),
-    symbol: z.string().trim().min(1, "Choose a symbol."),
-    timeframe: z.enum(TIMEFRAMES, { message: "Choose a timeframe." }),
-    from: z.coerce.date({ message: "Choose a start date." }),
-    to: z.coerce.date({ message: "Choose an end date." }),
-    initialBalance: z.coerce.number().positive("Must be greater than zero."),
+    symbol: z.string().trim().min(1, vmsg("chooseSymbol")),
+    timeframe: z.enum(TIMEFRAMES, { message: vmsg("chooseTimeframe") }),
+    from: z.coerce.date({ message: vmsg("chooseStart") }),
+    to: z.coerce.date({ message: vmsg("chooseEnd") }),
+    initialBalance: z.coerce.number().positive(vmsg("greaterThanZero")),
     params: z.record(z.string(), paramValue).optional(),
     /** What the browser's worker produced. Trades only — never statistics;
      * those are recomputed below. */
     result: simRunResultSchema,
   })
   .extend(fillSchema.shape)
-  .refine((v) => v.to > v.from, { message: "End date must be after the start date.", path: ["to"] });
+  .refine((v) => v.to > v.from, { message: vmsg("endAfterStart"), path: ["to"] });
 
 export type RecordStrategyRunInput = z.input<typeof recordStrategyRunSchema>;
 
@@ -90,7 +92,7 @@ export type RecordStrategyRunInput = z.input<typeof recordStrategyRunSchema>;
  */
 export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<ActionResult<{ runId: string }>> {
   const parsed = recordStrategyRunSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
   const v = parsed.data;
 
   const user = await requireUser();
@@ -100,7 +102,7 @@ export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<
 
   if (v.strategyId) {
     const strategy = await prisma.strategy.findFirst({ where: { id: v.strategyId, userId: user.id } });
-    if (!strategy) return fail("That strategy was not found.");
+    if (!strategy) return failT("strategyNotFound");
     strategyId = strategy.id;
     paramDefaults = (strategy.params as Record<string, number | string | boolean> | null) ?? {};
   }
@@ -118,7 +120,7 @@ export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<
   if (lastClose === null) {
     return {
       ok: false,
-      formError: `No ${v.symbol} ${v.timeframe} bars are stored in that range, so this run can't be recorded. Import data for it first.`,
+      formError: await tr("strategyNoBars", { symbol: v.symbol, timeframe: v.timeframe }),
     };
   }
 

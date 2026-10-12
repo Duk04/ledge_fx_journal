@@ -7,7 +7,9 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { diffRules } from "@/lib/playbook-stats";
 import { accountOrFailure } from "./guard";
-import { fail, failFields, ok, type ActionResult } from "./result";
+import { failFields, ok, type ActionResult } from "./result";
+import { failT, failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * Playbooks and per-trade checklists. docs/PLAYBOOKS.md.
@@ -17,12 +19,16 @@ import { fail, failFields, ok, type ActionResult } from "./result";
  */
 
 const playbookSchema = z.object({
-  name: z.string().trim().min(1, "Give it a name.").max(80, "Keep it under 80 characters."),
+  name: z
+    .string()
+    .trim()
+    .min(1, vmsg("giveName"))
+    .max(80, vmsg("maxChars", { max: "80" })),
   description: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
     z.string().trim().max(2000).optional(),
   ),
-  rules: z.array(z.string().max(300, "Keep each rule under 300 characters.")).max(30, "30 rules at most."),
+  rules: z.array(z.string().max(300, vmsg("ruleTooLong"))).max(30, vmsg("maxRules")),
 });
 
 export type PlaybookInput = z.input<typeof playbookSchema>;
@@ -39,7 +45,7 @@ function duplicateName(err: unknown) {
 export async function createPlaybook(input: PlaybookInput): Promise<ActionResult<{ id: string }>> {
   const user = await requireUser();
   const parsed = playbookSchema.safeParse(input);
-  if (!parsed.success) return failFields(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  if (!parsed.success) return failZod(parsed.error.flatten().fieldErrors as Record<string, string[]>);
   try {
     const created = await prisma.playbook.create({
       data: {
@@ -54,7 +60,7 @@ export async function createPlaybook(input: PlaybookInput): Promise<ActionResult
     revalidate();
     return ok({ id: created.id });
   } catch (err) {
-    if (duplicateName(err)) return failFields({ name: ["You already have a playbook with that name."] });
+    if (duplicateName(err)) return failFields({ name: [await tr("duplicatePlaybook")] });
     throw err;
   }
 }
@@ -62,9 +68,9 @@ export async function createPlaybook(input: PlaybookInput): Promise<ActionResult
 export async function updatePlaybook(id: string, input: PlaybookInput): Promise<ActionResult> {
   const user = await requireUser();
   const parsed = playbookSchema.safeParse(input);
-  if (!parsed.success) return failFields(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  if (!parsed.success) return failZod(parsed.error.flatten().fieldErrors as Record<string, string[]>);
   const existing = await prisma.playbook.findFirst({ where: { id, userId: user.id }, include: { rules: true } });
-  if (!existing) return fail("That playbook was not found.");
+  if (!existing) return failT("playbookNotFound");
 
   const diff = diffRules(existing.rules, parsed.data.rules);
   try {
@@ -78,7 +84,7 @@ export async function updatePlaybook(id: string, input: PlaybookInput): Promise<
       prisma.playbookRule.createMany({ data: diff.create.map((c) => ({ ...c, playbookId: id })) }),
     ]);
   } catch (err) {
-    if (duplicateName(err)) return failFields({ name: ["You already have a playbook with that name."] });
+    if (duplicateName(err)) return failFields({ name: [await tr("duplicatePlaybook")] });
     throw err;
   }
   revalidate();
@@ -88,7 +94,7 @@ export async function updatePlaybook(id: string, input: PlaybookInput): Promise<
 export async function setPlaybookArchived(id: string, archived: boolean): Promise<ActionResult> {
   const user = await requireUser();
   const updated = await prisma.playbook.updateMany({ where: { id, userId: user.id }, data: { isArchived: archived } });
-  if (updated.count === 0) return fail("That playbook was not found.");
+  if (updated.count === 0) return failT("playbookNotFound");
   revalidate();
   return ok();
 }
@@ -104,10 +110,10 @@ export async function setTradePlaybook(
   const found = await accountOrFailure(accountId);
   if ("failure" in found) return found.failure;
   const trade = await prisma.trade.findFirst({ where: { id: tradeId, accountId: found.account.id } });
-  if (!trade) return fail("Trade not found.");
+  if (!trade) return failT("tradeNotFound");
   if (playbookId) {
     const pb = await prisma.playbook.findFirst({ where: { id: playbookId, userId: user.id } });
-    if (!pb) return fail("That playbook was not found.");
+    if (!pb) return failT("playbookNotFound");
   }
   await prisma.$transaction([
     prisma.trade.update({ where: { id: trade.id }, data: { playbookId } }),
@@ -130,9 +136,9 @@ export async function setRuleCheck(
   const found = await accountOrFailure(accountId);
   if ("failure" in found) return found.failure;
   const trade = await prisma.trade.findFirst({ where: { id: tradeId, accountId: found.account.id } });
-  if (!trade?.playbookId) return fail("Pick a playbook for this trade first.");
+  if (!trade?.playbookId) return failT("pickPlaybookFirst");
   const rule = await prisma.playbookRule.findFirst({ where: { id: ruleId, playbookId: trade.playbookId } });
-  if (!rule) return fail("That rule isn't part of this trade's playbook.");
+  if (!rule) return failT("ruleNotInPlaybook");
 
   if (followed === null) {
     await prisma.tradeRuleCheck.deleteMany({ where: { tradeId, ruleId } });

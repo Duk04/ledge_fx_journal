@@ -4,10 +4,12 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "@/lib/actions/result";
+import { failFields, fieldErrorsFrom, ok, type ActionResult } from "@/lib/actions/result";
 import { derivedColumns, tradeInput } from "@/lib/trade-service";
 import { seedInstruments } from "@/lib/instruments";
 import { IANA_TIMEZONES } from "@/components/settings/timezones";
+import { type ErrorKey, failT, failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * Server actions for the Profile / Instruments / Data tabs. Tags have their
@@ -23,17 +25,21 @@ import { IANA_TIMEZONES } from "@/components/settings/timezones";
 const profileSchema = z.object({
   name: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.string().trim().max(120, "Keep it under 120 characters.").optional(),
+    z
+      .string()
+      .trim()
+      .max(120, vmsg("maxChars", { max: "120" }))
+      .optional(),
   ),
-  timezone: z.string().min(1, "Choose a timezone."),
+  timezone: z.string().min(1, vmsg("chooseTimezone")),
 });
 
 export async function updateProfile(input: z.input<typeof profileSchema>): Promise<ActionResult> {
   const parsed = profileSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
   if (!IANA_TIMEZONES.some((tz) => tz.value === parsed.data.timezone)) {
-    return failFields({ timezone: ["Choose a timezone from the list."] });
+    return failFields({ timezone: [await tr("chooseTimezoneFromList")] });
   }
 
   const user = await requireUser();
@@ -70,38 +76,42 @@ export async function updateProfile(input: z.input<typeof profileSchema>): Promi
 
 /** Shared wrapper: converts requireOwner()'s throw into the action-result
  * convention, with a message naming the actual reason. */
-async function ownerOrError(what: string): Promise<ActionResult | null> {
+async function ownerOrError(message: ErrorKey): Promise<ActionResult | null> {
   try {
     await requireOwner();
     return null;
   } catch (err) {
     if (err instanceof ForbiddenError) {
-      return { ok: false, formError: `Only the instance owner can ${what}.` };
+      return { ok: false, formError: await tr(message) };
     }
     throw err;
   }
 }
 
 const instrumentSchema = z.object({
-  pipSize: z.coerce.number({ message: "Enter a pip size." }).positive("Must be greater than zero."),
-  contractSize: z.coerce.number({ message: "Enter a contract size." }).positive("Must be greater than zero."),
-  digits: z.coerce.number({ message: "Enter a digit count." }).int().min(0).max(8),
+  pipSize: z.coerce.number({ message: vmsg("enterPipSize") }).positive(vmsg("greaterThanZero")),
+  contractSize: z.coerce.number({ message: vmsg("enterContractSize") }).positive(vmsg("greaterThanZero")),
+  digits: z.coerce
+    .number({ message: vmsg("enterDigits") })
+    .int()
+    .min(0)
+    .max(8),
   quoteCurrency: z
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z]{3}$/, "Use a 3-letter currency code, e.g. USD."),
+    .regex(/^[A-Z]{3}$/, vmsg("currencyCode")),
 });
 
 export async function updateInstrument(symbol: string, input: z.input<typeof instrumentSchema>): Promise<ActionResult> {
   const parsed = instrumentSchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
-  const denied = await ownerOrError("change instrument specifications");
+  const denied = await ownerOrError("ownerOnlyInstruments");
   if (denied) return denied;
 
   const existing = await prisma.instrument.findUnique({ where: { symbol } });
-  if (!existing) return fail("Instrument not found.");
+  if (!existing) return failT("instrumentNotFound");
 
   await prisma.instrument.update({
     where: { symbol },
@@ -119,7 +129,7 @@ export async function updateInstrument(symbol: string, input: z.input<typeof ins
 
 /** Restores every instrument's contract fields from `src/lib/instruments.ts`. */
 export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
-  const denied = await ownerOrError("reset the instrument table");
+  const denied = await ownerOrError("ownerOnlyResetInstruments");
   if (denied) return denied;
 
   for (const inst of seedInstruments) {

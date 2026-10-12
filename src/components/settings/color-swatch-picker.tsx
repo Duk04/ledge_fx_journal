@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { cn } from "@/lib/cn";
 
 /**
@@ -34,6 +36,7 @@ export function ColorSwatchPicker({
   onChange: (value: string) => void;
   error?: string;
 }) {
+  const t = useTranslations("settings.tags");
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -64,7 +67,7 @@ export function ColorSwatchPicker({
           onChange={(e) => onChange(e.target.value)}
           placeholder="#33488F"
           maxLength={7}
-          aria-label="Custom hex colour"
+          aria-label={t("customHex")}
           className={cn(
             "mono h-7 w-28 rounded-control border border-line bg-panel px-2 text-xs text-ink outline-none",
             "focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand-weak",

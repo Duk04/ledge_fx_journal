@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 
 /**
@@ -20,15 +21,12 @@ export function RBar({
   width?: number;
   className?: string;
 }) {
+  const t = useTranslations("ui");
   const n = value === null || value === undefined || value === "" ? null : Number(value);
 
   if (n === null || !Number.isFinite(n)) {
     return (
-      <div
-        className={cn("relative h-2.5 shrink-0", className)}
-        style={{ width }}
-        title="No stop loss recorded — R cannot be computed"
-      >
+      <div className={cn("relative h-2.5 shrink-0", className)} style={{ width }} title={t("noStopR")}>
         <div className="absolute inset-y-[45%] left-0 right-0 border-t border-dashed border-line-strong" />
       </div>
     );

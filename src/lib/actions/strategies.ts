@@ -4,23 +4,33 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { requireUser } from "@/lib/session";
 import { MAX_STRATEGY_CODE_CHARS, checkStrategySyntax } from "@/lib/backtest";
+import { failT, failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 const paramValue = z.union([z.number(), z.string(), z.boolean()]);
 
 const strategySchema = z.object({
-  name: z.string().trim().min(1, "Name is required.").max(80, "Keep it under 80 characters."),
+  name: z
+    .string()
+    .trim()
+    .min(1, vmsg("nameRequired"))
+    .max(80, vmsg("maxChars", { max: "80" })),
   description: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.string().trim().max(400, "Keep it under 400 characters.").optional(),
+    z
+      .string()
+      .trim()
+      .max(400, vmsg("maxChars", { max: "400" }))
+      .optional(),
   ),
   code: z
     .string()
     .trim()
-    .min(1, "Strategy code is required.")
-    .max(MAX_STRATEGY_CODE_CHARS, `Keep it under ${MAX_STRATEGY_CODE_CHARS.toLocaleString()} characters.`),
+    .min(1, vmsg("codeRequired"))
+    .max(MAX_STRATEGY_CODE_CHARS, vmsg("maxChars", { max: MAX_STRATEGY_CODE_CHARS.toLocaleString("en-US") })),
   params: z.record(z.string(), paramValue).optional(),
 });
 
@@ -44,7 +54,7 @@ function revalidateStrategies() {
 
 export async function createStrategy(input: StrategyInput): Promise<ActionResult<{ id: string }>> {
   const parsed = strategySchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
   const compileError = compileCheck(parsed.data.code);
   if (compileError) return failFields({ code: [compileError] });
@@ -65,7 +75,7 @@ export async function createStrategy(input: StrategyInput): Promise<ActionResult
     return { ok: true, id: strategy.id };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return failFields({ name: [`You already have a strategy named "${parsed.data.name}".`] });
+      return failFields({ name: [await tr("duplicateStrategy", { name: parsed.data.name })] });
     }
     throw err;
   }
@@ -73,13 +83,13 @@ export async function createStrategy(input: StrategyInput): Promise<ActionResult
 
 async function strategyOrError(userId: string, id: string) {
   const strategy = await prisma.strategy.findFirst({ where: { id, userId } });
-  if (!strategy) return { error: fail("That strategy was not found.") as ActionResult };
+  if (!strategy) return { error: (await failT("strategyNotFound")) as ActionResult };
   return { strategy };
 }
 
 export async function updateStrategy(id: string, input: StrategyInput): Promise<ActionResult> {
   const parsed = strategySchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
   const compileError = compileCheck(parsed.data.code);
   if (compileError) return failFields({ code: [compileError] });
@@ -102,7 +112,7 @@ export async function updateStrategy(id: string, input: StrategyInput): Promise<
     return ok();
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return failFields({ name: [`You already have a strategy named "${parsed.data.name}".`] });
+      return failFields({ name: [await tr("duplicateStrategy", { name: parsed.data.name })] });
     }
     throw err;
   }

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   DataTable,
   Th,
@@ -30,11 +31,13 @@ export interface CoverageTableRow {
   latestImport: { fileName: string | null; createdAt: string; rowCount: number; tzOffsetMinutes: number } | null;
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  MT5_CSV: "MT5 CSV",
-  GENERIC_CSV: "Generic CSV",
-  API: "API",
-};
+/** Sources with a translated label; anything else (a source added to the
+ * schema later) falls back to its raw enum name rather than a missing key. */
+const KNOWN_SOURCES = ["MT5_CSV", "GENERIC_CSV", "API"] as const;
+
+function isKnownSource(source: string): source is (typeof KNOWN_SOURCES)[number] {
+  return (KNOWN_SOURCES as readonly string[]).includes(source);
+}
 
 /** Bytes-per-row estimate for the per-symbol storage column. Not measured
  * per group (Postgres has no cheap way to size an arbitrary WHERE-filtered
@@ -61,18 +64,14 @@ function formatDate(ts: number): string {
  * the control is hidden rather than left to fail on submit.
  */
 export function CoverageTable({ rows, canDelete }: { rows: CoverageTableRow[]; canDelete: boolean }) {
+  const t = useTranslations("backtest.coverage");
   const [deleteTarget, setDeleteTarget] = React.useState<CoverageTableRow | null>(null);
 
   if (rows.length === 0) {
     return (
       <EmptyState
-        title="No market data imported yet"
-        description={
-          <>
-            Export bars from MT5 — <strong>View → Symbols</strong>, pick a symbol, open its <strong>Bars</strong> tab
-            and export, or use <strong>Tools → History Center</strong> — then import the CSV below.
-          </>
-        }
+        title={t("emptyTitle")}
+        description={t.rich("emptyDescription", { strong: (chunks) => <strong>{chunks}</strong> })}
       />
     );
   }
@@ -82,20 +81,20 @@ export function CoverageTable({ rows, canDelete }: { rows: CoverageTableRow[]; c
       <DataTable>
         <thead>
           <tr>
-            <Th>Symbol</Th>
-            <Th>Timeframe</Th>
-            <Th numeric>Bars</Th>
-            <Th>First → last</Th>
-            <Th numeric>Gaps (est.)</Th>
-            <Th>Source</Th>
-            <Th numeric>Storage (est.)</Th>
-            <Th>Latest import</Th>
+            <Th>{t("symbol")}</Th>
+            <Th>{t("timeframe")}</Th>
+            <Th numeric>{t("bars")}</Th>
+            <Th>{t("firstLast")}</Th>
+            <Th numeric>{t("gaps")}</Th>
+            <Th>{t("source")}</Th>
+            <Th numeric>{t("storage")}</Th>
+            <Th>{t("latestImport")}</Th>
             <Th />
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
-            <TableEmpty colSpan={9}>Nothing here yet.</TableEmpty>
+            <TableEmpty colSpan={9}>{t("nothing")}</TableEmpty>
           ) : (
             rows.map((row) => (
               <tr key={`${row.symbol}-${row.timeframe}`}>
@@ -115,7 +114,7 @@ export function CoverageTable({ rows, canDelete }: { rows: CoverageTableRow[]; c
                   )}
                 </Td>
                 <Td>
-                  <Badge tone="neutral">{SOURCE_LABEL[row.source] ?? row.source}</Badge>
+                  <Badge tone="neutral">{isKnownSource(row.source) ? t(`sources.${row.source}`) : row.source}</Badge>
                 </Td>
                 <Td numeric className="mono text-ink-2">
                   {formatBytes(row.barCount * BYTES_PER_ROW_ESTIMATE)}
@@ -134,14 +133,10 @@ export function CoverageTable({ rows, canDelete }: { rows: CoverageTableRow[]; c
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={`Delete ${row.symbol} ${row.timeframe} data`}
+                    aria-label={t("deleteAria", { symbol: row.symbol, timeframe: row.timeframe })}
                     onClick={() => setDeleteTarget(row)}
                     disabled={!canDelete}
-                    title={
-                      canDelete
-                        ? undefined
-                        : "Candle data is shared by every account here — only the instance owner can delete it."
-                    }
+                    title={canDelete ? undefined : t("ownerOnly")}
                   >
                     <Trash2 />
                   </Button>
@@ -164,6 +159,7 @@ function DeleteCoverageDialog({
   row: CoverageTableRow | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("backtest");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const { toast } = useToast();
@@ -175,10 +171,10 @@ function DeleteCoverageDialog({
     const result = await deleteCandles({ symbol: row.symbol, timeframe: row.timeframe as never });
     setPending(false);
     if (result.ok) {
-      toast({ title: `Deleted ${row.barCount.toLocaleString()} bars.`, tone: "neutral" });
+      toast({ title: t("coverage.deletedBars", { count: row.barCount.toLocaleString() }), tone: "neutral" });
       onOpenChange(false);
     } else {
-      setError(result.formError ?? "Could not delete this data.");
+      setError(result.formError ?? t("coverage.couldNotDelete"));
     }
   }
 
@@ -186,10 +182,14 @@ function DeleteCoverageDialog({
     <Dialog open={row !== null} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader
-          title="Delete market data"
+          title={t("coverage.deleteTitle")}
           description={
             row
-              ? `Permanently delete all ${row.barCount.toLocaleString()} ${row.timeframe} bars for ${row.symbol}? Any backtest that depends on this range will stop working.`
+              ? t("coverage.deleteDescription", {
+                  count: row.barCount.toLocaleString(),
+                  timeframe: row.timeframe,
+                  symbol: row.symbol,
+                })
               : undefined
           }
         />
@@ -200,10 +200,10 @@ function DeleteCoverageDialog({
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="button" variant="danger" onClick={handleDelete} disabled={pending}>
-            Delete
+            {t("common.delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

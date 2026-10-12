@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Panel,
   PanelHeader,
@@ -44,6 +45,7 @@ export function AccountCard({
   isActive: boolean;
   events: BalanceEventRow[];
 }) {
+  const t = useTranslations("accounts.card");
   const { toast } = useToast();
   const [busy, setBusy] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -54,16 +56,16 @@ export function AccountCard({
     setBusy(true);
     const result = await setActiveAccount(account.id);
     setBusy(false);
-    if (result.ok) toast({ title: `${account.label} is now the active account.` });
-    else toast({ title: "Could not switch account", description: result.formError, tone: "loss" });
+    if (result.ok) toast({ title: t("toastActivated", { label: account.label }) });
+    else toast({ title: t("toastSwitchFailed"), description: result.formError, tone: "loss" });
   }
 
   async function handleArchiveToggle() {
     setBusy(true);
     const result = await archiveAccount(account.id, !account.isArchived);
     setBusy(false);
-    if (result.ok) toast({ title: account.isArchived ? "Account restored." : "Account archived." });
-    else toast({ title: "Could not update account", description: result.formError, tone: "loss" });
+    if (result.ok) toast({ title: account.isArchived ? t("toastRestored") : t("toastArchived") });
+    else toast({ title: t("toastUpdateFailed"), description: result.formError, tone: "loss" });
   }
 
   const netPnl = Number(account.netPnl);
@@ -81,22 +83,22 @@ export function AccountCard({
             <Badge tone="outline">{account.platform}</Badge>
             <Dropdown>
               <DropdownTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label="Account actions" disabled={busy}>
+                <Button variant="ghost" size="icon-sm" aria-label={t("actions")} disabled={busy}>
                   <MoreHorizontal />
                 </Button>
               </DropdownTrigger>
               <DropdownContent align="end">
                 {!isActive && !account.isArchived ? (
-                  <DropdownItem onSelect={handleSetActive}>Set as active</DropdownItem>
+                  <DropdownItem onSelect={handleSetActive}>{t("setActive")}</DropdownItem>
                 ) : null}
-                <DropdownItem onSelect={() => setEditOpen(true)}>Edit</DropdownItem>
-                <DropdownItem onSelect={() => setEventsOpen(true)}>Balance events</DropdownItem>
+                <DropdownItem onSelect={() => setEditOpen(true)}>{t("edit")}</DropdownItem>
+                <DropdownItem onSelect={() => setEventsOpen(true)}>{t("balanceEvents")}</DropdownItem>
                 <DropdownSeparator />
                 <DropdownItem onSelect={handleArchiveToggle}>
-                  {account.isArchived ? "Unarchive" : "Archive"}
+                  {account.isArchived ? t("unarchive") : t("archive")}
                 </DropdownItem>
                 <DropdownItem tone="danger" onSelect={() => setDeleteOpen(true)}>
-                  Delete
+                  {t("delete")}
                 </DropdownItem>
               </DropdownContent>
             </Dropdown>
@@ -106,7 +108,7 @@ export function AccountCard({
         <div className="flex min-w-0 items-baseline gap-2">
           <h2 className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
             {account.label}
-            {isActive ? <Badge tone="brand">Active</Badge> : null}
+            {isActive ? <Badge tone="brand">{t("active")}</Badge> : null}
           </h2>
           <span className="truncate text-xs text-ink-3">
             {[account.broker, account.currency].filter(Boolean).join(" · ")}
@@ -116,32 +118,38 @@ export function AccountCard({
       <PanelBody className="flex flex-col gap-4">
         <StatRow>
           <Stat
-            label="Equity"
+            label={t("equity")}
             value={<Money value={account.equity} currency={account.currency} colour={false} />}
             spark={account.spark}
           />
           <Stat
-            label="Realised P&L"
+            label={t("realisedPnl")}
             value={<Money value={account.netPnl} currency={account.currency} signed />}
             tone={netPnl > 0 ? "profit" : netPnl < 0 ? "loss" : "neutral"}
           />
-          <Stat label="Trades" value={String(account.tradeCount)} hint={`${account.openCount} open`} />
           <Stat
-            label="Deposits"
+            label={t("trades")}
+            value={String(account.tradeCount)}
+            hint={t("openCount", { count: String(account.openCount) })}
+          />
+          <Stat
+            label={t("deposits")}
             value={<Money value={account.deposits} currency={account.currency} colour={false} />}
           />
           <Stat
-            label="Withdrawals"
+            label={t("withdrawals")}
             value={<Money value={account.withdrawals} currency={account.currency} colour={false} />}
           />
         </StatRow>
       </PanelBody>
       <PanelFooter>
         <span>
-          Starting balance{" "}
+          {t("startingBalance")}{" "}
           <Money value={account.startingBalance} currency={account.currency} colour={false} className="ml-1" />
         </span>
-        {account.riskPerTradePct ? <span>{Number(account.riskPerTradePct).toFixed(2)}% risk / trade</span> : null}
+        {account.riskPerTradePct ? (
+          <span>{t("riskPerTrade", { pct: Number(account.riskPerTradePct).toFixed(2) })}</span>
+        ) : null}
       </PanelFooter>
 
       <AccountFormDialog open={editOpen} onOpenChange={setEditOpen} account={account} />

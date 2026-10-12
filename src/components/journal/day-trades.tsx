@@ -1,38 +1,40 @@
+import { getTranslations } from "next-intl/server";
 import { DataTable, Th, Td, TrLink, DirectionBadge, Badge, Money, RValue } from "@/components/ui";
 import type { DayTrade } from "@/lib/queries/journal";
 
 /** Read-only list of the trades that landed on one journal day, linking out to each trade. */
-export function DayTrades({ trades, currency }: { trades: DayTrade[]; currency: string }) {
+export async function DayTrades({ trades, currency }: { trades: DayTrade[]; currency: string }) {
+  const t = await getTranslations("journal.trades");
   if (trades.length === 0) {
-    return <p className="px-3 py-8 text-center text-xs text-ink-3">No trades landed on this day.</p>;
+    return <p className="px-3 py-8 text-center text-xs text-ink-3">{t("empty")}</p>;
   }
 
   return (
     <DataTable>
       <thead>
         <tr>
-          <Th>Symbol</Th>
-          <Th>Direction</Th>
-          <Th>Status</Th>
-          <Th numeric>Net P&amp;L</Th>
-          <Th numeric>R</Th>
+          <Th>{t("symbol")}</Th>
+          <Th>{t("direction")}</Th>
+          <Th>{t("status")}</Th>
+          <Th numeric>{t("netPnl")}</Th>
+          <Th numeric>{t("r")}</Th>
         </tr>
       </thead>
       <tbody>
-        {trades.map((t) => (
-          <TrLink key={t.id} href={`/trades/${t.id}`}>
-            <Td className="font-medium text-ink">{t.symbol}</Td>
+        {trades.map((tr) => (
+          <TrLink key={tr.id} href={`/trades/${tr.id}`}>
+            <Td className="font-medium text-ink">{tr.symbol}</Td>
             <Td>
-              <DirectionBadge direction={t.direction} />
+              <DirectionBadge direction={tr.direction} />
             </Td>
             <Td>
-              <Badge tone={t.status === "OPEN" ? "warn" : "neutral"}>{t.status}</Badge>
+              <Badge tone={tr.status === "OPEN" ? "warn" : "neutral"}>{tr.status}</Badge>
             </Td>
             <Td numeric>
-              <Money value={t.netPnl} currency={currency} signed />
+              <Money value={tr.netPnl} currency={currency} signed />
             </Td>
             <Td numeric>
-              <RValue value={t.rMultiple} />
+              <RValue value={tr.rMultiple} />
             </Td>
           </TrLink>
         ))}

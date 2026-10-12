@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
@@ -38,7 +39,7 @@ export function EmptyState({
 /** Same shape as EmptyState, tinted for a failure rather than a lack of data —
  * the difference between "nothing here yet" and "something went wrong". */
 export function ErrorState({
-  title = "Something went wrong",
+  title,
   description,
   retry,
   className,
@@ -48,6 +49,7 @@ export function ErrorState({
   retry?: Action;
   className?: string;
 }) {
+  const t = useTranslations("ui");
   return (
     <div className={cn("flex flex-col items-center gap-3 px-6 py-12 text-center", className)}>
       <div className="grid size-9 shrink-0 place-items-center rounded-control bg-loss-weak text-loss">
@@ -63,7 +65,7 @@ export function ErrorState({
         </svg>
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-ink">{title}</p>
+        <p className="text-sm font-medium text-ink">{title ?? t("somethingWrong")}</p>
         {description ? <p className="max-w-xs text-xs text-ink-3">{description}</p> : null}
       </div>
       {retry ? (

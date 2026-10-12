@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { excursionFromBars } from "@/lib/metrics/excursion";
 import { accountOrFailure } from "./guard";
 import { fail, ok, type ActionResult } from "./result";
+import { failT, tr } from "@/i18n/server-t";
 
 /**
  * MAE/MFE for a closed trade from stored M1 candles (the shared Candle
@@ -19,9 +20,9 @@ export async function fillExcursionFromCandles(
   if ("failure" in found) return found.failure;
 
   const trade = await prisma.trade.findFirst({ where: { id: tradeId, accountId: found.account.id } });
-  if (!trade) return fail("Trade not found.");
+  if (!trade) return failT("tradeNotFound");
   if (trade.status !== "CLOSED" || !trade.closedAt || !trade.exitPrice) {
-    return fail("Only a closed trade has a complete price path to measure.");
+    return failT("excursionNeedsClosed");
   }
 
   const bars = await prisma.candle.findMany({
@@ -45,9 +46,7 @@ export async function fillExcursionFromCandles(
     bars.map((b) => ({ ts: b.ts, high: b.high.toString(), low: b.low.toString() })),
   );
   if (!e) {
-    return fail(
-      `No M1 candles for ${trade.symbol} cover this trade. Import them under Backtest → Data, or enter the prices by hand when editing.`,
-    );
+    return fail(await tr("excursionNoCandles", { symbol: trade.symbol }));
   }
 
   await prisma.trade.update({

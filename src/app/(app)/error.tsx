@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Page } from "@/components/shell/page";
 import { ErrorState } from "@/components/ui";
 import { reportClientError } from "@/lib/report-client-error";
@@ -15,6 +16,7 @@ import { reportClientError } from "@/lib/report-client-error";
  * node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md).
  */
 export default function AppError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
+  const t = useTranslations("dashboard.appError");
   useEffect(() => {
     reportClientError(error);
   }, [error]);
@@ -22,13 +24,9 @@ export default function AppError({ error, retry }: { error: Error & { digest?: s
   return (
     <Page>
       <ErrorState
-        title="Couldn't load this page"
-        description={
-          error.digest
-            ? `Something went wrong on our end (ref: ${error.digest}).`
-            : error.message || "Something went wrong loading this page."
-        }
-        retry={{ label: "Try again", onClick: retry }}
+        title={t("title")}
+        description={error.digest ? t("withDigest", { digest: error.digest }) : error.message || t("generic")}
+        retry={{ label: t("retry"), onClick: retry }}
       />
     </Page>
   );

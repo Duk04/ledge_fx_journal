@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import type { BacktestConfig, BacktestResult, Bar, SimInstrument } from "@/lib/backtest/types";
 import type { SandboxRunRequest, SandboxRunResponse } from "@/lib/backtest/worker";
 
@@ -63,6 +64,9 @@ interface BarsResponse extends Partial<BarsPayload> {
 }
 
 export function useStrategyRunner() {
+  // Only this host side's own messages are translated. An error the worker
+  // or the bars endpoint sends back is passed through as written.
+  const t = useTranslations("backtest.runner");
   const workerRef = useRef<Worker | null>(null);
 
   const disposeWorker = useCallback(() => {
@@ -74,35 +78,38 @@ export function useStrategyRunner() {
   // run) would otherwise leave the worker alive holding its bar array.
   useEffect(() => disposeWorker, [disposeWorker]);
 
-  const fetchBars = useCallback(async (params: FetchBarsParams): Promise<BarsPayload> => {
-    const qs = new URLSearchParams({
-      symbol: params.symbol,
-      timeframe: params.timeframe,
-      from: params.from,
-      to: params.to,
-    });
+  const fetchBars = useCallback(
+    async (params: FetchBarsParams): Promise<BarsPayload> => {
+      const qs = new URLSearchParams({
+        symbol: params.symbol,
+        timeframe: params.timeframe,
+        from: params.from,
+        to: params.to,
+      });
 
-    const response = await fetch(`/api/backtest/bars?${qs.toString()}`);
-    const body: BarsResponse = await response.json().catch(() => ({}) as BarsResponse);
+      const response = await fetch(`/api/backtest/bars?${qs.toString()}`);
+      const body: BarsResponse = await response.json().catch(() => ({}) as BarsResponse);
 
-    if (!response.ok) {
-      // The endpoint's 413/422 bodies carry a message written for a person —
-      // "narrow the dates", "import more data" — so prefer it over a status.
-      throw new Error(body.error ?? `Couldn't load bars (${response.status}).`);
-    }
-    if (!body.bars || body.bars.length === 0) {
-      throw new Error("No bars came back for that range.");
-    }
-    if (!body.instrument) {
-      throw new Error("The bars came back without an instrument spec.");
-    }
-    return {
-      bars: body.bars,
-      instrument: body.instrument,
-      conversionRate: body.conversionRate ?? 1,
-      aggregatedFrom: body.aggregatedFrom ?? null,
-    };
-  }, []);
+      if (!response.ok) {
+        // The endpoint's 413/422 bodies carry a message written for a person —
+        // "narrow the dates", "import more data" — so prefer it over a status.
+        throw new Error(body.error ?? t("loadFailed", { status: String(response.status) }));
+      }
+      if (!body.bars || body.bars.length === 0) {
+        throw new Error(t("noBars"));
+      }
+      if (!body.instrument) {
+        throw new Error(t("noInstrument"));
+      }
+      return {
+        bars: body.bars,
+        instrument: body.instrument,
+        conversionRate: body.conversionRate ?? 1,
+        aggregatedFrom: body.aggregatedFrom ?? null,
+      };
+    },
+    [t],
+  );
 
   const run = useCallback(
     async (args: { code: string; bars: Bar[]; config: BacktestConfig }): Promise<StrategyRunOutcome> => {
@@ -126,7 +133,7 @@ export function useStrategyRunner() {
         const timer = setTimeout(() => {
           finish({
             ok: false,
-            error: `The strategy didn't finish within ${RUN_WALL_CLOCK_MS / 1000} seconds and was stopped. An unbounded loop in onBar is the usual cause.`,
+            error: t("timedOut", { seconds: String(RUN_WALL_CLOCK_MS / 1000) }),
           });
         }, RUN_WALL_CLOCK_MS);
 
@@ -137,14 +144,14 @@ export function useStrategyRunner() {
         };
 
         worker.onerror = (event) => {
-          finish({ ok: false, error: event.message || "The strategy crashed the worker." });
+          finish({ ok: false, error: event.message || t("crashed") });
         };
 
         const request: SandboxRunRequest = { code: args.code, bars: args.bars, config: args.config };
         worker.postMessage(request);
       });
     },
-    [disposeWorker],
+    [disposeWorker, t],
   );
 
   return { fetchBars, run, cancel: disposeWorker };

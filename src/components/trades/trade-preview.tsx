@@ -8,6 +8,7 @@
  * values — already separated by a divider comment in the original — and
  * because `trade-form.tsx` was 685 lines.
  */
+import { useTranslations } from "next-intl";
 import { computeTrade, validateTradeGeometry } from "@/lib/metrics";
 import { formatMoney, formatPips } from "@/lib/metrics/formatters";
 import type { AssetClass } from "@/lib/metrics/types";
@@ -143,14 +144,15 @@ export function buildWarnings(values: Partial<TradeFormInput>, instrument: Instr
 }
 
 export function PreviewStrip({ preview }: { preview: Preview | null }) {
+  const t = useTranslations("trades.form.preview");
   return (
     <Panel className="bg-panel-sunken">
       <PanelBody className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Pips" value={preview ? preview.pips : "—"} />
-        <Stat label="Risk" value={preview ? preview.riskAmount : "—"} />
-        <Stat label="Planned R:R" value={preview ? preview.plannedRR : "—"} />
+        <Stat label={t("pips")} value={preview ? preview.pips : "—"} />
+        <Stat label={t("risk")} value={preview ? preview.riskAmount : "—"} />
+        <Stat label={t("plannedRR")} value={preview ? preview.plannedRR : "—"} />
         <Stat
-          label={preview?.netPnlIsProjection ? "Net P&L (at target)" : "Net P&L"}
+          label={preview?.netPnlIsProjection ? t("netPnlAtTarget") : t("netPnl")}
           value={preview ? preview.netPnl : "—"}
           tone={
             preview?.netPnl && preview.netPnl.startsWith("-")

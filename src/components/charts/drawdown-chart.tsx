@@ -2,6 +2,7 @@
 
 import { Area, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import { formatMoney, formatPercent } from "@/lib/metrics/formatters";
 import { EmptyState } from "@/components/ui";
 import { ChartFrame } from "./chart-frame";
@@ -17,17 +18,16 @@ import type { DrawdownPointDTO } from "@/lib/queries/analytics";
  * unrelated charts.
  */
 export function DrawdownChart({ data, currency }: { data: DrawdownPointDTO[]; currency: string }) {
+  const t = useTranslations("dashboard.charts.drawdown");
   if (data.length === 0) {
-    return <EmptyState title="No drawdown to show" description="Nothing to plot for this range yet." />;
+    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
 
   const points = data.map((p) => ({ ...p, t: new Date(p.at).getTime(), neg: -p.drawdownPct }));
   const domain: [number, number] = [points[0].t, points[points.length - 1].t];
 
   return (
-    <ChartFrame
-      label={`Drawdown from the high-water mark; deepest ${Math.max(0, ...data.map((p) => p.drawdownPct)).toFixed(1)}%.`}
-    >
+    <ChartFrame label={t("label", { pct: Math.max(0, ...data.map((p) => p.drawdownPct)).toFixed(1) })}>
       <ResponsiveContainer width="100%" height="100%" minHeight={90}>
         <ComposedChart data={points} margin={{ top: 4, right: 10, left: 10, bottom: 0 }}>
           <XAxis
@@ -50,11 +50,11 @@ export function DrawdownChart({ data, currency }: { data: DrawdownPointDTO[]; cu
                 <ChartTooltipShell>
                   <ChartTooltipTitle>{format(new Date(p.t), "EEE, MMM d yyyy HH:mm")}</ChartTooltipTitle>
                   <ChartTooltipRow
-                    label="Drawdown"
+                    label={t("drawdown")}
                     value={formatPercent(p.drawdownPct / 100)}
                     tone={p.drawdownPct > 0 ? "loss" : "neutral"}
                   />
-                  <ChartTooltipRow label="Amount" value={formatMoney(p.drawdown, currency)} tone="loss" />
+                  <ChartTooltipRow label={t("amount")} value={formatMoney(p.drawdown, currency)} tone="loss" />
                 </ChartTooltipShell>
               );
             }}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Trash2 } from "lucide-react";
 import {
   Badge,
@@ -48,6 +49,7 @@ export function ExecutionsPanel({
   openLots: string;
   cancelled: boolean;
 }) {
+  const t = useTranslations("trades.detail.fills");
   const router = useRouter();
   const { toast } = useToast();
   const [adding, setAdding] = React.useState(false);
@@ -79,10 +81,10 @@ export function ExecutionsPanel({
     });
     setPending(false);
     if (!res.ok) {
-      toast({ title: "Couldn't add that fill", description: res.formError ?? "Check the fields.", tone: "loss" });
+      toast({ title: t("addFailed"), description: res.formError ?? t("checkFields"), tone: "loss" });
       return;
     }
-    toast({ title: res.status === "CLOSED" ? "Fill added — trade closed" : "Fill added" });
+    toast({ title: res.status === "CLOSED" ? t("addedClosed") : t("added") });
     setAdding(false);
     router.refresh();
   }
@@ -90,7 +92,7 @@ export function ExecutionsPanel({
   async function remove(id: string) {
     const res = await deleteExecution(accountId, tradeId, id);
     if (!res.ok) {
-      toast({ title: "Couldn't remove that fill", description: res.formError, tone: "loss" });
+      toast({ title: t("removeFailed"), description: res.formError, tone: "loss" });
       return;
     }
     router.refresh();
@@ -99,12 +101,12 @@ export function ExecutionsPanel({
   return (
     <Panel flush>
       <PanelHeader
-        title="Fills"
-        caption={Number(openLots) > 0 ? `${openLots} lots open` : "flat"}
+        title={t("title")}
+        caption={Number(openLots) > 0 ? t("lotsOpen", { lots: openLots }) : t("flat")}
         actions={
           cancelled ? null : (
             <Button variant="ghost" size="sm" onClick={startAdding} disabled={adding}>
-              <Plus aria-hidden /> Add fill
+              <Plus aria-hidden /> {t("add")}
             </Button>
           )
         }
@@ -112,18 +114,18 @@ export function ExecutionsPanel({
       <DataTable>
         <thead>
           <tr>
-            <Th>Kind</Th>
-            <Th>Time</Th>
-            <Th numeric>Price</Th>
-            <Th numeric>Lots</Th>
-            <Th aria-label="Actions" />
+            <Th>{t("kind")}</Th>
+            <Th>{t("time")}</Th>
+            <Th numeric>{t("price")}</Th>
+            <Th numeric>{t("lots")}</Th>
+            <Th aria-label={t("actions")} />
           </tr>
         </thead>
         <tbody>
           {executions.length === 0 ? (
             <tr>
               <Td colSpan={5} className="text-xs text-ink-3">
-                {cancelled ? "A cancelled order never filled." : "No fills recorded."}
+                {cancelled ? t("cancelledEmpty") : t("empty")}
               </Td>
             </tr>
           ) : (
@@ -131,7 +133,7 @@ export function ExecutionsPanel({
               <tr key={e.id}>
                 <Td>
                   <Badge tone={e.kind === "ENTRY" ? "outline" : "neutral"}>
-                    {e.kind === "ENTRY" ? "Entry" : "Exit"}
+                    {e.kind === "ENTRY" ? t("entry") : t("exit")}
                   </Badge>
                 </Td>
                 <Td className="mono text-xs">{formatInZone(e.executedAt, timezone, "MMM d, HH:mm")}</Td>
@@ -146,7 +148,7 @@ export function ExecutionsPanel({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Remove ${e.kind === "ENTRY" ? "entry" : "exit"} at ${e.price}`}
+                      aria-label={t(e.kind === "ENTRY" ? "removeEntry" : "removeExit", { price: e.price })}
                       onClick={() => remove(e.id)}
                     >
                       <Trash2 aria-hidden />
@@ -162,13 +164,17 @@ export function ExecutionsPanel({
       {adding ? (
         <PanelBody>
           <form onSubmit={submit} className="flex flex-col gap-3">
-            <Segmented value={kind} onValueChange={(v) => v && setKind(v as "ENTRY" | "EXIT")} aria-label="Fill kind">
-              <SegmentedItem value="ENTRY">Entry (scale in)</SegmentedItem>
-              <SegmentedItem value="EXIT">Exit (close part or all)</SegmentedItem>
+            <Segmented
+              value={kind}
+              onValueChange={(v) => v && setKind(v as "ENTRY" | "EXIT")}
+              aria-label={t("kindLabel")}
+            >
+              <SegmentedItem value="ENTRY">{t("entryOption")}</SegmentedItem>
+              <SegmentedItem value="EXIT">{t("exitOption")}</SegmentedItem>
             </Segmented>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field>
-                <FieldLabel>Time</FieldLabel>
+                <FieldLabel>{t("time")}</FieldLabel>
                 <Input
                   type="datetime-local"
                   value={executedAt}
@@ -177,20 +183,20 @@ export function ExecutionsPanel({
                 />
               </Field>
               <Field>
-                <FieldLabel>Price</FieldLabel>
+                <FieldLabel>{t("price")}</FieldLabel>
                 <NumberInput value={price} onChange={(e) => setPrice(e.target.value)} required />
               </Field>
               <Field>
-                <FieldLabel>Lots</FieldLabel>
-                <NumberInput value={lots} onChange={(e) => setLots(e.target.value)} required unit="lots" />
+                <FieldLabel>{t("lots")}</FieldLabel>
+                <NumberInput value={lots} onChange={(e) => setLots(e.target.value)} required unit={t("lotsUnit")} />
               </Field>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setAdding(false)} disabled={pending}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" variant="primary" disabled={pending}>
-                {pending ? "Adding…" : "Add fill"}
+                {pending ? t("adding") : t("add")}
               </Button>
             </div>
           </form>

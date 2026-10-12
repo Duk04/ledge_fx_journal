@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { ChevronUp, ChevronDown, Pencil, Trash2, Plus } from "lucide-react";
 import {
   Panel,
@@ -20,32 +21,34 @@ import { createTag, updateTag, reorderTag, deleteTag } from "@/lib/actions/tags"
 import type { TagRow, TagsGrouped } from "@/lib/queries/settings";
 
 export function TagsTab({ initialTags }: { initialTags: TagsGrouped }) {
+  const tr = useTranslations("settings.tags");
   return (
     <div className="flex flex-col gap-4">
-      <TagGroup kind="SETUP" title="Setup tags" tags={initialTags.setup} />
-      <TagGroup kind="MISTAKE" title="Mistake tags" tags={initialTags.mistake} />
+      <TagGroup kind="SETUP" title={tr("setup")} tags={initialTags.setup} />
+      <TagGroup kind="MISTAKE" title={tr("mistake")} tags={initialTags.mistake} />
     </div>
   );
 }
 
 function TagGroup({ kind, title, tags }: { kind: "SETUP" | "MISTAKE"; title: string; tags: TagRow[] }) {
+  const tr = useTranslations("settings.tags");
   const [adding, setAdding] = React.useState(false);
 
   return (
     <Panel>
       <PanelHeader
         title={title}
-        caption={`${tags.length} tag${tags.length === 1 ? "" : "s"}`}
+        caption={tr("count", { count: tags.length })}
         actions={
           <Button variant="default" size="sm" onClick={() => setAdding((v) => !v)}>
-            <Plus /> New tag
+            <Plus /> {tr("newTag")}
           </Button>
         }
       />
       <PanelBody padded={false}>
         {adding ? <NewTagForm kind={kind} onDone={() => setAdding(false)} /> : null}
         {tags.length === 0 && !adding ? (
-          <p className="px-3 py-6 text-center text-xs text-ink-3">No tags yet.</p>
+          <p className="px-3 py-6 text-center text-xs text-ink-3">{tr("none")}</p>
         ) : (
           <ul className="divide-y divide-line-faint">
             {tags.map((t, i) => (
@@ -59,6 +62,7 @@ function TagGroup({ kind, title, tags }: { kind: "SETUP" | "MISTAKE"; title: str
 }
 
 function NewTagForm({ kind, onDone }: { kind: "SETUP" | "MISTAKE"; onDone: () => void }) {
+  const tr = useTranslations("settings.tags");
   const [name, setName] = React.useState("");
   const [color, setColor] = React.useState(TAG_SWATCHES[0]);
   const [error, setError] = React.useState<string | null>(null);
@@ -71,12 +75,12 @@ function NewTagForm({ kind, onDone }: { kind: "SETUP" | "MISTAKE"; onDone: () =>
     const result = await createTag({ name, kind, color });
     setPending(false);
     if (result.ok) {
-      toast({ title: "Tag created." });
+      toast({ title: tr("created") });
       setName("");
       setColor(TAG_SWATCHES[0]);
       onDone();
     } else {
-      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? "Could not create tag.");
+      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? tr("couldNotCreate"));
     }
   }
 
@@ -86,15 +90,15 @@ function NewTagForm({ kind, onDone }: { kind: "SETUP" | "MISTAKE"; onDone: () =>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Tag name"
+          placeholder={tr("namePlaceholder")}
           className="max-w-56"
           autoFocus
         />
         <Button size="sm" variant="primary" onClick={submit} disabled={pending || !name.trim()}>
-          Add
+          {tr("add")}
         </Button>
         <Button size="sm" variant="ghost" onClick={onDone}>
-          Cancel
+          {tr("cancel")}
         </Button>
       </div>
       <ColorSwatchPicker value={color} onChange={setColor} error={error ?? undefined} />
@@ -103,6 +107,7 @@ function NewTagForm({ kind, onDone }: { kind: "SETUP" | "MISTAKE"; onDone: () =>
 }
 
 function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; isLast: boolean }) {
+  const tr = useTranslations("settings.tags");
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = React.useState(tag.name);
   const [color, setColor] = React.useState(tag.color);
@@ -117,10 +122,10 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
     const result = await updateTag(tag.id, { name, color });
     setPending(false);
     if (result.ok) {
-      toast({ title: "Tag updated." });
+      toast({ title: tr("updated") });
       setEditing(false);
     } else {
-      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? "Could not save.");
+      setError(result.formError ?? Object.values(result.fieldErrors ?? {})[0]?.[0] ?? tr("couldNotSave"));
     }
   }
 
@@ -133,10 +138,10 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
     const result = await deleteTag(tag.id);
     setPending(false);
     if (result.ok) {
-      toast({ title: "Tag deleted." });
+      toast({ title: tr("deleted") });
       setDeleteOpen(false);
     } else {
-      toast({ title: "Could not delete", description: result.formError, tone: "loss" });
+      toast({ title: tr("couldNotDelete"), description: result.formError, tone: "loss" });
     }
   }
 
@@ -146,7 +151,7 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-56" autoFocus />
           <Button size="sm" variant="default" onClick={saveEdit} disabled={pending || !name.trim()}>
-            Save
+            {tr("save")}
           </Button>
           <Button
             size="sm"
@@ -158,7 +163,7 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
               setError(null);
             }}
           >
-            Cancel
+            {tr("cancel")}
           </Button>
         </div>
         <ColorSwatchPicker value={color} onChange={setColor} error={error ?? undefined} />
@@ -174,16 +179,22 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
         {tag.tradeCount} trade{tag.tradeCount === 1 ? "" : "s"}
       </Badge>
       <div className="flex shrink-0 items-center gap-0.5">
-        <Button variant="ghost" size="icon-sm" aria-label="Move up" disabled={isFirst} onClick={() => move("up")}>
+        <Button variant="ghost" size="icon-sm" aria-label={tr("moveUp")} disabled={isFirst} onClick={() => move("up")}>
           <ChevronUp />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Move down" disabled={isLast} onClick={() => move("down")}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={tr("moveDown")}
+          disabled={isLast}
+          onClick={() => move("down")}
+        >
           <ChevronDown />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Edit tag" onClick={() => setEditing(true)}>
+        <Button variant="ghost" size="icon-sm" aria-label={tr("edit")} onClick={() => setEditing(true)}>
           <Pencil />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Delete tag" onClick={() => setDeleteOpen(true)}>
+        <Button variant="ghost" size="icon-sm" aria-label={tr("delete")} onClick={() => setDeleteOpen(true)}>
           <Trash2 className="text-loss" />
         </Button>
       </div>
@@ -191,19 +202,19 @@ function TagRowItem({ tag, isFirst, isLast }: { tag: TagRow; isFirst: boolean; i
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent size="sm">
           <DialogHeader
-            title="Delete tag"
+            title={tr("deleteTitle")}
             description={
               tag.tradeCount > 0
-                ? `"${tag.name}" is used on ${tag.tradeCount} trade${tag.tradeCount === 1 ? "" : "s"}. Deleting it removes the tag from those trades — the trades themselves are unaffected.`
-                : `Delete "${tag.name}"? This cannot be undone.`
+                ? tr("deleteUsed", { name: tag.name, count: tag.tradeCount })
+                : tr("deleteUnused", { name: tag.name })
             }
           />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
-              Cancel
+              {tr("cancel")}
             </Button>
             <Button variant="danger" onClick={confirmDelete} disabled={pending}>
-              Delete
+              {tr("deleteConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

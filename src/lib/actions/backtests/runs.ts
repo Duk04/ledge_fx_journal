@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ok, type ActionResult } from "../result";
 import { guardNotFound } from "../guard";
 import { NotFoundError, requireUser } from "@/lib/session";
+import { tr } from "@/i18n/server-t";
 
 /**
  * Deletes a run and its trades (the FK from Trade -> BacktestRun cascades —
@@ -23,7 +24,7 @@ export async function deleteRun(id: string): Promise<ActionResult> {
   return guardNotFound(async () => {
     await prisma.$transaction(async (tx) => {
       const run = await tx.backtestRun.findFirst({ where: { id, userId: user.id } });
-      if (!run) throw new NotFoundError("That run was not found.");
+      if (!run) throw new NotFoundError(await tr("runNotFound"));
 
       await tx.backtestRun.delete({ where: { id } });
 

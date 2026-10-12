@@ -171,6 +171,10 @@ model User {
   /// administrator who may write the shared Instrument and Candle tables.
   role              UserRole  @default(MEMBER)
   timezone          String    @default("Asia/Ulaanbaatar")
+  /// UI language: "en" or "mn" (src/i18n/config.ts). The NEXT_LOCALE cookie
+  /// carries it per request; this is the durable copy it is set from at
+  /// sign-in, and what anything without a request (email) reads.
+  locale            String    @default("en")
   /// Any session token issued before this instant is rejected by the DAL.
   /// This is how "sign out everywhere" works under a JWT strategy, where
   /// there is no server-side session row to delete: a password reset or

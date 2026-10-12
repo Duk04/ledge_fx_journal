@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   createChart,
   CandlestickSeries,
@@ -55,6 +56,7 @@ export function CandlestickChart({
   pendingTarget?: number;
   className?: string;
 }) {
+  const t = useTranslations("backtest.chart");
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<IChartApi | null>(null);
   const seriesRef = React.useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -161,14 +163,14 @@ export function CandlestickChart({
     }
 
     if (position) {
-      add(position.entryPrice, tokens.brand, "entry", false);
-      if (position.stopLoss !== undefined) add(position.stopLoss, tokens.loss, "stop", true);
-      if (position.takeProfit !== undefined) add(position.takeProfit, tokens.profit, "target", true);
+      add(position.entryPrice, tokens.brand, t("entry"), false);
+      if (position.stopLoss !== undefined) add(position.stopLoss, tokens.loss, t("stop"), true);
+      if (position.takeProfit !== undefined) add(position.takeProfit, tokens.profit, t("target"), true);
     } else {
-      if (pendingStop !== undefined) add(pendingStop, tokens.loss, "stop (draft)", true);
-      if (pendingTarget !== undefined) add(pendingTarget, tokens.profit, "target (draft)", true);
+      if (pendingStop !== undefined) add(pendingStop, tokens.loss, t("stopDraft"), true);
+      if (pendingTarget !== undefined) add(pendingTarget, tokens.profit, t("targetDraft"), true);
     }
-  }, [position, pendingStop, pendingTarget]);
+  }, [position, pendingStop, pendingTarget, t]);
 
   return <div ref={containerRef} className={className} />;
 }

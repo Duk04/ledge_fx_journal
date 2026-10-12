@@ -1,3 +1,4 @@
+import { english } from "@/i18n/english";
 import { describe, expect, it } from "vitest";
 import { closeTradeSchema, parseTradeForm } from "./trade";
 
@@ -181,7 +182,7 @@ describe("parseTradeForm", () => {
       const result = parseTradeForm(form(fields));
       expect(result.ok).toBe(false);
       if (result.ok) return;
-      expect(result.fieldErrors.exitPrice?.[0]).toMatch(/required to close/i);
+      expect(english(result.fieldErrors.exitPrice?.[0])).toMatch(/required to close/i);
     });
 
     it("rejects a closed trade with no close time", () => {
@@ -190,7 +191,7 @@ describe("parseTradeForm", () => {
       const result = parseTradeForm(form(fields));
       expect(result.ok).toBe(false);
       if (result.ok) return;
-      expect(result.fieldErrors.closedAt?.[0]).toMatch(/required to close/i);
+      expect(english(result.fieldErrors.closedAt?.[0])).toMatch(/required to close/i);
     });
 
     it("does not require them for an OPEN trade", () => {
@@ -210,7 +211,7 @@ describe("parseTradeForm", () => {
       });
       expect(result.ok).toBe(false);
       if (result.ok) return;
-      expect(result.fieldErrors.symbol?.[0]).toMatch(/unknown symbol/i);
+      expect(english(result.fieldErrors.symbol?.[0])).toMatch(/unknown symbol/i);
     });
 
     it("accepts one inside it", () => {

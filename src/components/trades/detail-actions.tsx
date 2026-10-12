@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Copy, Pencil, Trash2, X as CloseIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
@@ -26,6 +27,7 @@ export function TradeDetailActions({
   /** Lots still open — the close dialog's default, and its ceiling. */
   openLots: string;
 }) {
+  const t = useTranslations("trades.detail.actions");
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -36,10 +38,10 @@ export function TradeDetailActions({
     startTransition(async () => {
       const res = await duplicateTrade(accountId, tradeId);
       if (res.ok) {
-        toast({ title: "Trade duplicated", description: "Opened as a new OPEN trade.", tone: "profit" });
+        toast({ title: t("duplicated"), description: t("duplicatedDescription"), tone: "profit" });
         router.push(`/trades/${res.id}`);
       } else {
-        toast({ title: "Couldn't duplicate trade", description: res.formError, tone: "loss" });
+        toast({ title: t("duplicateFailed"), description: res.formError, tone: "loss" });
       }
     });
   }
@@ -48,11 +50,11 @@ export function TradeDetailActions({
     startTransition(async () => {
       const res = await deleteTrade(accountId, tradeId);
       if (res.ok) {
-        toast({ title: "Trade deleted" });
+        toast({ title: t("deleted") });
         router.push("/trades");
       } else {
         setConfirmOpen(false);
-        toast({ title: "Couldn't delete trade", description: res.formError, tone: "loss" });
+        toast({ title: t("deleteFailed"), description: res.formError, tone: "loss" });
       }
     });
   }
@@ -61,33 +63,30 @@ export function TradeDetailActions({
     <div className="flex items-center gap-2">
       {status === "OPEN" ? (
         <Button variant="default" size="sm" onClick={() => setCloseOpen(true)}>
-          <CloseIcon /> Close trade
+          <CloseIcon /> {t("closeTrade")}
         </Button>
       ) : null}
       <Button asChild variant="default" size="sm">
         <Link href={`/trades/${tradeId}/edit`}>
-          <Pencil /> Edit
+          <Pencil /> {t("edit")}
         </Link>
       </Button>
       <Button variant="default" size="sm" onClick={handleDuplicate} disabled={pending}>
-        <Copy /> Duplicate
+        <Copy /> {t("duplicate")}
       </Button>
       <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)} disabled={pending}>
-        <Trash2 /> Delete
+        <Trash2 /> {t("delete")}
       </Button>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent size="sm">
-          <DialogHeader
-            title="Delete this trade?"
-            description="This removes the trade and its attachments permanently."
-          />
+          <DialogHeader title={t("confirmTitle")} description={t("confirmDescription")} />
           <DialogFooter>
             <Button variant="default" onClick={() => setConfirmOpen(false)} disabled={pending}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button variant="danger" onClick={handleDelete} disabled={pending}>
-              {pending ? "Deleting…" : "Delete"}
+              {pending ? t("deleting") : t("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -105,7 +104,7 @@ export function TradeDetailActions({
           if (res.ok) {
             setCloseOpen(false);
             const partial = Number(input.volumeLots) < Number(openLots);
-            toast({ title: partial ? `Closed ${input.volumeLots} of ${openLots} lots` : "Trade closed" });
+            toast({ title: partial ? t("partialClosed", { lots: input.volumeLots, openLots }) : t("closed") });
             router.refresh();
           }
           return res;
@@ -130,6 +129,7 @@ function CloseTradeDialog({
     formError?: string;
   }>;
 }) {
+  const t = useTranslations("trades.detail.closeDialog");
   const [exitPrice, setExitPrice] = React.useState("");
   const [volumeLots, setVolumeLots] = React.useState(openLots);
   const [closedAt, setClosedAt] = React.useState(() => toDatetimeLocal(new Date()));
@@ -150,13 +150,10 @@ function CloseTradeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <form onSubmit={handleSubmit}>
-          <DialogHeader
-            title="Close trade"
-            description="The exit price and close time — everything else stays as recorded."
-          />
+          <DialogHeader title={t("title")} description={t("description")} />
           <div className="flex flex-col gap-3 p-4">
             <Field>
-              <FieldLabel>Exit price</FieldLabel>
+              <FieldLabel>{t("exitPrice")}</FieldLabel>
               <NumberInput
                 autoFocus
                 value={exitPrice}
@@ -167,18 +164,18 @@ function CloseTradeDialog({
               <FieldError>{errors.exitPrice?.[0]}</FieldError>
             </Field>
             <Field>
-              <FieldLabel>Lots to close</FieldLabel>
+              <FieldLabel>{t("lotsToClose")}</FieldLabel>
               <NumberInput
                 value={volumeLots}
                 onChange={(e) => setVolumeLots(e.target.value)}
-                unit={`of ${openLots}`}
+                unit={t("ofOpen", { openLots })}
                 aria-invalid={!!errors.volumeLots}
               />
-              <FieldHint>Fewer than all of them is a partial close; the trade stays open.</FieldHint>
+              <FieldHint>{t("lotsHint")}</FieldHint>
               <FieldError>{errors.volumeLots?.[0]}</FieldError>
             </Field>
             <Field>
-              <FieldLabel>Closed at</FieldLabel>
+              <FieldLabel>{t("closedAt")}</FieldLabel>
               <Input
                 type="datetime-local"
                 value={closedAt}
@@ -190,10 +187,10 @@ function CloseTradeDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="default" onClick={() => onOpenChange(false)} disabled={submitting}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={submitting}>
-              {submitting ? "Closing…" : "Close trade"}
+              {submitting ? t("submitting") : t("submit")}
             </Button>
           </DialogFooter>
         </form>

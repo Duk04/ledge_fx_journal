@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Sparkles } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { Page, Grid } from "@/components/shell/page";
 import { SectionHead, Panel, PanelHeader, PanelBody, Label2, StatRow, Stat, EmptyState, Button } from "@/components/ui";
 import { formatMoney, formatPercent, formatR } from "@/lib/metrics/formatters";
@@ -24,12 +25,13 @@ function toneOf(n: number | null): "profit" | "loss" | "neutral" {
   return n > 0 ? "profit" : "loss";
 }
 
-function streakLabel(current: number): string {
+function streakLabel(current: number, t: Awaited<ReturnType<typeof getTranslations<"dashboard.overview">>>): string {
   if (current === 0) return "—";
-  return current > 0 ? `${current}W` : `${Math.abs(current)}L`;
+  return current > 0 ? t("streakWin", { count: current }) : t("streakLoss", { count: Math.abs(current) });
 }
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+  const t = await getTranslations("dashboard.overview");
   const { range: rangeParam } = await searchParams;
   const user = await requireUser();
 
@@ -47,7 +49,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
   return (
     <Page>
-      <SectionHead title="Overview" hint={account.label} actions={<RangeControl value={range} />} />
+      <SectionHead title={t("title")} hint={account.label} actions={<RangeControl value={range} />} />
 
       {/* Sits above the numbers on purpose: a rule breach today matters more
           than a 90-day statistic. */}
@@ -58,32 +60,32 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             No sparkline here: at six tiles across it spilled into the next
             tile, and the equity chart directly below already draws it. */}
         <Stat
-          label="Net P&L"
+          label={t("netPnl")}
           size="lg"
           value={`${s.netPnl > 0.005 ? "+" : ""}${formatMoney(s.netPnl, data.currency)}`}
           tone={toneOf(s.netPnl)}
         />
         <Stat
-          label="Win rate"
+          label={t("winRate")}
           value={formatPercent(s.winRate)}
           hint={
             s.breakevenWinRate !== null
-              ? `needs ${formatPercent(s.breakevenWinRate, 0)} to break even`
-              : "not enough closed trades"
+              ? t("breakevenHint", { pct: formatPercent(s.breakevenWinRate, 0) })
+              : t("notEnoughClosed")
           }
         />
-        <Stat label="Profit factor" value={s.profitFactor === null ? "—" : s.profitFactor.toFixed(2)} />
-        <Stat label="Expectancy R" value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
+        <Stat label={t("profitFactor")} value={s.profitFactor === null ? "—" : s.profitFactor.toFixed(2)} />
+        <Stat label={t("expectancyR")} value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
         <Stat
-          label="Max drawdown"
+          label={t("maxDrawdown")}
           value={data.maxDrawdown ? formatPercent(data.maxDrawdown.pct / 100) : "—"}
           hint={data.maxDrawdown ? formatMoney(data.maxDrawdown.amount, data.currency) : undefined}
           tone={data.maxDrawdown && data.maxDrawdown.amount > 0 ? "loss" : "neutral"}
         />
         <Stat
-          label="Current streak"
-          value={streakLabel(data.streak.current)}
-          hint={`longest: ${data.streak.longestWin}w / ${data.streak.longestLoss}l`}
+          label={t("currentStreak")}
+          value={streakLabel(data.streak.current, t)}
+          hint={t("longest", { win: data.streak.longestWin, loss: data.streak.longestLoss })}
           tone={data.streak.current > 0 ? "profit" : data.streak.current < 0 ? "loss" : "neutral"}
         />
       </StatRow>
@@ -96,15 +98,15 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <PanelBody>
             <EmptyState
               icon={<Sparkles className="size-4" />}
-              title="Nothing logged on this account yet"
-              description="Log your first trade by hand, or import a MetaTrader statement to bring in your history at once."
+              title={t("emptyTitle")}
+              description={t("emptyDescription")}
             />
             <div className="flex flex-wrap justify-center gap-2 pb-2">
               <Button asChild variant="primary">
-                <Link href="/trades/new">Log a trade</Link>
+                <Link href="/trades/new">{t("logTrade")}</Link>
               </Button>
               <Button asChild variant="default">
-                <Link href="/trades/import">Import a statement</Link>
+                <Link href="/trades/import">{t("importStatement")}</Link>
               </Button>
             </div>
           </PanelBody>
@@ -113,7 +115,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 
       <Grid>
         <Panel className="lg:col-span-8">
-          <PanelHeader title="Equity" caption={data.currency} />
+          <PanelHeader title={t("equity")} caption={data.currency} />
           <PanelBody className="h-56">
             <EquityChart
               data={data.equity}
@@ -123,7 +125,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             />
           </PanelBody>
           <div className="border-t border-line px-3 pt-2 pb-1">
-            <Label2>Drawdown</Label2>
+            <Label2>{t("drawdown")}</Label2>
           </div>
           <div className="h-24 px-1 pb-2">
             <DrawdownChart data={data.drawdown} currency={data.currency} />
@@ -134,14 +136,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           {data.prop ? <ChallengePanel prop={data.prop} currency={data.currency} /> : null}
 
           <Panel>
-            <PanelHeader title="Open positions" caption={String(data.openTrades.length)} />
+            <PanelHeader title={t("openPositions")} caption={String(data.openTrades.length)} />
             <PanelBody padded={false}>
               <OpenPositionsPanel trades={data.openTrades} />
             </PanelBody>
           </Panel>
 
           <Panel>
-            <PanelHeader title="P&L" />
+            <PanelHeader title={t("pnl")} />
             <PanelBody padded={false}>
               <PnlRows
                 currency={data.currency}
@@ -153,7 +155,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           </Panel>
 
           <Panel>
-            <PanelHeader title="Discipline" />
+            <PanelHeader title={t("discipline")} />
             <PanelBody padded={false}>
               <DisciplinePanel discipline={data.discipline} />
             </PanelBody>
@@ -161,14 +163,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </div>
 
         <Panel className="lg:col-span-7">
-          <PanelHeader title="Recent trades" caption="Last 10" />
+          <PanelHeader title={t("recentTrades")} caption={t("last10")} />
           <PanelBody padded={false}>
             <RecentTradesTable trades={data.recentTrades} currency={data.currency} timezone={user.timezone} />
           </PanelBody>
         </Panel>
 
         <Panel className="lg:col-span-5">
-          <PanelHeader title="Daily P&L" />
+          <PanelHeader title={t("dailyPnl")} />
           <PanelBody className="h-64">
             <DailyPnlChart data={data.dailyPnl} currency={data.currency} />
           </PanelBody>

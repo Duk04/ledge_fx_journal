@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Segmented, SegmentedItem } from "@/components/ui";
 import { RANGE_OPTIONS, type RangeKey } from "@/lib/range";
 
@@ -13,6 +14,7 @@ import { RANGE_OPTIONS, type RangeKey } from "@/lib/range";
  * out of `searchParams` on the next render.
  */
 export function RangeControl({ value }: { value: RangeKey }) {
+  const t = useTranslations("dashboard.range");
   const router = useRouter();
   const pathname = usePathname();
   // A range change re-renders the whole page on the server, which can take a
@@ -27,13 +29,14 @@ export function RangeControl({ value }: { value: RangeKey }) {
         if (!next) return;
         startTransition(() => router.replace(`${pathname}?range=${next}`, { scroll: false }));
       }}
-      aria-label="Date range"
+      aria-label={t("ariaLabel")}
       aria-busy={pending || undefined}
       className={pending ? "opacity-60" : undefined}
     >
       {RANGE_OPTIONS.map((o) => (
         <SegmentedItem key={o.value} value={o.value}>
-          {o.label}
+          {/* Translated by value: RANGE_OPTIONS' own labels are the English ones. */}
+          {t(o.value)}
         </SegmentedItem>
       ))}
     </Segmented>

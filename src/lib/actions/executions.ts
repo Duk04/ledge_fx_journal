@@ -6,7 +6,9 @@ import { prisma } from "@/lib/db";
 import { validateFills } from "@/lib/metrics/fills";
 import { accountOrFailure } from "./guard";
 import { syncTradeFromFills, toFill } from "./fills-store";
-import { fail, failFields, ok, type ActionResult } from "./result";
+import { fail, ok, type ActionResult } from "./result";
+import { failT, failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * Adding and removing individual fills: scaling in, partial closes, fixing a
@@ -17,9 +19,15 @@ import { fail, failFields, ok, type ActionResult } from "./result";
 
 const fillSchema = z.object({
   kind: z.enum(["ENTRY", "EXIT"]),
-  executedAt: z.coerce.date({ error: "Time is required" }),
-  price: z.coerce.number({ error: "Price is required" }).finite().positive("Price must be greater than 0"),
-  volumeLots: z.coerce.number({ error: "Volume is required" }).finite().positive("Volume must be greater than 0"),
+  executedAt: z.coerce.date({ error: vmsg("timeRequired") }),
+  price: z.coerce
+    .number({ error: vmsg("priceRequired") })
+    .finite()
+    .positive(vmsg("pricePositive")),
+  volumeLots: z.coerce
+    .number({ error: vmsg("volumeRequired") })
+    .finite()
+    .positive(vmsg("volumePositive")),
 });
 
 async function tradeForAccount(accountId: string, tradeId: string) {
@@ -29,7 +37,7 @@ async function tradeForAccount(accountId: string, tradeId: string) {
     where: { id: tradeId, accountId: found.account.id },
     include: { executions: true },
   });
-  if (!trade) return { failure: fail("Trade not found.") };
+  if (!trade) return { failure: await failT("tradeNotFound") };
   if (trade.status === "CANCELLED") return { failure: fail("A cancelled trade has no fills to change.") };
   return { account: found.account, trade };
 }
@@ -49,7 +57,7 @@ export async function addExecution(
   if ("failure" in found) return found.failure;
 
   const parsed = fillSchema.safeParse(input);
-  if (!parsed.success) return failFields(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  if (!parsed.success) return failZod(parsed.error.flatten().fieldErrors as Record<string, string[]>);
 
   const problems = validateFills([...found.trade.executions.map(toFill), parsed.data]);
   if (problems.length) return fail(problems[0].message);
@@ -80,16 +88,12 @@ export async function deleteExecution(
   if ("failure" in found) return found.failure;
 
   const target = found.trade.executions.find((e) => e.id === executionId);
-  if (!target) return fail("That fill was not found on this trade.");
+  if (!target) return failT("fillNotFound");
 
   const remaining = found.trade.executions.filter((e) => e.id !== executionId);
   const problems = validateFills(remaining.map(toFill));
   if (problems.length) {
-    return fail(
-      problems[0].code === "NO_ENTRY"
-        ? "That is the trade's only entry — delete the trade instead."
-        : problems[0].message,
-    );
+    return fail(problems[0].code === "NO_ENTRY" ? await tr("onlyEntryFill") : problems[0].message);
   }
 
   const updated = await prisma.$transaction(async (tx) => {

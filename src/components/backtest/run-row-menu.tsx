@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { MoreHorizontal } from "lucide-react";
 import {
   Button,
@@ -21,6 +22,7 @@ import { deleteRun } from "@/lib/actions/backtests";
  * (rather than a bare button) leaves room for "duplicate settings" etc.
  * later without another table-layout change. */
 export function RunRowMenu({ runId, label }: { runId: string; label: string | null }) {
+  const t = useTranslations("backtest");
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -31,10 +33,10 @@ export function RunRowMenu({ runId, label }: { runId: string; label: string | nu
       const res = await deleteRun(runId);
       setConfirmOpen(false);
       if (res.ok) {
-        toast({ title: "Run deleted" });
+        toast({ title: t("runMenu.deleted") });
         router.refresh();
       } else {
-        toast({ title: "Couldn't delete run", description: res.formError, tone: "loss" });
+        toast({ title: t("runMenu.couldNotDelete"), description: res.formError, tone: "loss" });
       }
     });
   }
@@ -43,7 +45,7 @@ export function RunRowMenu({ runId, label }: { runId: string; label: string | nu
     <div className="relative inline-flex justify-end">
       <Dropdown>
         <DropdownTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Run actions">
+          <Button variant="ghost" size="icon-sm" aria-label={t("runMenu.actions")}>
             <MoreHorizontal />
           </Button>
         </DropdownTrigger>
@@ -55,7 +57,7 @@ export function RunRowMenu({ runId, label }: { runId: string; label: string | nu
               setConfirmOpen(true);
             }}
           >
-            Delete
+            {t("common.delete")}
           </DropdownItem>
         </DropdownContent>
       </Dropdown>
@@ -63,15 +65,15 @@ export function RunRowMenu({ runId, label }: { runId: string; label: string | nu
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent size="sm">
           <DialogHeader
-            title="Delete this run?"
-            description={`Permanently delete "${label ?? "this run"}" and every trade it produced. This can't be undone.`}
+            title={t("runMenu.deleteTitle")}
+            description={t("runMenu.deleteDescription", { label: label ?? t("runMenu.thisRun") })}
           />
           <DialogFooter>
             <Button variant="default" onClick={() => setConfirmOpen(false)} disabled={pending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={handleDelete} disabled={pending}>
-              {pending ? "Deleting…" : "Delete"}
+              {pending ? t("common.deleting") : t("common.delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

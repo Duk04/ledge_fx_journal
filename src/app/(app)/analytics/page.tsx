@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import {
   SectionHead,
@@ -72,52 +73,68 @@ export default async function AnalyticsPage({
     periods(ctx),
   ]);
 
+  const t = await getTranslations("analytics");
   const currency = ov.currency;
   const s = ov.summary;
 
   return (
     <Page>
-      <SectionHead title="Analytics" hint={account.label} actions={<RangeControl value={range} />} />
+      <SectionHead title={t("title")} hint={account.label} actions={<RangeControl value={range} />} />
 
       <UrlTabs value={tab}>
         <TabsList>
-          <TabsTrigger value="breakdowns">Breakdowns</TabsTrigger>
-          <TabsTrigger value="distribution">Distribution</TabsTrigger>
-          <TabsTrigger value="timing">Timing</TabsTrigger>
-          <TabsTrigger value="periods">Periods</TabsTrigger>
+          <TabsTrigger value="breakdowns">{t("tabs.breakdowns")}</TabsTrigger>
+          <TabsTrigger value="distribution">{t("tabs.distribution")}</TabsTrigger>
+          <TabsTrigger value="timing">{t("tabs.timing")}</TabsTrigger>
+          <TabsTrigger value="periods">{t("tabs.periods")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="breakdowns" className="flex flex-col gap-4 pt-4">
           <InsightSentence breakdowns={bd} currency={currency} />
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Panel>
-              <PanelHeader title="Symbol" />
+              <PanelHeader title={t("breakdowns.symbol")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={bd.symbol} currency={currency} keyLabel="Symbol" />
+                <BreakdownTable rows={bd.symbol} currency={currency} keyLabel={t("breakdowns.symbol")} />
               </PanelBody>
             </Panel>
             <Panel>
-              <PanelHeader title="Setup tag" />
+              <PanelHeader title={t("breakdowns.setupTag")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={bd.tag} currency={currency} keyLabel="Tag" />
+                <BreakdownTable rows={bd.tag} currency={currency} keyLabel={t("breakdowns.tag")} />
               </PanelBody>
             </Panel>
             <Panel>
-              <PanelHeader title="Session" />
+              <PanelHeader title={t("breakdowns.session")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={bd.marketSession} currency={currency} keyLabel="Session" />
+                <BreakdownTable
+                  rows={bd.marketSession}
+                  labelNs="session"
+                  currency={currency}
+                  keyLabel={t("breakdowns.session")}
+                />
               </PanelBody>
             </Panel>
             <Panel>
-              <PanelHeader title="Direction" />
+              <PanelHeader title={t("breakdowns.direction")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={bd.direction} currency={currency} keyLabel="Direction" />
+                <BreakdownTable
+                  rows={bd.direction}
+                  labelNs="direction"
+                  currency={currency}
+                  keyLabel={t("breakdowns.direction")}
+                />
               </PanelBody>
             </Panel>
             <Panel className="xl:col-span-2">
-              <PanelHeader title="Plan followed" />
+              <PanelHeader title={t("breakdowns.planFollowed")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={bd.followedPlan} currency={currency} keyLabel="Plan" />
+                <BreakdownTable
+                  rows={bd.followedPlan}
+                  labelNs="plan"
+                  currency={currency}
+                  keyLabel={t("breakdowns.plan")}
+                />
               </PanelBody>
             </Panel>
           </div>
@@ -125,32 +142,35 @@ export default async function AnalyticsPage({
 
         <TabsContent value="distribution" className="flex flex-col gap-4 pt-4">
           <StatRow>
-            <Stat label="Payoff ratio" value={s.payoffRatio === null ? "—" : s.payoffRatio.toFixed(2)} />
             <Stat
-              label="Avg win"
+              label={t("distribution.payoffRatio")}
+              value={s.payoffRatio === null ? "—" : s.payoffRatio.toFixed(2)}
+            />
+            <Stat
+              label={t("distribution.avgWin")}
               value={s.averageWin === null ? "—" : formatMoney(s.averageWin, currency)}
               tone="profit"
             />
             <Stat
-              label="Avg loss"
+              label={t("distribution.avgLoss")}
               value={s.averageLoss === null ? "—" : formatMoney(-s.averageLoss, currency)}
               tone="loss"
             />
             <Stat
-              label="Expectancy"
+              label={t("distribution.expectancy")}
               value={s.expectancyMoney === null ? "—" : formatMoney(s.expectancyMoney, currency)}
               tone={toneOf(s.expectancyMoney)}
             />
-            <Stat label="Expectancy R" value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
+            <Stat label={t("distribution.expectancyR")} value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
             <Stat
-              label="System quality"
+              label={t("distribution.systemQuality")}
               value={s.systemQuality === null ? "—" : s.systemQuality.toFixed(2)}
-              hint="meaningful at 30+ trades"
+              hint={t("distribution.systemQualityHint")}
             />
           </StatRow>
 
           <Panel>
-            <PanelHeader title="R distribution" caption="frequency by R multiple" />
+            <PanelHeader title={t("distribution.rDistribution")} caption={t("distribution.rDistributionCaption")} />
             <PanelBody className="h-64">
               <RHistogram buckets={rh.buckets} currency={currency} />
             </PanelBody>
@@ -158,24 +178,24 @@ export default async function AnalyticsPage({
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Panel>
-              <ExtremesTable title="Biggest winners" trades={rh.topWinners} currency={currency} />
+              <ExtremesTable title={t("distribution.biggestWinners")} trades={rh.topWinners} currency={currency} />
             </Panel>
             <Panel>
-              <ExtremesTable title="Biggest losers" trades={rh.topLosers} currency={currency} />
+              <ExtremesTable title={t("distribution.biggestLosers")} trades={rh.topLosers} currency={currency} />
             </Panel>
           </div>
         </TabsContent>
 
         <TabsContent value="timing" className="flex flex-col gap-4 pt-4">
           <Panel>
-            <PanelHeader title="Session heatmap" caption="weekday x session, net P&L" />
+            <PanelHeader title={t("timing.sessionHeatmap")} caption={t("timing.sessionHeatmapCaption")} />
             <PanelBody>
               <SessionHeatmap cells={hm} currency={currency} />
             </PanelBody>
           </Panel>
 
           <Panel>
-            <PanelHeader title="Hour of day" caption="net P&L, local time" />
+            <PanelHeader title={t("timing.hourOfDay")} caption={t("timing.hourOfDayCaption")} />
             <PanelBody className="h-56">
               <HourOfDayChart rows={bd.hourOfDay} currency={currency} />
             </PanelBody>
@@ -183,15 +203,20 @@ export default async function AnalyticsPage({
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <Panel>
-              <PanelHeader title="Weekday" />
+              <PanelHeader title={t("timing.weekday")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={bd.weekday} currency={currency} keyLabel="Weekday" />
+                <BreakdownTable
+                  rows={bd.weekday}
+                  labelNs="weekday"
+                  currency={currency}
+                  keyLabel={t("timing.weekday")}
+                />
               </PanelBody>
             </Panel>
             <Panel>
-              <PanelHeader title="Holding time" />
+              <PanelHeader title={t("timing.holdingTime")} />
               <PanelBody padded={false}>
-                <BreakdownTable rows={hb} currency={currency} keyLabel="Duration" />
+                <BreakdownTable rows={hb} currency={currency} keyLabel={t("timing.duration")} />
               </PanelBody>
             </Panel>
           </div>

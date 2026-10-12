@@ -1,17 +1,18 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { cn } from "@/lib/cn";
 import { Money } from "@/components/ui";
 import { formatMoneyCompact } from "@/lib/metrics/formatters";
 import type { CalendarDay } from "@/lib/queries/journal";
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_KEYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 
 /**
  * Plain CSS grid, Monday-first. Each cell is a link to that day's journal
  * page — clicking any day, trades or not, always lands on a ready-to-fill
  * form (see docs/JOURNAL.md).
  */
-export function CalendarGrid({
+export async function CalendarGrid({
   month,
   days,
   currency,
@@ -23,6 +24,7 @@ export function CalendarGrid({
   /** Today's date ("YYYY-MM-DD") in the user's timezone, for the "today" ring. */
   today: string;
 }) {
+  const tWeekday = await getTranslations("enums.weekdayShort");
   const [year, monthNum] = month.split("-").map(Number);
   const firstWeekday = (new Date(Date.UTC(year, monthNum - 1, 1)).getUTCDay() + 6) % 7; // Mon=0..Sun=6
   const leadingCount = firstWeekday;
@@ -32,9 +34,9 @@ export function CalendarGrid({
   return (
     <div>
       <div className="grid grid-cols-7 border-b border-line">
-        {WEEKDAY_LABELS.map((w) => (
+        {WEEKDAY_KEYS.map((w) => (
           <div key={w} className="label px-2 py-2 text-center">
-            {w}
+            {tWeekday(w)}
           </div>
         ))}
       </div>
@@ -53,7 +55,8 @@ export function CalendarGrid({
   );
 }
 
-function DayCell({ day, currency, isToday }: { day: CalendarDay; currency: string; isToday: boolean }) {
+async function DayCell({ day, currency, isToday }: { day: CalendarDay; currency: string; isToday: boolean }) {
+  const t = await getTranslations("journal.calendar");
   const dayNum = Number(day.date.slice(-2));
   const hasTrades = day.tradeCount > 0;
   const netPnl = day.netPnl !== null ? Number(day.netPnl) : null;
@@ -83,11 +86,7 @@ function DayCell({ day, currency, isToday }: { day: CalendarDay; currency: strin
           {dayNum}
         </span>
         {day.hasEntry ? (
-          <span
-            aria-label="Has a journal entry"
-            title="Has a journal entry"
-            className="size-1.5 shrink-0 rounded-full bg-brand"
-          />
+          <span aria-label={t("hasEntry")} title={t("hasEntry")} className="size-1.5 shrink-0 rounded-full bg-brand" />
         ) : null}
       </div>
 
@@ -105,12 +104,10 @@ function DayCell({ day, currency, isToday }: { day: CalendarDay; currency: strin
             {formatMoneyCompact(netPnl, currency)}
           </span>
           <Money value={netPnl} currency={currency} signed className="hidden text-xs font-medium sm:inline" />
-          <span className="text-2xs text-ink-3">
-            {day.tradeCount} trade{day.tradeCount === 1 ? "" : "s"}
-          </span>
+          <span className="text-2xs text-ink-3">{t("tradeCount", { count: day.tradeCount })}</span>
         </div>
       ) : day.hasEntry ? (
-        <span className="mt-auto text-2xs font-medium text-brand">Entry, no trades</span>
+        <span className="mt-auto text-2xs font-medium text-brand">{t("entryNoTrades")}</span>
       ) : null}
     </Link>
   );

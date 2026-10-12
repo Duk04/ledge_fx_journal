@@ -1,8 +1,10 @@
+import { getTranslations } from "next-intl/server";
 import { Page, Grid } from "@/components/shell/page";
 import { Panel, PanelHeader, PanelBody, Skeleton, SkeletonText, SkeletonRows } from "@/components/ui";
 
 /** Mirrors the Overview page's exact layout so nothing reflows once real data arrives. */
-export default function OverviewLoading() {
+export default async function OverviewLoading() {
+  const t = await getTranslations("dashboard.overview");
   return (
     <Page>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -21,7 +23,7 @@ export default function OverviewLoading() {
 
       <Grid>
         <Panel className="lg:col-span-8">
-          <PanelHeader title="Equity" />
+          <PanelHeader title={t("equity")} />
           <PanelBody className="h-56">
             <Skeleton className="h-full w-full" />
           </PanelBody>
@@ -31,9 +33,9 @@ export default function OverviewLoading() {
         </Panel>
 
         <div className="flex flex-col gap-4 lg:col-span-4">
-          {["Open positions", "P&L", "Discipline"].map((title) => (
-            <Panel key={title}>
-              <PanelHeader title={title} />
+          {(["openPositions", "pnl", "discipline"] as const).map((key) => (
+            <Panel key={key}>
+              <PanelHeader title={t(key)} />
               <PanelBody>
                 <SkeletonText lines={3} />
               </PanelBody>
@@ -42,7 +44,7 @@ export default function OverviewLoading() {
         </div>
 
         <Panel className="lg:col-span-7">
-          <PanelHeader title="Recent trades" />
+          <PanelHeader title={t("recentTrades")} />
           <PanelBody padded={false}>
             <table className="data-table w-full">
               <tbody>
@@ -53,7 +55,7 @@ export default function OverviewLoading() {
         </Panel>
 
         <Panel className="lg:col-span-5">
-          <PanelHeader title="Daily P&L" />
+          <PanelHeader title={t("dailyPnl")} />
           <PanelBody className="h-64">
             <Skeleton className="h-full w-full" />
           </PanelBody>

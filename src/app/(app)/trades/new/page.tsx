@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead } from "@/components/ui/panel";
 import { requireAccountAccess, requireUser } from "@/lib/session";
@@ -10,15 +11,16 @@ import { Panel, PanelBody } from "@/components/ui/panel";
 
 export default async function NewTradePage() {
   const user = await requireUser();
+  const t = await getTranslations("trades.form");
   const activeAccountId = await resolveActiveAccountId(user.id);
 
   if (!activeAccountId) {
     return (
       <Page width="reading">
-        <SectionHead title="Log trade" />
+        <SectionHead title={t("logTrade")} />
         <Panel>
           <PanelBody>
-            <EmptyState title="No trading account yet" description="Create a trading account before logging a trade." />
+            <EmptyState title={t("page.noAccountTitle")} description={t("page.noAccountDescription")} />
           </PanelBody>
         </Panel>
       </Page>
@@ -34,7 +36,7 @@ export default async function NewTradePage() {
 
   return (
     <Page width="reading">
-      <SectionHead title="Log trade" hint={`Recorded against ${account.label}`} />
+      <SectionHead title={t("logTrade")} hint={t("page.recordedAgainst", { account: account.label })} />
       <TradeForm
         mode="create"
         accountId={account.id}

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@/components/ui/dropdown";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ import { deleteTrade, duplicateTrade } from "@/lib/actions/trades";
  * its own wrapper to sit above it; no click-hijacking required.
  */
 export function TradeRowMenu({ accountId, tradeId }: { accountId: string; tradeId: string }) {
+  const t = useTranslations("trades.list.rowMenu");
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -26,10 +28,10 @@ export function TradeRowMenu({ accountId, tradeId }: { accountId: string; tradeI
     startTransition(async () => {
       const res = await duplicateTrade(accountId, tradeId);
       if (res.ok) {
-        toast({ title: "Trade duplicated", description: "Opened as a new OPEN trade.", tone: "profit" });
+        toast({ title: t("duplicated"), description: t("duplicatedDescription"), tone: "profit" });
         router.refresh();
       } else {
-        toast({ title: "Couldn't duplicate trade", description: res.formError, tone: "loss" });
+        toast({ title: t("duplicateFailed"), description: res.formError, tone: "loss" });
       }
     });
   }
@@ -39,10 +41,10 @@ export function TradeRowMenu({ accountId, tradeId }: { accountId: string; tradeI
       const res = await deleteTrade(accountId, tradeId);
       setConfirmOpen(false);
       if (res.ok) {
-        toast({ title: "Trade deleted" });
+        toast({ title: t("deleted") });
         router.refresh();
       } else {
-        toast({ title: "Couldn't delete trade", description: res.formError, tone: "loss" });
+        toast({ title: t("deleteFailed"), description: res.formError, tone: "loss" });
       }
     });
   }
@@ -51,16 +53,16 @@ export function TradeRowMenu({ accountId, tradeId }: { accountId: string; tradeI
     <div className="relative inline-flex justify-end">
       <Dropdown>
         <DropdownTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Trade actions">
+          <Button variant="ghost" size="icon-sm" aria-label={t("label")}>
             <MoreHorizontal />
           </Button>
         </DropdownTrigger>
         <DropdownContent align="end">
           <DropdownItem asChild>
-            <Link href={`/trades/${tradeId}`}>View</Link>
+            <Link href={`/trades/${tradeId}`}>{t("view")}</Link>
           </DropdownItem>
           <DropdownItem asChild>
-            <Link href={`/trades/${tradeId}/edit`}>Edit</Link>
+            <Link href={`/trades/${tradeId}/edit`}>{t("edit")}</Link>
           </DropdownItem>
           <DropdownItem
             disabled={pending}
@@ -69,7 +71,7 @@ export function TradeRowMenu({ accountId, tradeId }: { accountId: string; tradeI
               handleDuplicate();
             }}
           >
-            Duplicate
+            {t("duplicate")}
           </DropdownItem>
           <DropdownSeparator />
           <DropdownItem
@@ -79,23 +81,20 @@ export function TradeRowMenu({ accountId, tradeId }: { accountId: string; tradeI
               setConfirmOpen(true);
             }}
           >
-            Delete
+            {t("delete")}
           </DropdownItem>
         </DropdownContent>
       </Dropdown>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent size="sm">
-          <DialogHeader
-            title="Delete this trade?"
-            description="This removes the trade and its attachments permanently. This can't be undone."
-          />
+          <DialogHeader title={t("confirmTitle")} description={t("confirmDescription")} />
           <DialogFooter>
             <Button variant="default" onClick={() => setConfirmOpen(false)} disabled={pending}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button variant="danger" onClick={handleDelete} disabled={pending}>
-              {pending ? "Deleting…" : "Delete"}
+              {pending ? t("deleting") : t("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

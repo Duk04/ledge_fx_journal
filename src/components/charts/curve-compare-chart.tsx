@@ -1,6 +1,7 @@
 "use client";
 
 import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/metrics/formatters";
 import { ChartTooltipRow, ChartTooltipShell, ChartTooltipTitle } from "./chart-tooltip";
 
@@ -21,6 +22,7 @@ export function CurveCompareChart({
   currency: string;
   height?: number;
 }) {
+  const t = useTranslations("dashboard.charts.curveCompare");
   const length = Math.max(0, ...series.map((s) => s.values.length));
   const rows = Array.from({ length }, (_, i) => {
     const row: Record<string, number> = { i };
@@ -34,7 +36,7 @@ export function CurveCompareChart({
     <div
       role="img"
       aria-label={series
-        .map((s) => `${s.name}: ends at ${formatMoney(s.values.at(-1) ?? startBalance, currency)}`)
+        .map((s) => t("endsAt", { name: s.name, amount: formatMoney(s.values.at(-1) ?? startBalance, currency) }))
         .join("; ")}
     >
       <ResponsiveContainer width="100%" height={height}>
@@ -55,7 +57,7 @@ export function CurveCompareChart({
             content={({ active, payload, label }) =>
               active && payload?.length ? (
                 <ChartTooltipShell>
-                  <ChartTooltipTitle>After trade {String(label)}</ChartTooltipTitle>
+                  <ChartTooltipTitle>{t("afterTrade", { n: String(label) })}</ChartTooltipTitle>
                   {payload.map((p) => (
                     <ChartTooltipRow
                       key={String(p.dataKey)}

@@ -8,7 +8,7 @@ import type { TradeRow } from "@/lib/metrics/types";
 import { revalidatePath } from "next/cache";
 import { type Prisma, type Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "../result";
+import { fieldErrorsFrom, ok, type ActionResult } from "../result";
 import { requireUser } from "@/lib/session";
 import { getBars } from "@/lib/queries/candles";
 import { toRunStats } from "@/lib/queries/backtests";
@@ -18,6 +18,8 @@ import type { SimTrade } from "@/lib/backtest/types";
 import { simTradeSchema } from "@/lib/backtest/sim-trade-schema";
 import { BACKTEST_ACCOUNT_CURRENCY } from "@/lib/backtest/run-setup";
 import { MAX_BARS, MIN_BARS, TIMEFRAMES, fillSchema, labelFor } from "./shared";
+import { failT, failZod, tr } from "@/i18n/server-t";
+import { vmsg } from "@/i18n/encoded";
 
 /**
  * Manual replay: stepping through historical bars and placing orders by hand.
@@ -30,14 +32,14 @@ import { MAX_BARS, MIN_BARS, TIMEFRAMES, fillSchema, labelFor } from "./shared";
 
 const createReplaySchema = z
   .object({
-    symbol: z.string().trim().min(1, "Choose a symbol."),
-    timeframe: z.enum(TIMEFRAMES, { message: "Choose a timeframe." }),
-    from: z.coerce.date({ message: "Choose a start date." }),
-    to: z.coerce.date({ message: "Choose an end date." }),
-    initialBalance: z.coerce.number().positive("Must be greater than zero."),
+    symbol: z.string().trim().min(1, vmsg("chooseSymbol")),
+    timeframe: z.enum(TIMEFRAMES, { message: vmsg("chooseTimeframe") }),
+    from: z.coerce.date({ message: vmsg("chooseStart") }),
+    to: z.coerce.date({ message: vmsg("chooseEnd") }),
+    initialBalance: z.coerce.number().positive(vmsg("greaterThanZero")),
   })
   .extend(fillSchema.shape)
-  .refine((v) => v.to > v.from, { message: "End date must be after the start date.", path: ["to"] });
+  .refine((v) => v.to > v.from, { message: vmsg("endAfterStart"), path: ["to"] });
 
 export type CreateReplayInput = z.input<typeof createReplaySchema>;
 
@@ -48,7 +50,7 @@ export type CreateReplayInput = z.input<typeof createReplaySchema>;
  */
 export async function createReplayRun(input: CreateReplayInput): Promise<ActionResult<{ runId: string }>> {
   const parsed = createReplaySchema.safeParse(input);
-  if (!parsed.success) return failFields(fieldErrorsFrom(parsed.error));
+  if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
   const v = parsed.data;
 
   const user = await requireUser();
@@ -57,13 +59,21 @@ export async function createReplayRun(input: CreateReplayInput): Promise<ActionR
   if (bars.length < MIN_BARS) {
     return {
       ok: false,
-      formError: `Only ${bars.length} bar(s) of ${v.symbol} ${v.timeframe} are stored in that range — a replay needs at least ${MIN_BARS}. Import more data or widen the range.`,
+      formError: await tr("replayTooFewBars", {
+        count: String(bars.length),
+        symbol: v.symbol,
+        timeframe: v.timeframe,
+        min: String(MIN_BARS),
+      }),
     };
   }
   if (bars.length > MAX_BARS) {
     return {
       ok: false,
-      formError: `That range has ${bars.length.toLocaleString()} bars, over the ${MAX_BARS.toLocaleString()}-bar limit for one run — narrow the date range.`,
+      formError: await tr("replayTooManyBars", {
+        count: bars.length.toLocaleString("en-US"),
+        max: MAX_BARS.toLocaleString("en-US"),
+      }),
     };
   }
 
@@ -120,12 +130,12 @@ export async function createReplayRun(input: CreateReplayInput): Promise<ActionR
  */
 export async function recordReplayTrade(runId: string, trade: SimTrade): Promise<ActionResult> {
   const parsed = simTradeSchema.safeParse(trade);
-  if (!parsed.success) return fail("That trade wasn't shaped like a finished trade.");
+  if (!parsed.success) return failT("replayTradeShape");
 
   const user = await requireUser();
   const run = await prisma.backtestRun.findFirst({ where: { id: runId, userId: user.id } });
-  if (!run) return fail("That replay run was not found.");
-  if (run.kind !== "REPLAY") return fail("This run isn't a replay session.");
+  if (!run) return failT("replayRunNotFound");
+  if (run.kind !== "REPLAY") return failT("notAReplay");
 
   const journalInput = toJournalTrade(parsed.data, {
     accountId: run.accountId,

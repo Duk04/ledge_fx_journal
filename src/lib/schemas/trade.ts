@@ -16,6 +16,7 @@
 import { z } from "zod";
 import { validateTradeGeometry } from "@/lib/metrics";
 import type { InstrumentSpec, TradeGeometryProblem } from "@/lib/metrics/types";
+import { vmsg } from "@/i18n/encoded";
 
 export const TRADE_DIRECTIONS = ["LONG", "SHORT"] as const;
 export const TRADE_STATUSES = ["OPEN", "CLOSED", "CANCELLED"] as const;
@@ -34,11 +35,11 @@ function emptyToUndefined(value: unknown) {
 }
 
 /** An optional decimal field: "" -> undefined, otherwise a finite number. */
-function optionalNumber(message = "Must be a number") {
+function optionalNumber(message = vmsg("mustBeNumber")) {
   return z.preprocess(emptyToUndefined, z.coerce.number(message).finite(message).optional());
 }
 
-function optionalPositive(message = "Must be greater than 0") {
+function optionalPositive(message = vmsg("mustBePositive")) {
   return z.preprocess(emptyToUndefined, z.coerce.number().finite().positive(message).optional());
 }
 
@@ -55,39 +56,45 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
     .object({
       symbol: z.preprocess(
         (v) => (typeof v === "string" ? v.trim().toUpperCase() : v),
-        z.string().min(1, "Symbol is required"),
+        z.string().min(1, vmsg("symbolRequired")),
       ),
-      direction: z.enum(TRADE_DIRECTIONS, { error: "Direction is required" }),
-      status: z.enum(TRADE_STATUSES, { error: "Status is required" }),
+      direction: z.enum(TRADE_DIRECTIONS, { error: vmsg("directionRequired") }),
+      status: z.enum(TRADE_STATUSES, { error: vmsg("statusRequired") }),
 
-      openedAt: z.coerce.date({ error: "Open date/time is required" }),
+      openedAt: z.coerce.date({ error: vmsg("openedRequired") }),
       closedAt: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
 
       entryPrice: z.preprocess(
         emptyToUndefined,
-        z.coerce.number({ error: "Entry price is required" }).finite().positive("Entry price must be greater than 0"),
+        z.coerce
+          .number({ error: vmsg("entryRequired") })
+          .finite()
+          .positive(vmsg("entryPositive")),
       ),
-      exitPrice: optionalPositive("Exit price must be greater than 0"),
-      stopLoss: optionalPositive("Stop loss must be greater than 0"),
+      exitPrice: optionalPositive(vmsg("exitPositive")),
+      stopLoss: optionalPositive(vmsg("stopPositive")),
       // Where the stop was at entry; R is measured from it. Blank = same as
       // the stop loss (lib/metrics/trade.ts, riskStop).
-      initialStopLoss: optionalPositive("Initial stop must be greater than 0"),
+      initialStopLoss: optionalPositive(vmsg("initialStopPositive")),
       // Worst / best price while open (MAE / MFE) — lib/metrics/excursion.ts.
-      maePrice: optionalPositive("Worst price must be greater than 0"),
-      mfePrice: optionalPositive("Best price must be greater than 0"),
-      takeProfit: optionalPositive("Take profit must be greater than 0"),
+      maePrice: optionalPositive(vmsg("maePositive")),
+      mfePrice: optionalPositive(vmsg("mfePositive")),
+      takeProfit: optionalPositive(vmsg("tpPositive")),
 
       volumeLots: z.preprocess(
         emptyToUndefined,
-        z.coerce.number({ error: "Volume is required" }).finite().positive("Volume must be greater than 0"),
+        z.coerce
+          .number({ error: vmsg("volumeRequired") })
+          .finite()
+          .positive(vmsg("volumePositive")),
       ),
 
       // Broker costs. Positive = a charge; a rebate/credit is a negative
       // number (see computeNetPnl's doc) — so these are NOT constrained to
       // be positive, only finite.
-      commission: optionalNumber("Commission must be a number"),
-      swap: optionalNumber("Swap must be a number"),
-      conversionRate: optionalPositive("Conversion rate must be greater than 0"),
+      commission: optionalNumber(vmsg("commissionNumber")),
+      swap: optionalNumber(vmsg("swapNumber")),
+      conversionRate: optionalPositive(vmsg("conversionPositive")),
 
       // Tri-state on the wire: the Segmented control posts "yes" | "no" | ""
       // (never touched) rather than a checkbox's on/off, because "unknown"
@@ -101,17 +108,17 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
       emotion: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(5).optional()),
       confidence: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(5).optional()),
 
-      notes: z.preprocess(emptyToUndefined, z.string().max(4000, "Notes must be 4000 characters or fewer").optional()),
+      notes: z.preprocess(emptyToUndefined, z.string().max(4000, vmsg("notesTooLong")).optional()),
 
-      tagIds: z.array(z.string().regex(ID_LIKE, "Invalid tag id")).default([]),
-      playbookId: z.preprocess(emptyToUndefined, z.string().regex(ID_LIKE, "Invalid playbook id").optional()),
+      tagIds: z.array(z.string().regex(ID_LIKE, vmsg("invalidTagId"))).default([]),
+      playbookId: z.preprocess(emptyToUndefined, z.string().regex(ID_LIKE, vmsg("invalidPlaybookId")).optional()),
     })
     .superRefine((val, ctx) => {
       if (validSymbols && val.symbol && !validSymbols.has(val.symbol)) {
         ctx.addIssue({
           code: "custom",
           path: ["symbol"],
-          message: `Unknown symbol "${val.symbol}" — pick one from the instrument list.`,
+          message: vmsg("unknownSymbol", { symbol: val.symbol }),
         });
       }
 
@@ -120,13 +127,13 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
       // else optional stays optional regardless of status.
       if (val.status === "CLOSED") {
         if (val.exitPrice === undefined) {
-          ctx.addIssue({ code: "custom", path: ["exitPrice"], message: "Exit price is required to close a trade." });
+          ctx.addIssue({ code: "custom", path: ["exitPrice"], message: vmsg("exitRequiredToClose") });
         }
         if (val.closedAt === undefined) {
           ctx.addIssue({
             code: "custom",
             path: ["closedAt"],
-            message: "Close date/time is required to close a trade.",
+            message: vmsg("closedRequiredToClose"),
           });
         }
       }
@@ -232,15 +239,15 @@ export function parseTradeForm(
  * optional field of the full form. */
 export const closeTradeSchema = z.object({
   exitPrice: z.coerce
-    .number({ error: "Exit price is required" })
+    .number({ error: vmsg("exitRequired") })
     .finite()
-    .positive("Exit price must be greater than 0"),
-  closedAt: z.coerce.date({ error: "Close date/time is required" }),
+    .positive(vmsg("exitPositive")),
+  closedAt: z.coerce.date({ error: vmsg("closedRequired") }),
   /** Lots to close. Omitted = everything still open; fewer = a partial close,
    * after which the trade stays OPEN (lib/metrics/fills.ts). */
   volumeLots: z.preprocess(
     (v) => (v === "" || v === null ? undefined : v),
-    z.coerce.number().finite().positive("Volume must be greater than 0").optional(),
+    z.coerce.number().finite().positive(vmsg("volumePositive")).optional(),
   ),
 });
 

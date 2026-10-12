@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Page } from "@/components/shell/page";
 import { ErrorState } from "@/components/ui";
 import { reportClientError } from "@/lib/report-client-error";
@@ -15,6 +16,7 @@ import { reportClientError } from "@/lib/report-client-error";
  * it (see node_modules/next/dist/docs/.../file-conventions/error.md).
  */
 export default function AnalyticsError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
+  const t = useTranslations("analytics.error");
   useEffect(() => {
     reportClientError(error);
   }, [error]);
@@ -22,13 +24,9 @@ export default function AnalyticsError({ error, retry }: { error: Error & { dige
   return (
     <Page>
       <ErrorState
-        title="Couldn't load analytics"
-        description={
-          error.digest
-            ? `Something went wrong building the reports (ref: ${error.digest}).`
-            : error.message || "Something went wrong building the reports."
-        }
-        retry={{ label: "Try again", onClick: retry }}
+        title={t("title")}
+        description={error.digest ? t("descriptionRef", { digest: error.digest }) : error.message || t("description")}
+        retry={{ label: t("retry"), onClick: retry }}
       />
     </Page>
   );

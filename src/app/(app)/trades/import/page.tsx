@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { EmptyState, Panel, PanelBody, SectionHead } from "@/components/ui";
 import { StatementImport } from "@/components/trades/statement-import";
@@ -9,14 +10,15 @@ import { requireAccountAccess, requireUser } from "@/lib/session";
 export default async function ImportStatementPage() {
   const user = await requireUser();
   const activeAccountId = await resolveActiveAccountId(user.id);
+  const t = await getTranslations("trades");
 
   if (!activeAccountId) {
     return (
       <Page width="reading">
-        <SectionHead title="Import statement" />
+        <SectionHead title={t("import.title")} />
         <Panel>
           <PanelBody>
-            <EmptyState title="No trading account yet" description="Create a trading account to import into." />
+            <EmptyState title={t("common.noAccountTitle")} description={t("import.noAccountDescription")} />
           </PanelBody>
         </Panel>
       </Page>
@@ -28,10 +30,7 @@ export default async function ImportStatementPage() {
 
   return (
     <Page>
-      <SectionHead
-        title="Import statement"
-        hint="MetaTrader 4/5 or CSV. Nothing is written until you confirm the preview."
-      />
+      <SectionHead title={t("import.title")} hint={t("import.hint")} />
       <StatementImport
         accountId={account.id}
         accountLabel={`${account.label} (${account.currency})`}

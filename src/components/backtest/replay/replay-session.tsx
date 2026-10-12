@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Play, Pause, StepForward, StepBack, Keyboard, ArrowUpCircle, ArrowDownCircle, X } from "lucide-react";
 import {
   Panel,
@@ -57,6 +58,7 @@ export function ReplaySession({
   initialBalance: number;
   currency: string;
 }) {
+  const t = useTranslations("backtest");
   const router = useRouter();
   const { toast } = useToast();
   // A ref so `handleSaveToJournal` can await the exact in-flight set (a
@@ -71,7 +73,7 @@ export function ReplaySession({
       setPendingSaves((n) => n + 1);
       const p = recordReplayTrade(runId, trade)
         .then((res) => {
-          if (!res.ok) toast({ title: "Couldn't save that trade", description: res.formError, tone: "loss" });
+          if (!res.ok) toast({ title: t("replay.couldNotSaveTrade"), description: res.formError, tone: "loss" });
         })
         .finally(() => {
           inFlight.current.delete(p);
@@ -79,7 +81,7 @@ export function ReplaySession({
         });
       inFlight.current.add(p);
     },
-    [runId, toast],
+    [runId, toast, t],
   );
 
   const engine = useReplayEngine({ bars, instrument, fill, initialBalance, onTradeClosed: handleTradeClosed });
@@ -130,7 +132,7 @@ export function ReplaySession({
     (side: "LONG" | "SHORT") => {
       const lotsNum = Number(lots);
       if (!Number.isFinite(lotsNum) || lotsNum <= 0) {
-        toast({ title: "Enter a lot size first", tone: "warn" });
+        toast({ title: t("replay.enterLots"), tone: "warn" });
         return;
       }
       const sl = stopLoss.trim() === "" ? undefined : Number(stopLoss);
@@ -139,7 +141,7 @@ export function ReplaySession({
       if (side === "LONG") buy(order);
       else sell(order);
     },
-    [lots, stopLoss, takeProfit, toast, buy, sell],
+    [lots, stopLoss, takeProfit, toast, buy, sell, t],
   );
 
   // -------------------------------------------------------------- keyboard
@@ -197,8 +199,8 @@ export function ReplaySession({
   }
 
   const floatingPnl = position ? equity - balance : 0;
-  const sessionNetPnl = trades.reduce((a, t) => a + t.netPnl, 0);
-  const wins = trades.filter((t) => t.netPnl > 0).length;
+  const sessionNetPnl = trades.reduce((a, trade) => a + trade.netPnl, 0);
+  const wins = trades.filter((trade) => trade.netPnl > 0).length;
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -208,9 +210,9 @@ export function ReplaySession({
             title={symbol}
             caption={currentBar ? formatTs(currentBar.ts) : undefined}
             actions={
-              <Tip label="Space play/pause · → step · ← back · B buy · S sell">
+              <Tip label={t("replay.shortcutsTip")}>
                 <span className="flex items-center gap-1 text-2xs text-ink-3">
-                  <Keyboard className="size-3.5" /> shortcuts
+                  <Keyboard className="size-3.5" /> {t("replay.shortcuts")}
                 </span>
               </Tip>
             }
@@ -232,7 +234,7 @@ export function ReplaySession({
                 size="icon-sm"
                 onClick={stepBack}
                 disabled={Boolean(position || pendingOrder) || cursor === 0}
-                aria-label="Step back"
+                aria-label={t("replay.stepBack")}
               >
                 <StepBack />
               </Button>
@@ -243,11 +245,17 @@ export function ReplaySession({
                 size="icon-sm"
                 onClick={togglePlaying}
                 disabled={atEnd}
-                aria-label={playing ? "Pause" : "Play"}
+                aria-label={playing ? t("replay.pause") : t("replay.play")}
               >
                 {playing ? <Pause /> : <Play />}
               </Button>
-              <Button variant="default" size="icon-sm" onClick={stepForward} disabled={atEnd} aria-label="Step forward">
+              <Button
+                variant="default"
+                size="icon-sm"
+                onClick={stepForward}
+                disabled={atEnd}
+                aria-label={t("replay.stepForward")}
+              >
                 <StepForward />
               </Button>
             </div>
@@ -257,7 +265,7 @@ export function ReplaySession({
             >
               {(["0.5", "1", "2", "5", "max"] as const).map((s) => (
                 <SegmentedItem key={s} value={s}>
-                  {s === "max" ? "max" : SPEED_LABEL[Number(s) as Exclude<ReplaySpeed, "max">]}
+                  {s === "max" ? t("replay.max") : SPEED_LABEL[Number(s) as Exclude<ReplaySpeed, "max">]}
                 </SegmentedItem>
               ))}
             </Segmented>
@@ -277,7 +285,7 @@ export function ReplaySession({
                 }
               }}
               className="min-w-24 flex-1 accent-brand"
-              aria-label="Bar position"
+              aria-label={t("replay.barPosition")}
             />
             {currentBar ? (
               <span className="mono whitespace-nowrap text-2xs text-ink-3">
@@ -289,14 +297,17 @@ export function ReplaySession({
         </Panel>
 
         <Panel>
-          <PanelHeader title="Order" caption={canOrder ? "flat" : position ? "in position" : "order pending"} />
+          <PanelHeader
+            title={t("replay.order")}
+            caption={canOrder ? t("replay.flat") : position ? t("replay.inPosition") : t("replay.orderPending")}
+          />
           <PanelBody className="flex flex-wrap items-end gap-3">
             <Field className="w-24">
-              <FieldLabel>Lots</FieldLabel>
+              <FieldLabel>{t("replay.lots")}</FieldLabel>
               <NumberInput value={lots} onChange={(e) => setLots(e.target.value)} disabled={!canOrder} />
             </Field>
             <Field className="w-32">
-              <FieldLabel optional>Stop loss</FieldLabel>
+              <FieldLabel optional>{t("replay.stopLoss")}</FieldLabel>
               <NumberInput
                 value={stopLoss}
                 onChange={(e) => setStopLoss(e.target.value)}
@@ -305,7 +316,7 @@ export function ReplaySession({
               />
             </Field>
             <Field className="w-32">
-              <FieldLabel optional>Take profit</FieldLabel>
+              <FieldLabel optional>{t("replay.takeProfit")}</FieldLabel>
               <NumberInput
                 value={takeProfit}
                 onChange={(e) => setTakeProfit(e.target.value)}
@@ -320,19 +331,19 @@ export function ReplaySession({
                 onClick={() => submitOrder("LONG")}
                 disabled={!canOrder}
               >
-                <ArrowUpCircle /> Buy
+                <ArrowUpCircle /> {t("replay.buy")}
               </Button>
               <Button variant="danger" onClick={() => submitOrder("SHORT")} disabled={!canOrder}>
-                <ArrowDownCircle /> Sell
+                <ArrowDownCircle /> {t("replay.sell")}
               </Button>
               {pendingOrder ? (
                 <Button variant="default" onClick={cancelPendingOrder}>
-                  <X /> Cancel pending
+                  <X /> {t("replay.cancelPending")}
                 </Button>
               ) : null}
               {position ? (
                 <Button variant="default" onClick={requestClose}>
-                  Close position
+                  {t("replay.closePosition")}
                 </Button>
               ) : null}
             </div>
@@ -342,55 +353,58 @@ export function ReplaySession({
 
       <div className="flex flex-col gap-3 xl:col-span-3">
         <Panel>
-          <PanelHeader title="Position" />
+          <PanelHeader title={t("replay.position")} />
           <PanelBody className="flex flex-col gap-2 text-sm">
             {pendingOrder ? (
               <p className="text-xs text-warn">
-                Pending {pendingOrder.side} {pendingOrder.lots} lot(s) — fills at the next bar&rsquo;s open.
+                {t("replay.pendingOrder", { side: t(`side.${pendingOrder.side}`), lots: String(pendingOrder.lots) })}
               </p>
             ) : position ? (
               <>
                 <div className="flex items-center justify-between">
-                  <Badge tone={position.side === "LONG" ? "profit" : "loss"}>{position.side}</Badge>
-                  <span className="mono text-xs">{position.lots.toFixed(2)} lots</span>
+                  <Badge tone={position.side === "LONG" ? "profit" : "loss"}>{t(`side.${position.side}`)}</Badge>
+                  <span className="mono text-xs">{t("replay.lotsValue", { lots: position.lots.toFixed(2) })}</span>
                 </div>
                 <div className="mono flex justify-between text-xs text-ink-3">
-                  <span>Entry</span>
+                  <span>{t("replay.entry")}</span>
                   <span className="text-ink">{formatPrice(position.entryPrice, digits)}</span>
                 </div>
                 {position.stopLoss !== undefined ? (
                   <div className="mono flex justify-between text-xs text-ink-3">
-                    <span>Stop</span>
+                    <span>{t("replay.stop")}</span>
                     <span className="text-loss">{formatPrice(position.stopLoss, digits)}</span>
                   </div>
                 ) : null}
                 {position.takeProfit !== undefined ? (
                   <div className="mono flex justify-between text-xs text-ink-3">
-                    <span>Target</span>
+                    <span>{t("replay.target")}</span>
                     <span className="text-profit">{formatPrice(position.takeProfit, digits)}</span>
                   </div>
                 ) : null}
                 <div className="mt-1 flex justify-between border-t border-line pt-2 text-xs">
-                  <span className="text-ink-3">Floating P&amp;L</span>
+                  <span className="text-ink-3">{t("replay.floatingPnl")}</span>
                   <Money value={floatingPnl} currency={currency} signed />
                 </div>
               </>
             ) : (
-              <p className="text-xs text-ink-3">Flat — no open position.</p>
+              <p className="text-xs text-ink-3">{t("replay.flatNoPosition")}</p>
             )}
           </PanelBody>
         </Panel>
 
         <Panel>
-          <PanelHeader title="Session" caption={`${trades.length} trade(s)`} />
+          <PanelHeader
+            title={t("replay.session")}
+            caption={t("replay.tradesCaption", { count: String(trades.length) })}
+          />
           <PanelBody className="flex flex-col gap-2">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex flex-col">
-                <span className="text-ink-3">Balance</span>
+                <span className="text-ink-3">{t("replay.balance")}</span>
                 <Money value={balance} currency={currency} className="text-sm" />
               </div>
               <div className="flex flex-col">
-                <span className="text-ink-3">Session P&amp;L</span>
+                <span className="text-ink-3">{t("replay.sessionPnl")}</span>
                 <Money value={sessionNetPnl} currency={currency} signed className="text-sm" />
               </div>
             </div>
@@ -398,9 +412,9 @@ export function ReplaySession({
               <DataTable>
                 <thead>
                   <tr>
-                    <Th>Side</Th>
-                    <Th numeric>Pips</Th>
-                    <Th numeric>Net</Th>
+                    <Th>{t("replay.side")}</Th>
+                    <Th numeric>{t("replay.pips")}</Th>
+                    <Th numeric>{t("replay.net")}</Th>
                     <Th numeric>R</Th>
                   </tr>
                 </thead>
@@ -408,38 +422,38 @@ export function ReplaySession({
                   {trades
                     .slice()
                     .reverse()
-                    .map((t, i) => (
+                    .map((trade, i) => (
                       <tr key={i}>
                         <Td>
-                          <Badge tone={t.side === "LONG" ? "profit" : "loss"} className="mono">
-                            {t.side}
+                          <Badge tone={trade.side === "LONG" ? "profit" : "loss"} className="mono">
+                            {t(`side.${trade.side}`)}
                           </Badge>
                         </Td>
                         <Td numeric>
-                          <Pips value={t.pips} />
+                          <Pips value={trade.pips} />
                         </Td>
                         <Td numeric>
-                          <Money value={t.netPnl} currency={currency} signed />
+                          <Money value={trade.netPnl} currency={currency} signed />
                         </Td>
                         <Td numeric>
-                          <RValue value={t.rMultiple} />
+                          <RValue value={trade.rMultiple} />
                         </Td>
                       </tr>
                     ))}
-                  {trades.length === 0 ? <TableEmpty colSpan={4}>No closed trades yet.</TableEmpty> : null}
+                  {trades.length === 0 ? <TableEmpty colSpan={4}>{t("replay.noClosed")}</TableEmpty> : null}
                 </tbody>
               </DataTable>
             </div>
             <p className="text-2xs text-ink-3">
               {trades.length > 0
-                ? `${wins}/${trades.length} winners this session.`
-                : "Place your first trade with Buy/Sell."}
+                ? t("replay.winners", { wins: String(wins), total: String(trades.length) })
+                : t("replay.firstTrade")}
             </p>
           </PanelBody>
           <PanelFooter>
-            <span className="text-2xs text-ink-3">{pendingSaves > 0 ? "Saving…" : "Up to date"}</span>
+            <span className="text-2xs text-ink-3">{pendingSaves > 0 ? t("replay.saving") : t("replay.upToDate")}</span>
             <Button variant="default" size="sm" onClick={handleSaveToJournal} disabled={finishing}>
-              {finishing ? "Saving…" : "Save to journal"}
+              {finishing ? t("replay.saving") : t("replay.saveToJournal")}
             </Button>
           </PanelFooter>
         </Panel>

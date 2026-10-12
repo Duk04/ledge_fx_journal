@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, Kbd, useModKey } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -9,22 +10,20 @@ import { NAV_GROUPS } from "./nav-items";
 
 interface Command {
   id: string;
+  /** Already translated. */
   label: string;
   hint: string;
   href: string;
+  /** English search aliases, so "mt4" finds the importer in either language. */
   keywords?: string;
 }
 
-const ACTIONS: Command[] = [
-  { id: "log", label: "Log a trade", hint: "Action", href: "/trades/new", keywords: "new add record" },
-  { id: "import", label: "Import a statement", hint: "Action", href: "/trades/import", keywords: "mt4 mt5 csv upload" },
-  { id: "size", label: "Size a position", hint: "Action", href: "/calculator", keywords: "lots risk calculator" },
-  { id: "journal", label: "Write today's journal", hint: "Action", href: "/journal", keywords: "plan review notes" },
-];
-
-const NAV: Command[] = NAV_GROUPS.flatMap((g) =>
-  g.items.map((i) => ({ id: i.href, label: i.label, hint: g.label, href: i.href })),
-);
+const ACTIONS = [
+  { id: "log", key: "logTrade", href: "/trades/new", keywords: "log new add record trade" },
+  { id: "import", key: "import", href: "/trades/import", keywords: "import mt4 mt5 csv upload statement" },
+  { id: "size", key: "size", href: "/calculator", keywords: "size lots risk calculator position" },
+  { id: "journal", key: "journal", href: "/journal", keywords: "journal plan review notes" },
+] as const;
 
 /**
  * ⌘K / Ctrl+K: jump anywhere, or start the common actions, from the
@@ -33,12 +32,20 @@ const NAV: Command[] = NAV_GROUPS.flatMap((g) =>
  */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
+  const t = useTranslations("palette");
+  const tNav = useTranslations("nav");
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
   const listId = React.useId();
 
+  const commands: Command[] = [
+    ...ACTIONS.map((a) => ({ id: a.id, label: t(a.key), hint: t("action"), href: a.href, keywords: a.keywords })),
+    ...NAV_GROUPS.flatMap((g) =>
+      g.items.map((i) => ({ id: i.href, label: tNav(i.label), hint: tNav(g.label), href: i.href, keywords: i.label })),
+    ),
+  ];
   const q = query.trim().toLowerCase();
-  const results = [...ACTIONS, ...NAV].filter(
+  const results = commands.filter(
     (c) => !q || c.label.toLowerCase().includes(q) || c.keywords?.includes(q) || c.hint.toLowerCase().includes(q),
   );
   const index = Math.min(active, Math.max(0, results.length - 1));
@@ -61,7 +68,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       }}
     >
       <DialogContent size="md" showClose={false}>
-        <DialogHeader title="Go to" className="sr-only" />
+        <DialogHeader title={t("title")} className="sr-only" />
         <div className="flex items-center gap-2 border-b border-line px-3">
           <Search className="size-4 shrink-0 text-ink-3" aria-hidden />
           <input
@@ -70,8 +77,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             aria-expanded
             aria-controls={listId}
             aria-activedescendant={results[index] ? `${listId}-${results[index].id}` : undefined}
-            aria-label="Search pages and actions"
-            placeholder="Search pages and actions…"
+            aria-label={t("search")}
+            placeholder={t("placeholder")}
             className="h-11 min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
             value={query}
             onChange={(e) => {
@@ -92,8 +99,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             }}
           />
         </div>
-        <ul id={listId} role="listbox" aria-label="Results" className="max-h-80 overflow-y-auto p-1">
-          {results.length === 0 ? <li className="px-3 py-6 text-center text-xs text-ink-3">Nothing matches.</li> : null}
+        <ul id={listId} role="listbox" aria-label={t("results")} className="max-h-80 overflow-y-auto p-1">
+          {results.length === 0 ? <li className="px-3 py-6 text-center text-xs text-ink-3">{t("none")}</li> : null}
           {results.map((c, i) => (
             <li
               key={c.id}
@@ -120,28 +127,29 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
 /** "?": what the keyboard can do. */
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const mod = useModKey();
+  const t = useTranslations("palette");
   const rows: [React.ReactNode, string][] = [
-    [<Kbd key="n">N</Kbd>, "Log a trade"],
+    [<Kbd key="n">N</Kbd>, t("scLog")],
     [
       <span key="k" className="flex gap-1">
         <Kbd>{mod}</Kbd>
         <Kbd>K</Kbd>
       </span>,
-      "Search pages and actions",
+      t("scSearch"),
     ],
     [
       <span key="e" className="flex gap-1">
         <Kbd>{mod}</Kbd>
         <Kbd>Enter</Kbd>
       </span>,
-      "Save the trade form",
+      t("scSave"),
     ],
-    [<Kbd key="q">?</Kbd>, "This list"],
+    [<Kbd key="q">?</Kbd>, t("scHelp")],
   ];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
-        <DialogHeader title="Keyboard shortcuts" />
+        <DialogHeader title={t("shortcuts")} />
         <dl className="flex flex-col gap-2 p-4 pt-0 text-sm">
           {rows.map(([keys, label]) => (
             <div key={label} className="flex items-center justify-between gap-3">

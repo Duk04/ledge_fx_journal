@@ -10,6 +10,7 @@
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown } from "lucide-react";
@@ -78,6 +79,8 @@ export function TradeForm({
   /** The user's active playbooks, for the optional "taken as" picker. */
   playbooks?: { id: string; name: string }[];
 }) {
+  const t = useTranslations("trades.form");
+  const tEnum = useTranslations("enums");
   const router = useRouter();
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -134,8 +137,8 @@ export function TradeForm({
     // write queue, so say so instead of letting the action fail opaquely.
     if (!online) {
       toast({
-        title: "You're offline",
-        description: "This trade can't be saved until you're back online. Nothing you typed is lost.",
+        title: t("offlineTitle"),
+        description: t("offlineDescription"),
         tone: "warn",
       });
       return;
@@ -150,7 +153,7 @@ export function TradeForm({
       } catch {
         /* ignore */
       }
-      toast({ title: mode === "create" ? "Trade logged" : "Trade updated" });
+      toast({ title: mode === "create" ? t("logged") : t("updated") });
       router.push(`/trades/${result.id}`);
       return;
     }
@@ -161,8 +164,8 @@ export function TradeForm({
       }
     }
     toast({
-      title: "Couldn't save trade",
-      description: result.formError ?? "Check the highlighted fields.",
+      title: t("saveFailed"),
+      description: result.formError ?? t("checkFields"),
       tone: "loss",
     });
   }
@@ -200,21 +203,20 @@ export function TradeForm({
         <PanelBody className="flex flex-col gap-4">
           {fillsLocked ? (
             <p className="rounded-control border border-line bg-panel-sunken px-3 py-2 text-xs text-ink-2">
-              This trade was scaled in or partly closed. Its symbol, prices, size, times and status come from its fills
-              — change those in the Fills panel on the trade page.
+              {t("fillsLocked")}
             </p>
           ) : null}
           <fieldset disabled={fillsLocked} className="contents">
             <FieldRow>
               <Field>
-                <FieldLabel>Symbol</FieldLabel>
+                <FieldLabel>{t("symbol")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="symbol"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger aria-invalid={!!errors.symbol} className={RESPONSIVE_HEIGHT}>
-                        <SelectValue placeholder="Choose a symbol" />
+                        <SelectValue placeholder={t("chooseSymbol")} />
                       </SelectTrigger>
                       <SelectContent>
                         {instruments.map((i) => (
@@ -230,17 +232,17 @@ export function TradeForm({
               </Field>
 
               <Field>
-                <FieldLabel>Direction</FieldLabel>
+                <FieldLabel>{t("direction")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="direction"
                   render={({ field }) => (
                     <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)} className="w-full">
                       <SegmentedItem value="LONG" className="flex-1">
-                        Long
+                        {tEnum("direction.LONG")}
                       </SegmentedItem>
                       <SegmentedItem value="SHORT" className="flex-1">
-                        Short
+                        {tEnum("direction.SHORT")}
                       </SegmentedItem>
                     </Segmented>
                   )}
@@ -249,7 +251,7 @@ export function TradeForm({
             </FieldRow>
 
             <Field>
-              <FieldLabel>Opened at</FieldLabel>
+              <FieldLabel>{t("openedAt")}</FieldLabel>
               <Input
                 type="datetime-local"
                 className={cn(RESPONSIVE_HEIGHT, "max-w-xs")}
@@ -261,10 +263,10 @@ export function TradeForm({
 
             <FieldRow>
               <Field>
-                <FieldLabel>Volume (lots)</FieldLabel>
+                <FieldLabel>{t("volumeLots")}</FieldLabel>
                 <NumberInput
                   className={RESPONSIVE_HEIGHT}
-                  unit="lots"
+                  unit={t("lotsUnit")}
                   placeholder="1.00"
                   aria-invalid={!!errors.volumeLots}
                   {...form.register("volumeLots")}
@@ -273,7 +275,7 @@ export function TradeForm({
               </Field>
 
               <Field>
-                <FieldLabel>Entry price</FieldLabel>
+                <FieldLabel>{t("entryPrice")}</FieldLabel>
                 <NumberInput
                   className={RESPONSIVE_HEIGHT}
                   placeholder="0.00000"
@@ -287,7 +289,7 @@ export function TradeForm({
 
           <FieldRow>
             <Field>
-              <FieldLabel optional>Stop loss</FieldLabel>
+              <FieldLabel optional>{t("stopLoss")}</FieldLabel>
               <NumberInput
                 className={RESPONSIVE_HEIGHT}
                 placeholder="0.00000"
@@ -298,7 +300,7 @@ export function TradeForm({
             </Field>
 
             <Field>
-              <FieldLabel optional>Take profit</FieldLabel>
+              <FieldLabel optional>{t("takeProfit")}</FieldLabel>
               <NumberInput
                 className={RESPONSIVE_HEIGHT}
                 placeholder="0.00000"
@@ -311,16 +313,14 @@ export function TradeForm({
 
           <FieldRow>
             <Field>
-              <FieldLabel optional>Initial stop</FieldLabel>
+              <FieldLabel optional>{t("initialStop")}</FieldLabel>
               <NumberInput
                 className={RESPONSIVE_HEIGHT}
-                placeholder="same as stop loss"
+                placeholder={t("initialStopPlaceholder")}
                 aria-invalid={!!errors.initialStopLoss}
                 {...form.register("initialStopLoss")}
               />
-              <FieldHint>
-                Where the stop was at entry. R is measured from it, so trailing your stop doesn&rsquo;t change R.
-              </FieldHint>
+              <FieldHint>{t("initialStopHint")}</FieldHint>
               <FieldError>{errors.initialStopLoss?.message}</FieldError>
             </Field>
             {/* Keeps the field half-width, aligned with Stop loss above. */}
@@ -337,15 +337,15 @@ export function TradeForm({
 
           <fieldset disabled={fillsLocked} className="contents">
             <Field>
-              <FieldLabel>Status</FieldLabel>
+              <FieldLabel>{t("status")}</FieldLabel>
               <Controller
                 control={form.control}
                 name="status"
                 render={({ field }) => (
                   <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)}>
-                    <SegmentedItem value="OPEN">Open</SegmentedItem>
-                    <SegmentedItem value="CLOSED">Closed</SegmentedItem>
-                    <SegmentedItem value="CANCELLED">Cancelled</SegmentedItem>
+                    <SegmentedItem value="OPEN">{tEnum("status.OPEN")}</SegmentedItem>
+                    <SegmentedItem value="CLOSED">{tEnum("status.CLOSED")}</SegmentedItem>
+                    <SegmentedItem value="CANCELLED">{tEnum("status.CANCELLED")}</SegmentedItem>
                   </Segmented>
                 )}
               />
@@ -358,7 +358,7 @@ export function TradeForm({
             {status === "CLOSED" ? (
               <FieldRow>
                 <Field>
-                  <FieldLabel>Exit price</FieldLabel>
+                  <FieldLabel>{t("exitPrice")}</FieldLabel>
                   <NumberInput
                     className={RESPONSIVE_HEIGHT}
                     placeholder="0.00000"
@@ -369,7 +369,7 @@ export function TradeForm({
                 </Field>
 
                 <Field>
-                  <FieldLabel>Closed at</FieldLabel>
+                  <FieldLabel>{t("closedAt")}</FieldLabel>
                   <Input
                     type="datetime-local"
                     className={RESPONSIVE_HEIGHT}
@@ -384,7 +384,7 @@ export function TradeForm({
 
           {playbooks.length ? (
             <Field>
-              <FieldLabel optional>Playbook</FieldLabel>
+              <FieldLabel optional>{t("playbook")}</FieldLabel>
               <Controller
                 control={form.control}
                 name="playbookId"
@@ -397,7 +397,7 @@ export function TradeForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_PLAYBOOK}>None</SelectItem>
+                      <SelectItem value={NO_PLAYBOOK}>{t("noPlaybook")}</SelectItem>
                       {playbooks.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.name}
@@ -407,19 +407,19 @@ export function TradeForm({
                   </Select>
                 )}
               />
-              <FieldHint>The setup this trade was. Check its rules on the trade page.</FieldHint>
+              <FieldHint>{t("playbookHint")}</FieldHint>
               <FieldError>{errors.playbookId?.message}</FieldError>
             </Field>
           ) : null}
 
           <Field>
-            <FieldLabel optional>Tags</FieldLabel>
+            <FieldLabel optional>{t("tags")}</FieldLabel>
             <Controller
               control={form.control}
               name="tagIds"
               render={({ field }) => (
                 <FieldGroup className="flex flex-wrap gap-1.5">
-                  {tags.length === 0 ? <span className="text-xs text-ink-3">No tags yet.</span> : null}
+                  {tags.length === 0 ? <span className="text-xs text-ink-3">{t("noTags")}</span> : null}
                   {tags.map((tag) => {
                     const active = field.value.includes(tag.id);
                     return (
@@ -462,10 +462,8 @@ export function TradeForm({
               className="flex min-h-10 w-full items-center justify-between gap-3 px-3 text-left select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset"
             >
               <span className="flex min-w-0 items-baseline gap-2">
-                <span className="truncate text-sm font-semibold text-ink">Discipline &amp; notes</span>
-                <span className="truncate text-xs font-normal text-ink-3">
-                  Optional — costs, mindset, and a write-up
-                </span>
+                <span className="truncate text-sm font-semibold text-ink">{t("advancedTitle")}</span>
+                <span className="truncate text-xs font-normal text-ink-3">{t("advancedSubtitle")}</span>
               </span>
               <ChevronDown
                 aria-hidden
@@ -478,40 +476,40 @@ export function TradeForm({
           <PanelBody id={advancedId} className="flex flex-col gap-4">
             <FieldRow>
               <Field>
-                <FieldLabel optional>Worst price (MAE)</FieldLabel>
+                <FieldLabel optional>{t("mae")}</FieldLabel>
                 <NumberInput placeholder="0.00000" aria-invalid={!!errors.maePrice} {...form.register("maePrice")} />
-                <FieldHint>The furthest price went against you while open.</FieldHint>
+                <FieldHint>{t("maeHint")}</FieldHint>
                 <FieldError>{errors.maePrice?.message}</FieldError>
               </Field>
               <Field>
-                <FieldLabel optional>Best price (MFE)</FieldLabel>
+                <FieldLabel optional>{t("mfe")}</FieldLabel>
                 <NumberInput placeholder="0.00000" aria-invalid={!!errors.mfePrice} {...form.register("mfePrice")} />
-                <FieldHint>The furthest it went in your favour. Or fill both from candles on the trade page.</FieldHint>
+                <FieldHint>{t("mfeHint")}</FieldHint>
                 <FieldError>{errors.mfePrice?.message}</FieldError>
               </Field>
             </FieldRow>
             <FieldRow>
               <Field>
-                <FieldLabel optional>Commission</FieldLabel>
+                <FieldLabel optional>{t("commission")}</FieldLabel>
                 <NumberInput unit={currency} placeholder="0.00" {...form.register("commission")} />
-                <FieldHint>Positive = a cost. A rebate can be entered as negative.</FieldHint>
+                <FieldHint>{t("commissionHint")}</FieldHint>
               </Field>
               <Field>
-                <FieldLabel optional>Swap</FieldLabel>
+                <FieldLabel optional>{t("swap")}</FieldLabel>
                 <NumberInput unit={currency} placeholder="0.00" {...form.register("swap")} />
               </Field>
             </FieldRow>
 
             <Field>
-              <FieldLabel optional>Followed the plan?</FieldLabel>
+              <FieldLabel optional>{t("followedPlan")}</FieldLabel>
               <Controller
                 control={form.control}
                 name="followedPlan"
                 render={({ field }) => (
                   <Segmented value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
-                    <SegmentedItem value="">Unsure</SegmentedItem>
-                    <SegmentedItem value="yes">Yes</SegmentedItem>
-                    <SegmentedItem value="no">No</SegmentedItem>
+                    <SegmentedItem value="">{t("unsure")}</SegmentedItem>
+                    <SegmentedItem value="yes">{t("yes")}</SegmentedItem>
+                    <SegmentedItem value="no">{t("no")}</SegmentedItem>
                   </Segmented>
                 )}
               />
@@ -519,7 +517,7 @@ export function TradeForm({
 
             <FieldRow>
               <Field>
-                <FieldLabel optional>Emotion (1–5)</FieldLabel>
+                <FieldLabel optional>{t("emotion")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="emotion"
@@ -535,7 +533,7 @@ export function TradeForm({
                 />
               </Field>
               <Field>
-                <FieldLabel optional>Confidence (1–5)</FieldLabel>
+                <FieldLabel optional>{t("confidence")}</FieldLabel>
                 <Controller
                   control={form.control}
                   name="confidence"
@@ -553,12 +551,8 @@ export function TradeForm({
             </FieldRow>
 
             <Field>
-              <FieldLabel optional>Notes</FieldLabel>
-              <Textarea
-                rows={5}
-                placeholder="What was the setup? What would you do differently?"
-                {...form.register("notes")}
-              />
+              <FieldLabel optional>{t("notes")}</FieldLabel>
+              <Textarea rows={5} placeholder={t("notesPlaceholder")} {...form.register("notes")} />
               <FieldError>{errors.notes?.message}</FieldError>
             </Field>
           </PanelBody>
@@ -567,15 +561,15 @@ export function TradeForm({
 
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="default" onClick={() => router.back()}>
-          Cancel
+          {t("cancel")}
         </Button>
         <Button
           type="submit"
           variant="primary"
           disabled={form.formState.isSubmitting || !online}
-          title={online ? undefined : "You're offline — this can't be saved until you reconnect."}
+          title={online ? undefined : t("offlineSubmitTitle")}
         >
-          {form.formState.isSubmitting ? "Saving…" : mode === "create" ? "Log trade" : "Save changes"}
+          {form.formState.isSubmitting ? t("saving") : mode === "create" ? t("logTrade") : t("saveChanges")}
           <Kbd className="ml-1 hidden md:inline-flex">{modKey}⏎</Kbd>
         </Button>
       </div>

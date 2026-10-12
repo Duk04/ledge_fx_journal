@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { TZDate } from "@date-fns/tz";
 import { AlertTriangle } from "lucide-react";
 import { requireAccountAccess, requireUser } from "@/lib/session";
@@ -52,6 +53,7 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
   });
 
   if (result.breaches.length === 0) return null;
+  const t = await getTranslations("dashboard.risk");
 
   return (
     <div
@@ -61,7 +63,7 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
       {result.breaches.map((breach) => (
         <div key={breach.type} className="flex items-start gap-2 text-xs text-warn">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>{breach.message}</span>
+          <span>{t(breach.key, breach.values)}</span>
         </div>
       ))}
     </div>

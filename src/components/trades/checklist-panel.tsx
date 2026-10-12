@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Panel,
   PanelBody,
@@ -36,6 +37,7 @@ export function ChecklistPanel({
   playbook: TradeDetail["playbook"];
   options: { id: string; name: string }[];
 }) {
+  const t = useTranslations("trades.detail.checklist");
   const router = useRouter();
   const { toast } = useToast();
   const [pending, startTransition] = React.useTransition();
@@ -43,7 +45,7 @@ export function ChecklistPanel({
   const run = (fn: () => Promise<{ ok: boolean; formError?: string }>) =>
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) toast({ title: "Couldn't save that", description: res.formError, tone: "loss" });
+      if (!res.ok) toast({ title: t("saveFailed"), description: res.formError, tone: "loss" });
       else router.refresh();
     });
 
@@ -53,25 +55,27 @@ export function ChecklistPanel({
   return (
     <Panel>
       <PanelHeader
-        title="Playbook"
+        title={t("title")}
         caption={
           playbook && playbook.rules.length
             ? broken
-              ? `${broken} rule(s) broken`
+              ? t("rulesBroken", { count: String(broken) })
               : answered === playbook.rules.length
-                ? "by the book"
-                : `${answered} of ${playbook.rules.length} answered`
+                ? t("byTheBook")
+                : t("answered", { answered: String(answered), total: String(playbook.rules.length) })
             : undefined
         }
       />
       <PanelBody className="flex flex-col gap-3">
         {options.length === 0 && !playbook ? (
           <p className="text-xs text-ink-3">
-            No playbooks yet.{" "}
-            <Link href="/playbooks" className="text-brand hover:underline">
-              Write one
-            </Link>{" "}
-            to check trades against its rules.
+            {t.rich("noPlaybooks", {
+              link: (c) => (
+                <Link href="/playbooks" className="text-brand hover:underline">
+                  {c}
+                </Link>
+              ),
+            })}
           </p>
         ) : (
           <Select
@@ -79,11 +83,11 @@ export function ChecklistPanel({
             disabled={pending}
             onValueChange={(v) => run(() => setTradePlaybook(accountId, tradeId, v === NONE ? null : v))}
           >
-            <SelectTrigger aria-label="Playbook">
+            <SelectTrigger aria-label={t("selectLabel")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>No playbook</SelectItem>
+              <SelectItem value={NONE}>{t("none")}</SelectItem>
               {playbook && !options.some((o) => o.id === playbook.id) ? (
                 <SelectItem value={playbook.id}>{playbook.name}</SelectItem>
               ) : null}
@@ -106,14 +110,12 @@ export function ChecklistPanel({
               value={rule.followed === null ? "" : rule.followed ? "yes" : "no"}
               onValueChange={(v) => run(() => setRuleCheck(accountId, tradeId, rule.id, v === "" ? null : v === "yes"))}
             >
-              <SegmentedItem value="yes">Followed</SegmentedItem>
-              <SegmentedItem value="no">Broke</SegmentedItem>
+              <SegmentedItem value="yes">{t("followed")}</SegmentedItem>
+              <SegmentedItem value="no">{t("broke")}</SegmentedItem>
             </Segmented>
           </div>
         ))}
-        {playbook && playbook.rules.length === 0 ? (
-          <p className="text-xs text-ink-3">This playbook has no rules written down yet.</p>
-        ) : null}
+        {playbook && playbook.rules.length === 0 ? <p className="text-xs text-ink-3">{t("noRules")}</p> : null}
       </PanelBody>
     </Panel>
   );

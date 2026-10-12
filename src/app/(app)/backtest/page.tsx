@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Play, FlaskConical, Database } from "lucide-react";
 import { Page } from "@/components/shell/page";
 import { SectionHead, Panel, PanelBody, Button, EmptyState } from "@/components/ui";
@@ -9,6 +10,7 @@ import { RunTable } from "@/components/backtest/run-table";
 
 export default async function BacktestPage() {
   const user = await requireUser();
+  const t = await getTranslations("backtest.index");
   const [runs, coverage] = await Promise.all([listRuns(user.id), listCoverage(user.id)]);
 
   const hasAnyCandles = coverage.length > 0;
@@ -16,25 +18,25 @@ export default async function BacktestPage() {
   return (
     <Page>
       <SectionHead
-        title="Backtest"
-        hint="Replay bars by hand, or let a coded strategy trade the whole range — both write ordinary trades to a BACKTEST account, so every report in the app works on them for free."
+        title={t("title")}
+        hint={t("hint")}
         actions={
           <>
             <Button asChild variant="default" size="sm">
               <Link href="/backtest/data">
-                <Database /> Market data
+                <Database /> {t("marketData")}
               </Link>
             </Button>
             <Button asChild variant="default" size="sm">
               <Link href="/backtest/replay">
-                <Play /> New replay
+                <Play /> {t("newReplay")}
               </Link>
             </Button>
             {/* Primary only once there is data to run on; until then the
                 empty state's "Go to Market data" is the one next step. */}
             <Button asChild variant={hasAnyCandles ? "primary" : "default"} size="sm">
               <Link href="/backtest/strategies">
-                <FlaskConical /> New strategy run
+                <FlaskConical /> {t("newStrategyRun")}
               </Link>
             </Button>
           </>
@@ -46,12 +48,12 @@ export default async function BacktestPage() {
           <PanelBody>
             <EmptyState
               icon={<Database className="size-4" />}
-              title="No market data yet"
-              description="A backtest reads historical bars from the journal's own store. Import a symbol's history to get started."
+              title={t("noDataTitle")}
+              description={t("noDataDescription")}
             />
             <div className="flex justify-center pb-4">
               <Button asChild variant="primary" size="sm">
-                <Link href="/backtest/data">Go to Market data</Link>
+                <Link href="/backtest/data">{t("goToData")}</Link>
               </Button>
             </div>
           </PanelBody>
@@ -59,8 +61,8 @@ export default async function BacktestPage() {
           <PanelBody>
             <EmptyState
               icon={<FlaskConical className="size-4" />}
-              title="No runs yet"
-              description="Step through bars by hand in a replay, or run a coded strategy over a whole range."
+              title={t("noRunsTitle")}
+              description={t("noRunsDescription")}
             />
           </PanelBody>
         ) : (

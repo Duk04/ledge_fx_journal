@@ -12,6 +12,9 @@ import {
 } from "lucide-react";
 
 /**
+ * `label`s are message keys under `nav` (messages/*.json), translated where
+ * they render.
+ *
  * The navigation, in the order a trading day actually runs: check the state of
  * the account, log what you did, study it, write it down, then the plumbing.
  * Grouping matters more than it looks — "Review" being separate from "Log" is
@@ -19,38 +22,38 @@ import {
  */
 export const NAV_GROUPS = [
   {
-    label: "Desk",
+    label: "desk",
     items: [
-      { href: "/", label: "Overview", icon: Gauge, exact: true },
-      { href: "/trades", label: "Trades", icon: Table2 },
-      { href: "/calculator", label: "Position size", icon: Calculator },
+      { href: "/", label: "overview", icon: Gauge, exact: true },
+      { href: "/trades", label: "trades", icon: Table2 },
+      { href: "/calculator", label: "positionSize", icon: Calculator },
     ],
   },
   {
-    label: "Review",
+    label: "review",
     items: [
-      { href: "/analytics", label: "Analytics", icon: ChartLine },
-      { href: "/playbooks", label: "Playbooks", icon: BookMarked },
-      { href: "/simulate", label: "Simulate", icon: Dices },
-      { href: "/journal", label: "Journal", icon: BookOpen },
-      { href: "/backtest", label: "Backtest", icon: FlaskConical },
+      { href: "/analytics", label: "analytics", icon: ChartLine },
+      { href: "/playbooks", label: "playbooks", icon: BookMarked },
+      { href: "/simulate", label: "simulate", icon: Dices },
+      { href: "/journal", label: "journal", icon: BookOpen },
+      { href: "/backtest", label: "backtest", icon: FlaskConical },
     ],
   },
   {
-    label: "Setup",
+    label: "setup",
     items: [
-      { href: "/accounts", label: "Accounts", icon: Wallet },
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/accounts", label: "accounts", icon: Wallet },
+      { href: "/settings", label: "settings", icon: Settings },
     ],
   },
 ] as const;
 
 /** The four destinations that earn a slot in the mobile tab bar. */
 export const MOBILE_NAV = [
-  { href: "/", label: "Overview", icon: Gauge, exact: true },
-  { href: "/trades", label: "Trades", icon: Table2 },
-  { href: "/analytics", label: "Stats", icon: ChartLine },
-  { href: "/journal", label: "Journal", icon: BookOpen },
+  { href: "/", label: "overview", icon: Gauge, exact: true },
+  { href: "/trades", label: "trades", icon: Table2 },
+  { href: "/analytics", label: "stats", icon: ChartLine },
+  { href: "/journal", label: "journal", icon: BookOpen },
 ] as const;
 
 export function isActive(pathname: string, href: string, exact?: boolean) {

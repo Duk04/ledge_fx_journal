@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
 import { SectionHead, EmptyState, Panel, PanelBody } from "@/components/ui";
 import { requireUser } from "@/lib/session";
@@ -12,19 +13,17 @@ import { ReplaySession } from "@/components/backtest/replay/replay-session";
 export default async function ReplayPage({ searchParams }: { searchParams: Promise<{ runId?: string }> }) {
   const { runId } = await searchParams;
   const user = await requireUser();
+  const t = await getTranslations("backtest.replay");
 
   if (!runId) {
     const coverage = await listCoverage(user.id);
     return (
       <Page>
-        <SectionHead title="New replay" hint="Pick a symbol, timeframe and range with stored bars to step through." />
+        <SectionHead title={t("title")} hint={t("hint")} />
         {coverage.length === 0 ? (
           <Panel>
             <PanelBody>
-              <EmptyState
-                title="No market data yet"
-                description="Import a symbol's history from Market data before starting a replay."
-              />
+              <EmptyState title={t("noDataTitle")} description={t("noDataDescription")} />
             </PanelBody>
           </Panel>
         ) : (
@@ -53,10 +52,7 @@ export default async function ReplayPage({ searchParams }: { searchParams: Promi
         <SectionHead title={run.label ?? run.symbol} />
         <Panel>
           <PanelBody>
-            <EmptyState
-              title="No bars left for this range"
-              description="The stored candles for this symbol/timeframe/range were removed after this run was created."
-            />
+            <EmptyState title={t("noBarsTitle")} description={t("noBarsDescription")} />
           </PanelBody>
         </Panel>
       </Page>
@@ -74,7 +70,10 @@ export default async function ReplayPage({ searchParams }: { searchParams: Promi
 
   return (
     <Page>
-      <SectionHead title={run.label ?? run.symbol} hint={`${run.symbol} · ${run.timeframe} replay`} />
+      <SectionHead
+        title={run.label ?? run.symbol}
+        hint={t("sessionHint", { symbol: run.symbol, timeframe: run.timeframe })}
+      />
       <ReplaySession
         runId={run.id}
         symbol={run.symbol}

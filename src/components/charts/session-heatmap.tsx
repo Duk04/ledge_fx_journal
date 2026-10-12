@@ -1,19 +1,16 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { formatMoney, formatPercent } from "@/lib/metrics/formatters";
 import { Tip, EmptyState } from "@/components/ui";
 import type { HeatmapCell } from "@/lib/queries/analytics";
 
-const WEEKDAY_SHORT: Record<string, string> = {
-  MONDAY: "Mon",
-  TUESDAY: "Tue",
-  WEDNESDAY: "Wed",
-  THURSDAY: "Thu",
-  FRIDAY: "Fri",
-  SATURDAY: "Sat",
-  SUNDAY: "Sun",
-};
+const WEEKDAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
+
+function isWeekday(value: string): value is (typeof WEEKDAYS)[number] {
+  return (WEEKDAYS as readonly string[]).includes(value);
+}
 
 const SESSION_SHORT: Record<string, string> = {
   SYDNEY: "SYD",
@@ -35,9 +32,10 @@ const SESSION_SHORT: Record<string, string> = {
  * corner bar's presence/length is legible even in greyscale.
  */
 export function SessionHeatmap({ cells, currency }: { cells: HeatmapCell[]; currency: string }) {
+  const t = useTranslations("dashboard.charts.heatmap");
   const populated = cells.filter((c) => c.count > 0);
   if (populated.length === 0) {
-    return <EmptyState title="No trades yet" description="The session heatmap fills in once you log some trades." />;
+    return <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />;
   }
 
   const sessions = [...new Set(cells.map((c) => c.session))];
@@ -77,9 +75,12 @@ function Row({
   maxAbs: number;
   currency: string;
 }) {
+  const t = useTranslations("dashboard.charts.heatmap");
   return (
     <>
-      <div className="label flex items-center">{WEEKDAY_SHORT[weekday] ?? weekday.slice(0, 3)}</div>
+      <div className="label flex items-center">
+        {isWeekday(weekday) ? t(`weekday.${weekday}`) : weekday.slice(0, 3)}
+      </div>
       {sessions.map((session) => {
         const cell = cells.find((c) => c.weekday === weekday && c.session === session);
         if (!cell) return <div key={session} />;
@@ -93,21 +94,25 @@ function HeatCell({ cell, maxAbs, currency }: { cell: HeatmapCell; maxAbs: numbe
   const fraction = cell.count === 0 ? 0 : Math.min(1, Math.abs(cell.netPnl) / maxAbs);
   const positive = cell.netPnl >= 0;
   const tone = positive ? "var(--profit)" : "var(--loss)";
+  const t = useTranslations("dashboard.charts.heatmap");
+  const day = isWeekday(cell.weekday) ? t(`weekday.${cell.weekday}`) : cell.weekday;
+  const tl = useTranslations("analytics.labels");
+  const sessionKey = `session.${cell.session}` as Parameters<typeof tl>[0];
+  const sessionLabel = tl.has(sessionKey) ? tl(sessionKey) : cell.sessionLabel;
+  const trades = t("trades", { count: cell.count });
 
   return (
     <Tip
       label={
         <div className="flex flex-col gap-0.5">
           <span className="font-medium">
-            {WEEKDAY_SHORT[cell.weekday] ?? cell.weekday} · {cell.sessionLabel}
+            {day} · {sessionLabel}
           </span>
-          <span>
-            {cell.count} trade{cell.count === 1 ? "" : "s"}
-          </span>
+          <span>{trades}</span>
           {cell.count > 0 ? (
             <>
-              <span>Net {formatMoney(cell.netPnl, currency)}</span>
-              <span>Win rate {cell.winRate === null ? "—" : formatPercent(cell.winRate)}</span>
+              <span>{t("net", { amount: formatMoney(cell.netPnl, currency) })}</span>
+              <span>{t("winRate", { rate: cell.winRate === null ? "—" : formatPercent(cell.winRate) })}</span>
             </>
           ) : null}
         </div>
@@ -119,7 +124,7 @@ function HeatCell({ cell, maxAbs, currency }: { cell: HeatmapCell; maxAbs: numbe
           cell is focusable so the tooltip is reachable without a mouse. */}
       <div
         tabIndex={0}
-        aria-label={`${WEEKDAY_SHORT[cell.weekday] ?? cell.weekday} ${cell.sessionLabel}: ${cell.count} trade${cell.count === 1 ? "" : "s"}${cell.count > 0 ? `, net ${formatMoney(cell.netPnl, currency)}` : ""}`}
+        aria-label={`${t("cellAria", { day, session: sessionLabel, trades })}${cell.count > 0 ? t("cellAriaNet", { amount: formatMoney(cell.netPnl, currency) }) : ""}`}
         className="relative flex aspect-square min-h-9 items-center justify-center rounded-inner border border-line-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         style={{
           backgroundColor:

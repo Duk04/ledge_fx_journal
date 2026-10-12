@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Archive, ArchiveRestore, Pencil, Plus } from "lucide-react";
 import {
   Badge,
@@ -32,23 +33,21 @@ import { createPlaybook, setPlaybookArchived, updatePlaybook } from "@/lib/actio
 import type { PlaybookView } from "@/lib/queries/playbooks";
 
 export function PlaybooksView({ playbooks, currency }: { playbooks: PlaybookView[]; currency: string }) {
+  const t = useTranslations("playbooks");
   const [editing, setEditing] = React.useState<PlaybookView | "new" | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button variant="primary" onClick={() => setEditing("new")}>
-          <Plus aria-hidden /> New playbook
+          <Plus aria-hidden /> {t("newPlaybook")}
         </Button>
       </div>
 
       {playbooks.length === 0 ? (
         <Panel>
           <PanelBody>
-            <EmptyState
-              title="No playbooks yet"
-              description="Write down a setup you trade and the rules that make a trade one of them. Then check each trade against it, and see whether following the rules actually pays."
-            />
+            <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
           </PanelBody>
         </Panel>
       ) : (
@@ -71,6 +70,7 @@ function PlaybookCard({
   currency: string;
   onEdit: () => void;
 }) {
+  const t = useTranslations("playbooks.card");
   const router = useRouter();
   const { toast } = useToast();
   const money = (n: number) => formatMoney(n, currency);
@@ -79,14 +79,14 @@ function PlaybookCard({
 
   async function toggleArchive() {
     const res = await setPlaybookArchived(p.id, !p.isArchived);
-    if (!res.ok) toast({ title: "Couldn't update it", description: res.formError, tone: "loss" });
+    if (!res.ok) toast({ title: t("updateFailed"), description: res.formError, tone: "loss" });
     router.refresh();
   }
 
   const groups = [
-    { label: "All trades", s: p.all },
-    { label: "By the book", s: p.byTheBook },
-    { label: "Broke a rule", s: p.brokeARule },
+    { label: t("groupAll"), s: p.all },
+    { label: t("groupByTheBook"), s: p.byTheBook },
+    { label: t("groupBrokeARule"), s: p.brokeARule },
   ];
 
   return (
@@ -95,19 +95,19 @@ function PlaybookCard({
         title={p.name}
         caption={
           p.isArchived
-            ? "archived"
+            ? t("archived")
             : p.compliance === null
-              ? "no checklists yet"
-              : `${pct(p.compliance)} of rules followed`
+              ? t("noChecklists")
+              : t("compliance", { pct: pct(p.compliance) })
         }
         actions={
           <>
             <Button variant="ghost" size="sm" onClick={onEdit}>
-              <Pencil aria-hidden /> Edit
+              <Pencil aria-hidden /> {t("edit")}
             </Button>
             <Button variant="ghost" size="sm" onClick={toggleArchive}>
               {p.isArchived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-              {p.isArchived ? "Restore" : "Archive"}
+              {p.isArchived ? t("restore") : t("archive")}
             </Button>
           </>
         }
@@ -130,18 +130,18 @@ function PlaybookCard({
               ))}
             </ol>
           ) : (
-            <p className="text-xs text-ink-3">No rules written down yet.</p>
+            <p className="text-xs text-ink-3">{t("noRules")}</p>
           )}
         </PanelBody>
         <div className="border-t border-line lg:border-t-0 lg:border-l">
           <DataTable>
             <thead>
               <tr>
-                <Th aria-label="Group" />
-                <Th numeric>Trades</Th>
-                <Th numeric>Net P&amp;L</Th>
-                <Th numeric>Win rate</Th>
-                <Th numeric>Expectancy</Th>
+                <Th aria-label={t("group")} />
+                <Th numeric>{t("trades")}</Th>
+                <Th numeric>{t("netPnl")}</Th>
+                <Th numeric>{t("winRate")}</Th>
+                <Th numeric>{t("expectancy")}</Th>
               </tr>
             </thead>
             <tbody>
@@ -167,9 +167,9 @@ function PlaybookCard({
           {p.byTheBook.closedCount && p.brokeARule.closedCount ? (
             <p className="px-3 py-2 text-2xs text-ink-3">
               {(p.byTheBook.expectancyR ?? 0) > (p.brokeARule.expectancyR ?? 0) ? (
-                <Badge tone="profit">Following the rules pays</Badge>
+                <Badge tone="profit">{t("rulesPay")}</Badge>
               ) : (
-                <Badge tone="warn">Following the rules isn&rsquo;t paying — revisit them</Badge>
+                <Badge tone="warn">{t("rulesNotPaying")}</Badge>
               )}
             </p>
           ) : null}
@@ -180,6 +180,7 @@ function PlaybookCard({
 }
 
 function PlaybookDialog({ playbook, onClose }: { playbook: PlaybookView | null; onClose: () => void }) {
+  const t = useTranslations("playbooks.dialog");
   const router = useRouter();
   const { toast } = useToast();
   const [name, setName] = React.useState(playbook?.name ?? "");
@@ -196,10 +197,10 @@ function PlaybookDialog({ playbook, onClose }: { playbook: PlaybookView | null; 
     setPending(false);
     if (!res.ok) {
       setErrors(res.fieldErrors ?? {});
-      if (res.formError) toast({ title: "Couldn't save", description: res.formError, tone: "loss" });
+      if (res.formError) toast({ title: t("saveFailed"), description: res.formError, tone: "loss" });
       return;
     }
-    toast({ title: playbook ? "Playbook saved" : "Playbook created" });
+    toast({ title: playbook ? t("saved") : t("created") });
     onClose();
     router.refresh();
   }
@@ -208,37 +209,35 @@ function PlaybookDialog({ playbook, onClose }: { playbook: PlaybookView | null; 
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <form onSubmit={submit}>
-          <DialogHeader title={playbook ? "Edit playbook" : "New playbook"} />
+          <DialogHeader title={playbook ? t("editTitle") : t("newTitle")} />
           <DialogBody className="flex flex-col gap-3">
             <Field>
-              <FieldLabel>Name</FieldLabel>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="London breakout" />
+              <FieldLabel>{t("name")}</FieldLabel>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("namePlaceholder")} />
               <FieldError>{errors.name?.[0]}</FieldError>
             </Field>
             <Field>
-              <FieldLabel optional>Description</FieldLabel>
+              <FieldLabel optional>{t("description")}</FieldLabel>
               <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>
             <Field>
-              <FieldLabel>Rules</FieldLabel>
+              <FieldLabel>{t("rules")}</FieldLabel>
               <Textarea
                 rows={6}
                 value={rules}
                 onChange={(e) => setRules(e.target.value)}
-                placeholder={"H4 trend agrees with the entry\nRetest of the Asian range high\nRisk ≤ 1%"}
+                placeholder={t("rulesPlaceholder")}
               />
-              <FieldHint>
-                One per line. Rewording a rule makes it a new rule; reordering keeps each rule&rsquo;s history.
-              </FieldHint>
+              <FieldHint>{t("rulesHint")}</FieldHint>
               <FieldError>{errors.rules?.[0]}</FieldError>
             </Field>
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={pending}>
-              {pending ? "Saving…" : playbook ? "Save" : "Create"}
+              {pending ? t("saving") : playbook ? t("save") : t("create")}
             </Button>
           </DialogFooter>
         </form>

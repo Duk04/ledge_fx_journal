@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Plus, Upload } from "lucide-react";
 import { subDays, startOfYear, endOfDay } from "date-fns";
 import type { Direction } from "@prisma/client";
@@ -81,17 +82,15 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const user = await requireUser();
   const activeAccountId = await resolveActiveAccountId(user.id);
+  const t = await getTranslations("trades");
 
   if (!activeAccountId) {
     return (
       <Page>
-        <SectionHead title="Trades" />
+        <SectionHead title={t("list.title")} />
         <Panel>
           <PanelBody>
-            <EmptyState
-              title="No trading account yet"
-              description="Create a trading account before logging your first trade."
-            />
+            <EmptyState title={t("common.noAccountTitle")} description={t("list.noAccountDescription")} />
           </PanelBody>
         </Panel>
       </Page>
@@ -172,17 +171,16 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
   return (
     <Page>
       <SectionHead
-        title="Trades"
+        title={t("list.title")}
         hint={
           <>
-            {total} trade{total === 1 ? "" : "s"} in view · net{" "}
-            <Money value={stats.netPnl} currency={account.currency} signed />
+            {t("list.inView", { count: total })} <Money value={stats.netPnl} currency={account.currency} signed />
           </>
         }
         actions={
           <Button asChild variant="default" size="sm">
             <Link href="/trades/import">
-              <Upload aria-hidden /> Import statement
+              <Upload aria-hidden /> {t("import.title")}
             </Link>
           </Button>
         }
@@ -190,37 +188,42 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
 
       <StatRow>
         <Stat
-          label="Net P&L"
+          label={t("common.netPnl")}
           value={<Money value={stats.netPnl} currency={account.currency} signed />}
           tone={netPnlNum > 0 ? "profit" : netPnlNum < 0 ? "loss" : "neutral"}
         />
         <Stat
-          label="Win rate"
+          label={t("list.winRate")}
           value={<Percent value={stats.winRate} />}
-          hint={breakevenPct !== null ? `needs ${breakevenPct}% to break even` : undefined}
+          hint={breakevenPct !== null ? t("list.breakEvenHint", { pct: breakevenPct }) : undefined}
         />
-        <Stat label="Profit factor" value={stats.profitFactor !== null ? Number(stats.profitFactor).toFixed(2) : "—"} />
         <Stat
-          label="Expectancy"
+          label={t("list.profitFactor")}
+          value={stats.profitFactor !== null ? Number(stats.profitFactor).toFixed(2) : "—"}
+        />
+        <Stat
+          label={t("list.expectancy")}
           value={<RValue value={stats.expectancyR} />}
           tone={stats.expectancyR !== null ? (Number(stats.expectancyR) >= 0 ? "profit" : "loss") : "neutral"}
         />
         <Stat
-          label="Avg R"
+          label={t("list.avgR")}
           value={<RValue value={stats.averageRMultiple} />}
           tone={stats.averageRMultiple !== null ? (Number(stats.averageRMultiple) >= 0 ? "profit" : "loss") : "neutral"}
         />
         <Stat
-          label="Longest run"
+          label={t("list.longestRun")}
           value={
             stats.longestWinStreak + stats.longestLossStreak > 0
-              ? `${stats.longestWinStreak}W / ${stats.longestLossStreak}L`
+              ? t("list.runValue", { wins: stats.longestWinStreak, losses: stats.longestLossStreak })
               : "—"
           }
           hint={
             stats.currentStreak !== 0
-              ? `${Math.abs(stats.currentStreak)}${stats.currentStreak > 0 ? "W" : "L"} right now`
-              : "no run in progress"
+              ? t(stats.currentStreak > 0 ? "list.currentWinRun" : "list.currentLossRun", {
+                  count: Math.abs(stats.currentStreak),
+                })
+              : t("list.noRun")
           }
           tone={runIsWin ? "neutral" : "loss"}
         />
@@ -231,27 +234,21 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
       <Panel flush>
         {noTradesAtAll ? (
           <PanelBody>
-            <EmptyState
-              title="No trades logged yet"
-              description="Log your first trade to start building your track record."
-            />
+            <EmptyState title={t("list.emptyTitle")} description={t("list.emptyDescription")} />
             <div className="flex justify-center pb-4">
               <Button asChild variant="primary" size="sm">
                 <Link href="/trades/new">
-                  <Plus /> Log your first trade
+                  <Plus /> {t("list.logFirst")}
                 </Link>
               </Button>
             </div>
           </PanelBody>
         ) : noTradesMatchFilters ? (
           <PanelBody>
-            <EmptyState
-              title="No trades match these filters"
-              description="Try widening the date range or clearing a filter."
-            />
+            <EmptyState title={t("list.noMatchTitle")} description={t("list.noMatchDescription")} />
             <div className="flex justify-center pb-4">
               <Button asChild variant="default" size="sm">
-                <Link href="/trades">Clear filters</Link>
+                <Link href="/trades">{t("list.clearFilters")}</Link>
               </Button>
             </div>
           </PanelBody>
@@ -263,7 +260,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                   <Th sortable sortDirection={sortField === "openedAt" ? sortDirection : false}>
                     <SortLink
                       field="openedAt"
-                      label="Opened"
+                      label={t("common.opened")}
                       currentField={sortField}
                       currentDirection={sortDirection}
                       buildHref={buildSortHref}
@@ -272,15 +269,15 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                   <Th sortable sortDirection={sortField === "symbol" ? sortDirection : false}>
                     <SortLink
                       field="symbol"
-                      label="Symbol"
+                      label={t("common.symbol")}
                       currentField={sortField}
                       currentDirection={sortDirection}
                       buildHref={buildSortHref}
                     />
                   </Th>
-                  <Th>Dir</Th>
+                  <Th>{t("common.dir")}</Th>
                   <Th numeric className="hidden md:table-cell">
-                    Entry → Exit
+                    {t("common.entryExit")}
                   </Th>
                   <Th
                     numeric
@@ -291,7 +288,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     <SortLink
                       numeric
                       field="volumeLots"
-                      label="Lots"
+                      label={t("common.lots")}
                       currentField={sortField}
                       currentDirection={sortDirection}
                       buildHref={buildSortHref}
@@ -306,7 +303,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     <SortLink
                       numeric
                       field="pips"
-                      label="Pips"
+                      label={t("common.pips")}
                       currentField={sortField}
                       currentDirection={sortDirection}
                       buildHref={buildSortHref}
@@ -316,7 +313,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     <SortLink
                       numeric
                       field="netPnl"
-                      label="Net P&L"
+                      label={t("common.netPnl")}
                       currentField={sortField}
                       currentDirection={sortDirection}
                       buildHref={buildSortHref}
@@ -326,15 +323,15 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     <SortLink
                       numeric
                       field="rMultiple"
-                      label="R"
+                      label={t("common.r")}
                       currentField={sortField}
                       currentDirection={sortDirection}
                       buildHref={buildSortHref}
                     />
                   </Th>
-                  <Th aria-label="R, drawn to scale" className="hidden md:table-cell" />
-                  <Th className="hidden md:table-cell">Tags</Th>
-                  <Th aria-label="Actions" />
+                  <Th aria-label={t("list.rToScale")} className="hidden md:table-cell" />
+                  <Th className="hidden md:table-cell">{t("common.tags")}</Th>
+                  <Th aria-label={t("common.actions")} />
                 </tr>
               </thead>
               <tbody>
@@ -359,11 +356,11 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       >
                         <div className="flex items-center gap-1.5">
                           {row.followedPlan === false ? (
-                            <Tip label="Didn't follow the plan on this trade">
+                            <Tip label={t("list.planNotFollowedTip")}>
                               <span
                                 role="img"
                                 className="relative inline-flex size-1.5 shrink-0 rounded-full bg-warn"
-                                aria-label="Plan not followed"
+                                aria-label={t("list.planNotFollowed")}
                               />
                             </Tip>
                           ) : null}
@@ -417,8 +414,8 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       </Td>
                       <Td className="hidden md:table-cell">
                         <div className="flex items-center gap-1">
-                          {row.tags.slice(0, 2).map((t) => (
-                            <TagChip key={t.id} name={t.name} color={t.color} />
+                          {row.tags.slice(0, 2).map((tag) => (
+                            <TagChip key={tag.id} name={tag.name} color={tag.color} />
                           ))}
                           {row.tags.length > 2 ? <Badge tone="neutral">+{row.tags.length - 2}</Badge> : null}
                         </div>
@@ -429,7 +426,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                     </TrLink>
                   );
                 })}
-                {rows.length === 0 ? <TableEmpty colSpan={11}>No trades on this page.</TableEmpty> : null}
+                {rows.length === 0 ? <TableEmpty colSpan={11}>{t("list.noRowsOnPage")}</TableEmpty> : null}
               </tbody>
             </DataTable>
             <PanelFooter>

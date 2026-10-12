@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Page } from "@/components/shell/page";
 import { Panel, PanelBody } from "@/components/ui/panel";
 import { ErrorState } from "@/components/ui/empty";
@@ -17,6 +18,7 @@ import { reportClientError } from "@/lib/report-client-error";
  * app/global-error.tsx still took `reset` until it was moved over as well.
  */
 export default function TradesError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
+  const t = useTranslations("trades");
   useEffect(() => {
     reportClientError(error);
   }, [error]);
@@ -26,9 +28,9 @@ export default function TradesError({ error, retry }: { error: Error & { digest?
       <Panel>
         <PanelBody>
           <ErrorState
-            title="Couldn't load trades"
-            description={error.digest ? `Something went wrong on our end (ref: ${error.digest}).` : error.message}
-            retry={{ label: "Try again", onClick: retry }}
+            title={t("list.errorTitle")}
+            description={error.digest ? t("list.errorDigest", { digest: error.digest }) : error.message}
+            retry={{ label: t("common.tryAgain"), onClick: retry }}
           />
         </PanelBody>
       </Panel>

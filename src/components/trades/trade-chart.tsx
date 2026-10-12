@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   CandlestickSeries,
   createChart,
@@ -36,25 +37,26 @@ export function TradeChart({
   initialStopLoss: number | null;
   takeProfit: number | null;
 }) {
+  const t = useTranslations("trades.detail.chart");
   const ref = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     const container = ref.current;
     if (!container) return;
-    const t = readTokens();
+    const tokens = readTokens();
     const chart = createChart(container, {
       autoSize: true,
-      layout: { background: { color: "transparent" }, textColor: t.ink3, fontSize: 11 },
-      grid: { vertLines: { color: t.line }, horzLines: { color: t.line } },
-      rightPriceScale: { borderColor: t.line },
-      timeScale: { borderColor: t.line, timeVisible: true, secondsVisible: false },
+      layout: { background: { color: "transparent" }, textColor: tokens.ink3, fontSize: 11 },
+      grid: { vertLines: { color: tokens.line }, horzLines: { color: tokens.line } },
+      rightPriceScale: { borderColor: tokens.line },
+      timeScale: { borderColor: tokens.line, timeVisible: true, secondsVisible: false },
     });
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: t.profit,
-      downColor: t.loss,
+      upColor: tokens.profit,
+      downColor: tokens.loss,
       borderVisible: false,
-      wickUpColor: t.profit,
-      wickDownColor: t.loss,
+      wickUpColor: tokens.profit,
+      wickDownColor: tokens.loss,
       priceFormat: { type: "price", precision: digits, minMove: 1 / 10 ** digits },
     });
     series.setData(
@@ -81,8 +83,11 @@ export function TradeChart({
         time: snap(e.executedAt),
         position: buy(e.kind) ? ("belowBar" as const) : ("aboveBar" as const),
         shape: buy(e.kind) ? ("arrowUp" as const) : ("arrowDown" as const),
-        color: e.kind === "ENTRY" ? t.brand : t.ink,
-        text: `${e.kind === "ENTRY" ? "In" : "Out"} ${e.volumeLots} @ ${Number(e.price).toFixed(digits)}`,
+        color: e.kind === "ENTRY" ? tokens.brand : tokens.ink,
+        text: t(e.kind === "ENTRY" ? "markerIn" : "markerOut", {
+          lots: e.volumeLots,
+          price: Number(e.price).toFixed(digits),
+        }),
       }))
       .sort((a, b) => a.time - b.time);
     createSeriesMarkers(series, markers);
@@ -91,21 +96,21 @@ export function TradeChart({
       if (price !== null)
         series.createPriceLine({ price, title, color, lineStyle: style, lineWidth: 1, axisLabelVisible: true });
     };
-    line(takeProfit, "TP", t.profit, LineStyle.Dashed);
-    line(stopLoss, "SL", t.loss, LineStyle.Dashed);
+    line(takeProfit, "TP", tokens.profit, LineStyle.Dashed);
+    line(stopLoss, "SL", tokens.loss, LineStyle.Dashed);
     if (initialStopLoss !== null && initialStopLoss !== stopLoss)
-      line(initialStopLoss, "Initial SL", t.loss, LineStyle.Dotted);
+      line(initialStopLoss, t("initialSl"), tokens.loss, LineStyle.Dotted);
 
     chart.timeScale().fitContent();
     return () => chart.remove();
-  }, [bars, digits, direction, executions, stopLoss, initialStopLoss, takeProfit]);
+  }, [bars, digits, direction, executions, stopLoss, initialStopLoss, takeProfit, t]);
 
   return (
     <div
       ref={ref}
       className="h-72 w-full"
       role="img"
-      aria-label={`Price chart around the trade: ${bars.length} bars, ${executions.length} fill(s) marked.`}
+      aria-label={t("ariaLabel", { bars: String(bars.length), fills: String(executions.length) })}
     />
   );
 }

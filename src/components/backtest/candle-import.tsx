@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { UploadCloud, FileText } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   Panel,
   PanelHeader,
@@ -34,16 +35,9 @@ export interface InstrumentOption {
   displayName: string;
 }
 
-const TIMEFRAMES: { value: string; label: string }[] = [
-  { value: "M1", label: "M1 — 1 minute" },
-  { value: "M5", label: "M5 — 5 minutes" },
-  { value: "M15", label: "M15 — 15 minutes" },
-  { value: "M30", label: "M30 — 30 minutes" },
-  { value: "H1", label: "H1 — 1 hour" },
-  { value: "H4", label: "H4 — 4 hours" },
-  { value: "D1", label: "D1 — 1 day" },
-  { value: "W1", label: "W1 — 1 week" },
-];
+// Codes only: their "M1 — 1 minute" labels are translated, so they live in
+// messages under backtest.import.timeframes.
+const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
 
 /** UTC+2/+3 covers the large majority of MT5 brokers (most run on Eastern
  * European or Moscow server time); "Custom" is there for the rest rather
@@ -64,6 +58,7 @@ function formatOffsetLabel(minutes: number): string {
 }
 
 export function CandleImportPanel({ instruments }: { instruments: InstrumentOption[] }) {
+  const t = useTranslations("backtest");
   const { toast } = useToast();
 
   const [file, setFile] = React.useState<File | null>(null);
@@ -103,16 +98,16 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
           setPreviewError(null);
         } catch (err) {
           setPreview(null);
-          setPreviewError(err instanceof Error ? err.message : "Could not parse this file.");
+          setPreviewError(err instanceof Error ? err.message : t("import.couldNotParse"));
         }
       })
       .catch(() => {
-        if (!cancelled) setPreviewError("Could not read this file.");
+        if (!cancelled) setPreviewError(t("import.couldNotRead"));
       });
     return () => {
       cancelled = true;
     };
-  }, [file, tzInvalid, tzOffsetMinutes]);
+  }, [file, tzInvalid, tzOffsetMinutes, t]);
 
   function pickFile(next: File | null) {
     setFile(next);
@@ -140,7 +135,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
     setResult(outcome);
 
     if (outcome.ok) {
-      toast({ title: `Imported ${outcome.inserted + outcome.updated} bars.` });
+      toast({ title: t("import.imported", { count: String(outcome.inserted + outcome.updated) }) });
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -150,14 +145,14 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
 
   return (
     <Panel>
-      <PanelHeader title="Import candles" caption="MT5 or generic OHLCV CSV" />
+      <PanelHeader title={t("import.title")} caption={t("import.caption")} />
       <PanelBody className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
-            <FieldLabel>Symbol</FieldLabel>
+            <FieldLabel>{t("form.symbol")}</FieldLabel>
             <Select value={symbol} onValueChange={setSymbol}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose a symbol" />
+                <SelectValue placeholder={t("form.chooseSymbol")} />
               </SelectTrigger>
               <SelectContent>
                 {instruments.map((i) => (
@@ -169,15 +164,15 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
             </Select>
           </Field>
           <Field>
-            <FieldLabel>Timeframe</FieldLabel>
+            <FieldLabel>{t("form.timeframe")}</FieldLabel>
             <Select value={timeframe} onValueChange={setTimeframe}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TIMEFRAMES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {TIMEFRAMES.map((tf) => (
+                  <SelectItem key={tf} value={tf}>
+                    {t(`import.timeframes.${tf}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -186,7 +181,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
         </div>
 
         <Field>
-          <FieldLabel>Broker server timezone</FieldLabel>
+          <FieldLabel>{t("import.tz")}</FieldLabel>
           <div className="flex flex-wrap items-center gap-2">
             <Segmented value={tzPreset} onValueChange={(v) => v && setTzPreset(v)}>
               {TZ_PRESETS.map((p) => (
@@ -194,13 +189,13 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
                   {p.label}
                 </SegmentedItem>
               ))}
-              <SegmentedItem value="custom">Custom</SegmentedItem>
+              <SegmentedItem value="custom">{t("import.custom")}</SegmentedItem>
             </Segmented>
             {tzPreset === "custom" ? (
               <Input
                 value={tzCustom}
                 onChange={(e) => setTzCustom(e.target.value)}
-                placeholder="Minutes, e.g. 180"
+                placeholder={t("import.minutesPlaceholder")}
                 className="w-36"
                 inputMode="numeric"
               />
@@ -208,12 +203,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
               <span className="text-xs text-ink-2">{formatOffsetLabel(tzOffsetMinutes)}</span>
             )}
           </div>
-          <FieldHint>
-            The time your broker&rsquo;s server stamps on every bar — most MT5 brokers run UTC+2 or UTC+3 (it shifts
-            with their own DST calendar). This file has no timezone marker of its own, so getting this wrong silently
-            shifts every bar by hours and quietly breaks anything session-based. Check your platform&rsquo;s Tools →
-            Options → server time if you&rsquo;re not sure.
-          </FieldHint>
+          <FieldHint>{t("import.tzHint")}</FieldHint>
         </Field>
 
         <FileDropZone
@@ -224,7 +214,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
           inputRef={fileInputRef}
         />
 
-        {tzInvalid && file ? <p className="text-xs text-loss">Enter a valid timezone offset in minutes.</p> : null}
+        {tzInvalid && file ? <p className="text-xs text-loss">{t("import.invalidTz")}</p> : null}
         {!tzInvalid && previewError ? <p className="text-xs text-loss">{previewError}</p> : null}
 
         {!tzInvalid && preview ? <ParsePreview preview={preview} /> : null}
@@ -232,9 +222,9 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
         {result ? <ImportSummary result={result} /> : null}
       </PanelBody>
       <PanelFooter>
-        <span className="text-xs text-ink-3">{file ? file.name : "No file chosen"}</span>
+        <span className="text-xs text-ink-3">{file ? file.name : t("import.noFile")}</span>
         <Button variant="primary" onClick={handleImport} disabled={!canImport}>
-          {pending ? "Importing…" : "Import"}
+          {pending ? t("import.importing") : t("import.import")}
         </Button>
       </PanelFooter>
     </Panel>
@@ -254,6 +244,7 @@ function FileDropZone({
   onFile: (file: File | null) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
+  const t = useTranslations("backtest.import");
   return (
     <div
       role="button"
@@ -289,14 +280,14 @@ function FileDropZone({
           <FileText className="size-5 text-ink-2" aria-hidden />
           <span className="text-sm text-ink">{file.name}</span>
           <span className="text-xs text-ink-3">
-            {(file.size / (1024 * 1024)).toFixed(2)} MB — click or drop to replace
+            {t("fileReplace", { size: (file.size / (1024 * 1024)).toFixed(2) })}
           </span>
         </>
       ) : (
         <>
           <UploadCloud className="size-5 text-ink-3" aria-hidden />
-          <span className="text-sm text-ink-2">Drop a CSV file here, or click to choose one</span>
-          <span className="text-xs text-ink-3">MT5 export or generic OHLCV — up to 25MB</span>
+          <span className="text-sm text-ink-2">{t("dropHere")}</span>
+          <span className="text-xs text-ink-3">{t("dropHint")}</span>
         </>
       )}
     </div>
@@ -304,25 +295,28 @@ function FileDropZone({
 }
 
 function ParsePreview({ preview }: { preview: ParseCandleCsvResult }) {
+  const t = useTranslations("backtest.import");
   const sample = preview.rows.slice(0, 5);
   return (
     <div className="flex flex-col gap-2 rounded-control border border-line bg-panel-sunken p-3">
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink-2">
-        <Badge tone="brand">{preview.format === "MT5" ? "MT5 export" : "Generic OHLCV"}</Badge>
-        <span>{preview.rows.length.toLocaleString()} valid row(s) parsed</span>
-        {preview.skipped > 0 ? <span className="text-warn">{preview.skipped.toLocaleString()} skipped</span> : null}
+        <Badge tone="brand">{preview.format === "MT5" ? t("formatMt5") : t("formatGeneric")}</Badge>
+        <span>{t("validRows", { count: preview.rows.length.toLocaleString() })}</span>
+        {preview.skipped > 0 ? (
+          <span className="text-warn">{t("skipped", { count: preview.skipped.toLocaleString() })}</span>
+        ) : null}
       </div>
 
       {sample.length > 0 ? (
         <DataTable>
           <thead>
             <tr>
-              <Th>Time (UTC)</Th>
-              <Th numeric>Open</Th>
-              <Th numeric>High</Th>
-              <Th numeric>Low</Th>
-              <Th numeric>Close</Th>
-              <Th numeric>Volume</Th>
+              <Th>{t("time")}</Th>
+              <Th numeric>{t("open")}</Th>
+              <Th numeric>{t("high")}</Th>
+              <Th numeric>{t("low")}</Th>
+              <Th numeric>{t("close")}</Th>
+              <Th numeric>{t("volume")}</Th>
             </tr>
           </thead>
           <tbody>
@@ -349,7 +343,7 @@ function ParsePreview({ preview }: { preview: ParseCandleCsvResult }) {
           </tbody>
         </DataTable>
       ) : (
-        <p className="text-xs text-loss">No valid rows were found — check the format and timezone offset.</p>
+        <p className="text-xs text-loss">{t("noValidRows")}</p>
       )}
 
       {preview.warnings.length > 0 ? (
@@ -364,6 +358,7 @@ function ParsePreview({ preview }: { preview: ParseCandleCsvResult }) {
 }
 
 function ImportSummary({ result }: { result: ActionResult<ImportReport> }) {
+  const t = useTranslations("backtest.import");
   if (!result.ok) {
     return (
       <p className="rounded-control border border-loss/35 bg-loss-weak px-2.5 py-2 text-xs text-loss">
@@ -375,8 +370,13 @@ function ImportSummary({ result }: { result: ActionResult<ImportReport> }) {
   return (
     <div className="flex flex-col gap-1 rounded-control border border-profit/25 bg-profit-weak px-2.5 py-2 text-xs text-profit">
       <span>
-        {result.inserted.toLocaleString()} inserted, {result.updated.toLocaleString()} updated
-        {result.skipped > 0 ? `, ${result.skipped.toLocaleString()} skipped` : ""}.
+        {result.skipped > 0
+          ? t("summaryWithSkipped", {
+              inserted: result.inserted.toLocaleString(),
+              updated: result.updated.toLocaleString(),
+              skipped: result.skipped.toLocaleString(),
+            })
+          : t("summary", { inserted: result.inserted.toLocaleString(), updated: result.updated.toLocaleString() })}
       </span>
       {result.warnings.length > 0 ? (
         <ul className="flex flex-col gap-0.5 text-2xs text-ink-2">

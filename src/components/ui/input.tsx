@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import * as React from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -99,6 +101,7 @@ export function SearchInput({
   onClear,
   ...props
 }: React.ComponentProps<"input"> & { onClear?: () => void }) {
+  const t = useTranslations("ui");
   const hasValue = typeof value === "string" ? value.length > 0 : value !== undefined && value !== null;
   return (
     <div
@@ -122,7 +125,7 @@ export function SearchInput({
         <button
           type="button"
           onClick={onClear}
-          aria-label="Clear search"
+          aria-label={t("clearSearch")}
           className="grid size-5 shrink-0 place-items-center rounded-inner text-ink-3 hover:bg-hover hover:text-ink"
         >
           <X className="size-3.5" aria-hidden />

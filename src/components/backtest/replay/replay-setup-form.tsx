@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Play } from "lucide-react";
 import {
   Panel,
@@ -31,6 +32,7 @@ function isoDate(ts: number): string {
 }
 
 export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
+  const t = useTranslations("backtest");
   const router = useRouter();
   const symbolOptions = React.useMemo(() => Array.from(new Set(coverage.map((c) => c.symbol))).sort(), [coverage]);
 
@@ -54,7 +56,7 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
   function handleStart() {
     setError(null);
     if (!symbol) {
-      setError("Choose a symbol.");
+      setError(t("form.chooseSymbolError"));
       return;
     }
     startTransition(async () => {
@@ -72,7 +74,7 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
       // Narrowed on `ok` alone — see the note in strategy-workbench.tsx.
       if (!result.ok) {
         const firstFieldError = Object.values(result.fieldErrors ?? {}).flat()[0];
-        setError(result.formError ?? firstFieldError ?? "Couldn't start that replay.");
+        setError(result.formError ?? firstFieldError ?? t("replay.startFailed"));
         return;
       }
 
@@ -82,13 +84,13 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
 
   return (
     <Panel className="mx-auto w-full max-w-xl">
-      <PanelHeader title="New replay" caption="step through bars by hand and place trades yourself" />
+      <PanelHeader title={t("replay.title")} caption={t("replay.setupCaption")} />
       <PanelBody className="flex flex-col gap-3">
         <Field>
-          <FieldLabel>Symbol</FieldLabel>
+          <FieldLabel>{t("form.symbol")}</FieldLabel>
           <Select value={symbol} onValueChange={setSymbol}>
             <SelectTrigger>
-              <SelectValue placeholder="Choose a symbol" />
+              <SelectValue placeholder={t("form.chooseSymbol")} />
             </SelectTrigger>
             <SelectContent>
               {symbolOptions.map((s) => (
@@ -100,7 +102,7 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
           </Select>
         </Field>
         <Field>
-          <FieldLabel>Timeframe</FieldLabel>
+          <FieldLabel>{t("form.timeframe")}</FieldLabel>
           <Select value={timeframe} onValueChange={(v) => setTimeframe(v as (typeof TIMEFRAMES)[number])}>
             <SelectTrigger>
               <SelectValue />
@@ -117,18 +119,19 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
 
         {matchingCoverage ? (
           <p className="text-2xs text-ink-3">
-            {matchingCoverage.barCount.toLocaleString()} bars stored, {isoDate(matchingCoverage.firstTs)} to{" "}
-            {isoDate(matchingCoverage.lastTs)}.
+            {t("form.barsStored", {
+              count: matchingCoverage.barCount.toLocaleString(),
+              from: isoDate(matchingCoverage.firstTs),
+              to: isoDate(matchingCoverage.lastTs),
+            })}
           </p>
         ) : symbol ? (
-          <p className="text-2xs text-warn">
-            No {symbol} {timeframe} bars stored — pick a different timeframe or import data first.
-          </p>
+          <p className="text-2xs text-warn">{t("form.noBarsStoredFirst", { symbol, timeframe })}</p>
         ) : null}
 
         <FieldRow>
           <Field>
-            <FieldLabel>From</FieldLabel>
+            <FieldLabel>{t("form.from")}</FieldLabel>
             <Input
               type="date"
               value={effectiveFrom}
@@ -139,7 +142,7 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
             />
           </Field>
           <Field>
-            <FieldLabel>To</FieldLabel>
+            <FieldLabel>{t("form.to")}</FieldLabel>
             <Input
               type="date"
               value={effectiveTo}
@@ -152,31 +155,35 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
         </FieldRow>
 
         <Field>
-          <FieldLabel>Initial balance</FieldLabel>
+          <FieldLabel>{t("form.initialBalance")}</FieldLabel>
           <NumberInput value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} unit="USD" />
         </Field>
 
         <FieldRow>
           <Field>
-            <FieldLabel>Spread</FieldLabel>
-            <NumberInput value={spreadPoints} onChange={(e) => setSpreadPoints(e.target.value)} unit="pts" />
+            <FieldLabel>{t("form.spread")}</FieldLabel>
+            <NumberInput value={spreadPoints} onChange={(e) => setSpreadPoints(e.target.value)} unit={t("form.pts")} />
           </Field>
           <Field>
-            <FieldLabel>Slippage</FieldLabel>
-            <NumberInput value={slippagePoints} onChange={(e) => setSlippagePoints(e.target.value)} unit="pts" />
+            <FieldLabel>{t("form.slippage")}</FieldLabel>
+            <NumberInput
+              value={slippagePoints}
+              onChange={(e) => setSlippagePoints(e.target.value)}
+              unit={t("form.pts")}
+            />
           </Field>
         </FieldRow>
         <Field>
-          <FieldLabel>Commission</FieldLabel>
+          <FieldLabel>{t("form.commission")}</FieldLabel>
           <NumberInput
             value={commissionPerLot}
             onChange={(e) => setCommissionPerLot(e.target.value)}
-            unit="per lot/side"
+            unit={t("form.perLotSide")}
           />
         </Field>
         <Field>
           <div className="flex items-center justify-between">
-            <FieldLabel>Pessimistic fills</FieldLabel>
+            <FieldLabel>{t("form.pessimisticFills")}</FieldLabel>
             <Switch checked={pessimisticFills} onCheckedChange={setPessimisticFills} />
           </div>
         </Field>
@@ -185,7 +192,7 @@ export function ReplaySetupForm({ coverage }: { coverage: CoverageRow[] }) {
       </PanelBody>
       <PanelFooter className="justify-end">
         <Button variant="primary" onClick={handleStart} disabled={pending || !symbol || !effectiveFrom || !effectiveTo}>
-          <Play /> {pending ? "Starting…" : "Start replay"}
+          <Play /> {pending ? t("replay.starting") : t("replay.start")}
         </Button>
       </PanelFooter>
     </Panel>
