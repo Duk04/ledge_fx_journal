@@ -59,6 +59,7 @@ const ADVANCED_FIELDS = [
 
 export function TradeForm({
   mode,
+  uploadsEnabled = true,
   accountId,
   tradeId,
   instruments,
@@ -69,6 +70,9 @@ export function TradeForm({
   playbooks = [],
 }: {
   mode: "create" | "edit";
+  /** False where uploads have nowhere durable to go (lib/storage.ts
+   * uploadsAvailable); the Screenshots panel is then left out. */
+  uploadsEnabled?: boolean;
   accountId: string;
   tradeId?: string;
   instruments: InstrumentOption[];
@@ -588,7 +592,7 @@ export function TradeForm({
         ) : null}
       </Panel>
 
-      {mode === "create" ? (
+      {mode === "create" && uploadsEnabled ? (
         <Panel>
           <PanelHeader title={t("screenshotsTitle")} caption={t("screenshotsCaption")} />
           <PanelBody>

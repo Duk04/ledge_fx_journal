@@ -60,9 +60,13 @@ function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): s
 export function AttachmentUploader({
   tradeId,
   initialAttachments,
+  uploadsEnabled = true,
 }: {
   tradeId: string;
   initialAttachments: AttachmentView[];
+  /** False without durable storage (lib/storage.ts uploadsAvailable): the
+   * drop zone and paste are off, linking an image still works. */
+  uploadsEnabled?: boolean;
 }) {
   const t = useTranslations("trades.attachments");
   const { toast } = useToast();
@@ -130,6 +134,7 @@ export function AttachmentUploader({
   // specifically, so pasting text into some unrelated field on the page is
   // completely unaffected — this only ever fires for an actual image.
   React.useEffect(() => {
+    if (!uploadsEnabled) return;
     function onPaste(e: ClipboardEvent) {
       const imageFiles = imagesFromClipboard(e);
       if (imageFiles.length) {
@@ -139,7 +144,7 @@ export function AttachmentUploader({
     }
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
-  }, [handleFiles]);
+  }, [handleFiles, uploadsEnabled]);
 
   function retry(pending: PendingUpload) {
     upload(pending.file, pending.tempId);
@@ -212,47 +217,53 @@ export function AttachmentUploader({
       ) : null}
 
       {/* ------------------------------------------------------- drop zone */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => fileInputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
-        }}
-        className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed px-4 py-6 text-center transition-colors",
-          dragOver
-            ? "border-brand bg-brand-weak"
-            : "border-line-strong bg-panel-sunken hover:border-line-strong hover:bg-hover",
-        )}
-      >
-        <UploadCloud className="size-5 text-ink-3" aria-hidden />
-        <p className="text-xs text-ink-2">
-          {t.rich("dropzone", { upload: (chunks) => <span className="font-medium text-ink">{chunks}</span> })}
-        </p>
-        <p className="text-2xs text-ink-3">{t("dropzoneHint")}</p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPTED_IMAGE_TYPES.join(",")}
-          multiple
-          className="sr-only"
-          onChange={(e) => {
-            if (e.target.files?.length) handleFiles(e.target.files);
-            e.target.value = "";
+      {uploadsEnabled ? (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
           }}
-        />
-      </div>
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+          }}
+          className={cn(
+            "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-panel border border-dashed px-4 py-6 text-center transition-colors",
+            dragOver
+              ? "border-brand bg-brand-weak"
+              : "border-line-strong bg-panel-sunken hover:border-line-strong hover:bg-hover",
+          )}
+        >
+          <UploadCloud className="size-5 text-ink-3" aria-hidden />
+          <p className="text-xs text-ink-2">
+            {t.rich("dropzone", { upload: (chunks) => <span className="font-medium text-ink">{chunks}</span> })}
+          </p>
+          <p className="text-2xs text-ink-3">{t("dropzoneHint")}</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPTED_IMAGE_TYPES.join(",")}
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              if (e.target.files?.length) handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      ) : (
+        <p className="rounded-control border border-line bg-panel-sunken px-3 py-2 text-xs text-ink-3">
+          {t("uploadsUnavailable")}
+        </p>
+      )}
 
       <div className="flex items-center justify-between">
         <span className="label">{t("screenshots")}</span>

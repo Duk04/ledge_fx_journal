@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "prisma migrate deploy && tsx prisma/seed.ts --instruments-only && next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "test": "vitest run --project unit",
@@ -16,6 +17,7 @@
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:instruments": "tsx prisma/seed.ts --instruments-only",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "backfill": "tsx scripts/backfill-metrics.ts",

@@ -5,6 +5,7 @@ import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import { listInstruments, listTagsForUser } from "@/lib/queries/trades";
 import { TradeForm } from "@/components/trades/trade-form";
+import { uploadsAvailable } from "@/lib/storage";
 import { listPlaybookOptions } from "@/lib/queries/playbooks";
 import { EmptyState } from "@/components/ui/empty";
 import { Panel, PanelBody } from "@/components/ui/panel";
@@ -38,6 +39,7 @@ export default async function NewTradePage() {
     <Page width="reading">
       <SectionHead title={t("logTrade")} hint={t("page.recordedAgainst", { account: account.label })} />
       <TradeForm
+        uploadsEnabled={uploadsAvailable()}
         mode="create"
         accountId={account.id}
         instruments={instruments}

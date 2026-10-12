@@ -12,6 +12,7 @@ import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
 import { AttachmentUploader } from "@/components/trades/attachment-uploader";
+import { uploadsAvailable } from "@/lib/storage";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
 import { ExecutionsPanel } from "@/components/trades/executions-panel";
 import { ChecklistPanel } from "@/components/trades/checklist-panel";
@@ -141,7 +142,11 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
           <Panel>
             <PanelHeader title={t("panels.screenshots")} />
             <PanelBody>
-              <AttachmentUploader tradeId={trade.id} initialAttachments={trade.attachments} />
+              <AttachmentUploader
+                tradeId={trade.id}
+                initialAttachments={trade.attachments}
+                uploadsEnabled={uploadsAvailable()}
+              />
             </PanelBody>
           </Panel>
         </div>

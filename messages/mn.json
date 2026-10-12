@@ -771,7 +771,8 @@
         "OTHER": "БУСАД"
       },
       "pickFiles": "Скриншот сонгох",
-      "removePending": "{name}-г хасах"
+      "removePending": "{name}-г хасах",
+      "uploadsUnavailable": "Энэ deploy дээр скриншот хуулах тохируулагдаагүй (S3 хадгалах сан хэрэгтэй). Зургийг https линкээр нь хавсаргах боломжтой."
     }
   },
   "playbooks": {

@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import type { AttachmentKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, getStorage, makeAttachmentKey, sniffImage } from "@/lib/storage";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
+  getStorage,
+  makeAttachmentKey,
+  sniffImage,
+  uploadsAvailable,
+} from "@/lib/storage";
 
 /**
  * `POST /api/attachments` — multipart upload of a trade screenshot.
@@ -21,6 +28,12 @@ const VALID_KINDS: readonly AttachmentKind[] = ["BEFORE", "AFTER", "OTHER"];
 
 export async function POST(request: Request) {
   const user = await requireUser();
+  if (!uploadsAvailable()) {
+    return NextResponse.json(
+      { error: "Screenshot uploads need S3 storage on this deployment (S3_BUCKET). Add the image as a link instead." },
+      { status: 503 },
+    );
+  }
 
   let form: FormData;
   try {

@@ -64,7 +64,7 @@ This is deliberate. Someone with no trades yet at 20:00 who trades at 22:00 gets
 
 ### The scheduler
 
-- **`vercel.json`** runs the route hourly on Vercel. On the Hobby plan Vercel runs crons at most once a day, so add the fallback below.
+- **`vercel.json`** runs the route once a day (13:00 UTC). The Hobby plan rejects a deployment whose cron runs more often, so hourly lives in the fallback below; on Pro, `0 * * * *` works there too.
 - **`.github/workflows/notifications.yml`** curls the route at :07 past every hour. It does nothing until the repository secrets `LEDGER_URL` and `CRON_SECRET` are set.
 - **Running both is harmless**, because of the log rows.
 - **Self-hosting:** any hourly `curl -H "Authorization: Bearer …" https://…/api/cron/notifications` works.

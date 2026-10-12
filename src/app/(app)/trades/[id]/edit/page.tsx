@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { getTrade, listInstruments, listTagsForUser } from "@/lib/queries/trades";
 import { TradeForm } from "@/components/trades/trade-form";
 import { AttachmentUploader } from "@/components/trades/attachment-uploader";
+import { uploadsAvailable } from "@/lib/storage";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { listPlaybookOptions } from "@/lib/queries/playbooks";
 // From the pure module, not the client component: a server page reaching
@@ -82,7 +83,11 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
       <Panel className="mt-4">
         <PanelHeader title={tDetail("panels.screenshots")} />
         <PanelBody>
-          <AttachmentUploader tradeId={trade.id} initialAttachments={trade.attachments} />
+          <AttachmentUploader
+            tradeId={trade.id}
+            initialAttachments={trade.attachments}
+            uploadsEnabled={uploadsAvailable()}
+          />
         </PanelBody>
       </Panel>
     </Page>

@@ -106,7 +106,37 @@ const NOTE_POOL = [
   "Oversized this one after two losses — need to reset risk after a loss.",
 ];
 
+/**
+ * `--instruments-only` (npm run db:seed:instruments): the production seed.
+ * Inserts the instruments that are missing and touches nothing else:
+ *  - no demo user — duk@example.com / "password" as OWNER on a public
+ *    deployment would hand the instance to whoever reads this file;
+ *  - no overwrite — an owner's own pip-size or contract-size edits survive,
+ *    which is why it can run on every deploy (vercel-build).
+ * The full seed below still re-syncs every instrument to its spec, which is
+ * what a local database wants.
+ */
+const INSTRUMENTS_ONLY = process.argv.includes("--instruments-only");
+
 async function main() {
+  if (INSTRUMENTS_ONLY) {
+    const { count } = await prisma.instrument.createMany({
+      data: seedInstruments.map((inst) => ({
+        symbol: inst.symbol,
+        displayName: inst.displayName,
+        pipSize: inst.pipSize,
+        contractSize: inst.contractSize,
+        digits: inst.digits,
+        baseCurrency: inst.baseCurrency,
+        quoteCurrency: inst.quoteCurrency,
+        assetClass: inst.assetClass,
+      })),
+      skipDuplicates: true,
+    });
+    console.log(`Added ${count} missing instruments (of ${seedInstruments.length}); existing rows untouched.`);
+    return;
+  }
+
   // -------------------------------------------------------------------
   // Instruments (all of them — reference data, no user scoping)
   // -------------------------------------------------------------------

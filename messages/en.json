@@ -771,7 +771,8 @@
         "OTHER": "OTHER"
       },
       "pickFiles": "Choose screenshots",
-      "removePending": "Remove {name}"
+      "removePending": "Remove {name}",
+      "uploadsUnavailable": "Uploading screenshots isn't set up on this deployment (it needs S3 storage). You can still attach an image by its https link."
     }
   },
   "playbooks": {
