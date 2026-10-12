@@ -108,21 +108,30 @@ export function AppShell({
               <Link href="/settings">Settings</Link>
             </DropdownItem>
             <DropdownSeparator />
-            <DropdownItem asChild tone="danger">
-              {/*
-                A form, not a link to /api/auth/signout. That link was a GET
-                navigation to Auth.js's own interstitial "are you sure?" page,
-                so signing out took two clicks and landed on a page styled
-                nothing like the rest of the app. A server action is one
-                click, and Next applies its Origin check to it — whereas a
-                GET endpoint that ends a session is exactly the shape a
-                cross-site request can trigger from an <img> tag.
-              */}
-              <form action={signOutAction} className="contents">
-                <button type="submit" className="flex w-full items-center gap-2">
-                  <LogOut className="size-3.5" /> Sign out
-                </button>
-              </form>
+            {/*
+              Calls the Server Action from onSelect rather than wrapping a
+              <form>. It used to be <DropdownItem asChild><form action=…>,
+              and that never signed anyone out: selecting a Radix menu item
+              closes the menu, the close unmounts the form, and the browser
+              cancels the submission ("Form submission canceled because the
+              form is not connected") — so no request was ever sent, by mouse
+              or keyboard. e2e/auth.spec.ts covers it now.
+
+              Still a Server Action, not a link to /api/auth/signout: that was
+              a GET to Auth.js's own "are you sure?" interstitial (two clicks,
+              off-brand), and a GET that ends a session is exactly the shape a
+              cross-site <img> can trigger. A Server Action is a POST that Next
+              protects with its Origin check, however it is invoked.
+            */}
+            <DropdownItem
+              tone="danger"
+              onSelect={() => {
+                React.startTransition(() => {
+                  void signOutAction();
+                });
+              }}
+            >
+              <LogOut className="size-3.5" /> Sign out
             </DropdownItem>
           </DropdownContent>
         </Dropdown>

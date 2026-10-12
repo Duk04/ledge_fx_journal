@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Page } from "@/components/shell/page";
 import { ErrorState } from "@/components/ui";
+import { reportClientError } from "@/lib/report-client-error";
 
 /**
  * Fallback boundary for every route in the group without its own error.tsx.
@@ -15,7 +16,7 @@ import { ErrorState } from "@/components/ui";
  */
 export default function AppError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
-    console.error(error);
+    reportClientError(error);
   }, [error]);
 
   return (

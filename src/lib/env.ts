@@ -117,6 +117,10 @@ const schema = z
 
     PRISMA_LOG: optionalString,
     PRISMA_JS_ENGINE: optionalString,
+
+    /** Error reporting. Sentry stays off when unset — see src/lib/sentry-options.ts. */
+    SENTRY_DSN: optionalString,
+    SENTRY_ENVIRONMENT: optionalString,
   })
   .superRefine((v, ctx) => {
     const production = v.NODE_ENV === "production";

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Page } from "@/components/shell/page";
 import { ErrorState } from "@/components/ui";
+import { reportClientError } from "@/lib/report-client-error";
 
 /**
  * Analytics gets its own boundary because the message differs: this is the
@@ -15,7 +16,7 @@ import { ErrorState } from "@/components/ui";
  */
 export default function AnalyticsError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
-    console.error(error);
+    reportClientError(error);
   }, [error]);
 
   return (

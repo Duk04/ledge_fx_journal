@@ -25,7 +25,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const error = params.error;
   const justRegistered = params.registered === "1";
 
-  const devLoginEnabled = authFeatures.passwordLogin;
   const googleEnabled = authFeatures.google;
   const registrationEnabled = authFeatures.registration;
 
@@ -123,13 +122,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Continue with Google
             </Button>
           </form>
-        ) : null}
-
-        {devLoginEnabled ? (
-          <p className="text-xs text-ink-2">
-            Dev credentials login is enabled (ALLOW_DEV_LOGIN=true) — sign in with any seeded user&rsquo;s email and
-            password.
-          </p>
         ) : null}
 
         {registrationEnabled ? (

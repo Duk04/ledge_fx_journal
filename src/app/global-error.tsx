@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportClientError } from "@/lib/report-client-error";
+
 /**
  * The last-resort boundary: catches an error thrown by the ROOT layout, which
  * every other `error.tsx` sits inside and therefore cannot catch.
@@ -10,8 +13,15 @@
  * stylesheet is part of what may not have loaded.
  *
  * Fifteen lines that turn a white screen into something explicable.
+ *
+ * `retry` (re-fetch and re-render), not `reset`, as everywhere else — see
+ * node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md.
  */
-export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
+  useEffect(() => {
+    reportClientError(error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body
@@ -33,7 +43,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           </p>
           <button
             type="button"
-            onClick={reset}
+            onClick={() => retry()}
             style={{
               font: "inherit",
               fontSize: "0.8125rem",

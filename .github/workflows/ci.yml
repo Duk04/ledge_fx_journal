@@ -57,3 +57,90 @@ jobs:
       # that would catch a client/server boundary mistake — a server-only
       # module pulled into a client component typechecks fine and fails here.
       - run: npm run build
+
+  # The authorization wiring against a real Postgres (docs/TESTING.md). A
+  # separate job so the fast gate above never waits on a database, and so a
+  # red here reads as "the queries are wrong" rather than "something is".
+  db:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fxjournal_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # test/db/global-setup.ts migrates a scratch schema inside this database
+      # and drops it afterwards.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fxjournal_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fxjournal_test
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/fxjournal_test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run test:db
+
+  # The four user flows docs/TESTING.md names, in a real browser against a
+  # production build. Each run migrates and seeds its own scratch schema
+  # (e2e/db-url.ts) and drops it afterwards.
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fxjournal_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fxjournal_e2e
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

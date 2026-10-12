@@ -58,10 +58,11 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 682 tests across the pure layers (metrics, the backtest
+- **Vitest** — 684 unit tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
-  no I/O and no mocking, running in about a second. `docs/TESTING.md`
-  explains what that covers and, more usefully, what it does not
+  no I/O and no mocking, running in about a second; plus a Postgres-backed
+  tier for the authorization wiring and Playwright e2e for four user flows.
+  `docs/TESTING.md` explains what each covers and, more usefully, what not
 - **lightweight-charts** for the replay candlestick view
 - **Recharts** for the handful of real charts; a hand-rolled inline-SVG
   `Sparkline` everywhere a chart-per-table-row would be absurd
@@ -104,7 +105,9 @@ change, in dev and in any migration plan for production data.
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier, write |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Run the Vitest suite once |
+| `npm test` | Run the unit tests (pure, no database) |
+| `npm run test:db` | Authorization tests against Postgres, in a scratch schema (`docs/TESTING.md`) |
+| `npm run test:e2e` | Playwright: four user flows against a production build, in a scratch schema |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run db:migrate` | `prisma migrate deploy` — apply committed migrations (no shadow DB needed) |
 | `npm run db:migrate:new` | `prisma migrate dev` — author a NEW migration; needs a local Postgres |
@@ -158,6 +161,10 @@ instance. Before deploying it for real:
   (`src/lib/auth/throttle.ts`), so it is a supported production method — but
   set it to `false` if you only want Google / magic-link sign-in. The old
   `ALLOW_DEV_LOGIN` variable is rejected at boot (see `docs/AUTH.md`).
+- **Optional: error reporting.** Set `SENTRY_DSN` (server) and
+  `NEXT_PUBLIC_SENTRY_DSN` (browser, needed at build time). Off when unset;
+  request bodies, cookies and query strings are never sent
+  (`src/lib/sentry-options.ts`).
 - **Remove or change the seeded demo user** (`duk@example.com` / `password`)
   if you ran `npm run db:seed` against this database.
 - **Generate a real `AUTH_SECRET`** (`openssl rand -base64 32`) and set

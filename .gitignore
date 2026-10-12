@@ -55,3 +55,9 @@ next-env.d.ts
 /_to_delete/
 *.bak
 *.zip
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

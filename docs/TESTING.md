@@ -1,21 +1,30 @@
 # Testing
 
-28 files, 682 tests, all of which run in about a second with no database and
-no browser.
+Three tiers, three commands:
 
 ```
-npm test          # the suite
-npm run verify    # typecheck + lint + format:check + test
+npm test          # unit: pure logic, ~700 tests in about a second, no I/O
+npm run test:db   # db: the authorization wiring against a real Postgres
+npm run test:e2e  # e2e: four user flows in Chrome against a production build
+npm run verify    # typecheck + lint + format:check + unit — the gate
 ```
 
-`npm run verify` is the gate. If it passes and `npm run build` passes, the
-change is done; if it does not, it is not.
+`npm run verify` is the gate for every change. If it passes and `npm run
+build` passes, the change is done. CI runs all three tiers on every push, as
+three separate jobs (`.github/workflows/ci.yml`), so a red job says which kind
+of thing broke.
+
+`test:db` and `test:e2e` need a Postgres they can create a schema in:
+`TEST_DATABASE_URL` / `E2E_DATABASE_URL`, falling back to `DATABASE_URL`. Each
+run migrates a fresh scratch schema (`test_…` / `e2e_…`) from the committed
+migrations and drops it at the end — nothing outside that schema is touched,
+so pointing either at your dev database is safe.
 
 ## What the shape of this suite reflects
 
-**Pure logic is tested exhaustively. Wiring is not tested at all.** That is a
-deliberate line, not an accident, and it is worth understanding before adding
-to it.
+**Pure logic is tested exhaustively; wiring is tested at its load-bearing
+points only.** That is a deliberate line, not an accident, and it is worth
+understanding before adding to it.
 
 The pure layers are where a wrong answer is silent and expensive: a
 conversion rate that quietly defaults to 1 misreports a JPY trade by two
@@ -26,9 +35,8 @@ None of it is visible in review. All of it is cheap to pin down with a
 function call and an assertion.
 
 The wiring — does this action actually authenticate, does that query actually
-filter by `userId` — fails loudly when it fails, and testing it needs a real
-Postgres. That tier does not exist yet. See "What is not covered" below, which
-names the gap rather than pretending it is closed.
+filter by `userId` — needs a real Postgres to test. The `db` tier covers the
+authorization layer (below); it is deliberately not a mirror of every action.
 
 ## The tiers that do exist
 
@@ -121,25 +129,34 @@ separately from the singleton.
 
 Named rather than left to be discovered.
 
-**No database tests.** Nothing exercises `requireAccountAccess` against a real
-Postgres, or asserts that a MEMBER's `deleteCandles` writes nothing, or that a
-query filtered by `account: { userId }` really excludes another user's rows.
-The *rules* those depend on are tested; the *wiring* is not. This is the
-largest gap, and it sits directly over the authorization layer.
+**Database tests cover authorization, not every action.** The `db` project
+(`src/**/*.db.test.ts`, `test/db/`) runs against Postgres with only the
+framework edges mocked: `@/lib/auth` answers from `signInAs()`, `next/cache`
+is a no-op, `next/navigation`'s `redirect` throws a recognisable
+`RedirectError`. Everything below that — `getCurrentUser`'s lookup and its
+`sessionsValidFrom` revocation, `requireAccountAccess`'s scoped query,
+`requireOwner` — is real. Covered: another user's account is a NotFound and
+`createTrade` writes nothing to it; a foreign tag is refused; a MEMBER's
+`deleteCandles` deletes nothing; a revoked token is rejected; `createTrade`
+stores the derived columns. Verified by mutation: dropping `userId` from
+`requireAccountAccess`'s WHERE clause fails two of these tests. New actions
+that write user data should add a case here.
 
-The intended shape: a second vitest project on `*.db.test.ts` with a
-`globalSetup` that migrates a scratch schema into a local Postgres, run by a
-separate `test:db` script and a separate CI job. Scratch-schema-per-run rather
-than testcontainers — no Docker requirement, and it exercises the real
-migrations. `dotenv-cli` is already a dependency.
+**End-to-end covers four flows, not the app.** `e2e/` (Playwright, Chrome)
+runs the flows this section used to list as missing, in this order: register
+→ dashboard → sign out → sign in; create an account → log a closed trade →
+the computed P&L, R multiple, pips, holding time and session on the detail
+page; dashboard and analytics with a range change; the trades search and
+pagination round-tripping through the URL. The first one found that sign-out
+had never worked — the `<form>` inside the Radix menu item was unmounted when
+the menu closed, and the browser cancelled the submit — which is the argument
+for this tier in one bug. The browser timezone is pinned to
+Asia/Ulaanbaatar, the default `User.timezone`, so wall-clock assertions do not
+depend on the machine.
 
-**No component or end-to-end tests.** No jsdom, no Testing Library, no
-Playwright. Four e2e flows would be worth having, in this order: register →
-dashboard → sign out → sign in; create an account → log a closed trade →
-assert the computed P&L, R multiple and session on the detail page (the whole
-app's thesis in one test); dashboard and analytics with a range change; the
-trades filter and pagination round-tripping through the URL — which is the
-test that would have caught the debounce bug fixed in `filter-bar.tsx`.
+Still no component tests (no jsdom, no Testing Library): the e2e tier covers
+the interactions that matter, and a render test of a design-system primitive
+mostly re-asserts its markup.
 
 **No coverage thresholds.** A repo-wide number on a codebase that is ~60%
 React components would either be unmeetable or force worthless component

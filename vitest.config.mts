@@ -21,8 +21,6 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "node",
-    include: ["src/**/*.test.ts"],
     globals: true,
     env: {
       // `src/lib/env.ts` validates the environment in module scope, so that a
@@ -36,5 +34,34 @@ export default defineConfig({
       // reason that function is exported separately from the singleton.
       SKIP_ENV_VALIDATION: "1",
     },
+    projects: [
+      {
+        // `npm test` / `npm run verify`: pure, no I/O, about a second.
+        extends: true,
+        test: {
+          name: "unit",
+          environment: "node",
+          include: ["src/**/*.test.ts"],
+          exclude: ["src/**/*.db.test.ts"],
+        },
+      },
+      {
+        // `npm run test:db`: against a real Postgres, in a scratch schema
+        // migrated from the committed migrations (test/db/global-setup.ts).
+        // One file at a time — the files share a database, and the point of
+        // this project is the authorization wiring, not throughput.
+        extends: true,
+        test: {
+          name: "db",
+          environment: "node",
+          include: ["src/**/*.db.test.ts"],
+          globalSetup: ["./test/db/global-setup.ts"],
+          setupFiles: ["./test/db/setup.ts"],
+          fileParallelism: false,
+          testTimeout: 20_000,
+          hookTimeout: 120_000,
+        },
+      },
+    ],
   },
 });
