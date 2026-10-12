@@ -66,3 +66,30 @@ export async function duplicateSeededTrades(accountLabel: string) {
     await client.end();
   }
 }
+
+/** Writes `count` synthetic bars into this run's scratch schema — enough for
+ * a trade's chart to render. Shared candle data, so no user is involved. */
+export async function insertCandles(
+  symbol: string,
+  timeframe: string,
+  fromIso: string,
+  count: number,
+  stepMinutes: number,
+) {
+  const client = new pg.Client({ connectionString: e2eBaseUrl() });
+  await client.connect();
+  try {
+    await client.query(`SET search_path TO "${e2eSchema()}"`);
+    const start = new Date(fromIso).getTime();
+    for (let i = 0; i < count; i++) {
+      const p = 1.1 + Math.sin(i / 6) * 0.002;
+      await client.query(
+        `INSERT INTO candles (symbol, timeframe, ts, open, high, low, close, source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'GENERIC_CSV') ON CONFLICT DO NOTHING`,
+        [symbol, timeframe, new Date(start + i * stepMinutes * 60_000), p, p + 0.0006, p - 0.0006, p + 0.0002],
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}

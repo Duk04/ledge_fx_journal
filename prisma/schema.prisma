@@ -191,6 +191,7 @@ model User {
   revokedSessions RevokedSession[]
   symbolAliases   SymbolAlias[]
   tradeImports    TradeImport[]
+  playbooks       Playbook[]
 
   @@map("users")
 }
@@ -390,19 +391,23 @@ model Trade {
   /// The broker's own gross profit, from an imported statement — the ground
   /// truth our computed grossPnl is checked against (docs/IMPORT.md).
   brokerProfit   Decimal? @map("broker_profit") @db.Decimal(18, 2)
+  /// The setup this trade was taken as (docs/PLAYBOOKS.md). Null = none.
+  playbookId     String?  @map("playbook_id")
   /// The statement import that created this trade; lets an import be undone.
   importId       String?  @map("import_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  account     TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  instrument  Instrument     @relation(fields: [symbol], references: [symbol])
+  account     TradingAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  instrument  Instrument       @relation(fields: [symbol], references: [symbol])
   attachments Attachment[]
   tradeTags   TradeTag[]
-  backtestRun BacktestRun?   @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
-  tradeImport TradeImport?   @relation(fields: [importId], references: [id], onDelete: SetNull)
+  backtestRun BacktestRun?     @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+  tradeImport TradeImport?     @relation(fields: [importId], references: [id], onDelete: SetNull)
   executions  Execution[]
+  playbook    Playbook?        @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  ruleChecks  TradeRuleCheck[]
 
   @@unique([accountId, externalTicket])
   @@index([accountId, openedAt(sort: Desc)])
@@ -410,6 +415,7 @@ model Trade {
   @@index([accountId, status])
   @@index([backtestRunId])
   @@index([importId])
+  @@index([playbookId])
   @@map("trades")
 }
 
@@ -515,6 +521,56 @@ model Execution {
   @@unique([tradeId, externalDealId])
   @@index([tradeId, executedAt])
   @@map("executions")
+}
+
+/// A setup the user trades, written down: a name and the rules that make a
+/// trade an instance of it. Trades link to one; their checklist records which
+/// rules were followed. docs/PLAYBOOKS.md.
+model Playbook {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  isArchived  Boolean  @default(false) @map("is_archived")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rules  PlaybookRule[]
+  trades Trade[]
+
+  @@unique([userId, name])
+  @@map("playbooks")
+}
+
+/// One rule of a playbook ("H4 trend agrees", "risk ≤ 1%"). Editing a
+/// playbook's rules keeps the ids of rules whose text is unchanged, so past
+/// checklists stay attached to them.
+model PlaybookRule {
+  id         String @id @default(uuid())
+  playbookId String @map("playbook_id")
+  text       String
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  playbook Playbook         @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  checks   TradeRuleCheck[]
+
+  @@index([playbookId, sortOrder])
+  @@map("playbook_rules")
+}
+
+/// Whether one trade followed one rule of its playbook. Absent = not
+/// answered, which is different from "no".
+model TradeRuleCheck {
+  tradeId  String  @map("trade_id")
+  ruleId   String  @map("rule_id")
+  followed Boolean
+
+  trade Trade        @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  rule  PlaybookRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@id([tradeId, ruleId])
+  @@index([ruleId])
+  @@map("trade_rule_checks")
 }
 
 /// A broker symbol the user has told the importer how to read, e.g.

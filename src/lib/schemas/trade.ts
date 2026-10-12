@@ -104,6 +104,7 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
       notes: z.preprocess(emptyToUndefined, z.string().max(4000, "Notes must be 4000 characters or fewer").optional()),
 
       tagIds: z.array(z.string().regex(ID_LIKE, "Invalid tag id")).default([]),
+      playbookId: z.preprocess(emptyToUndefined, z.string().regex(ID_LIKE, "Invalid playbook id").optional()),
     })
     .superRefine((val, ctx) => {
       if (validSymbols && val.symbol && !validSymbols.has(val.symbol)) {
@@ -167,6 +168,7 @@ const SCALAR_KEYS = [
   "emotion",
   "confidence",
   "notes",
+  "playbookId",
 ] as const;
 
 /** A stand-in instrument used only to run geometry checks, which never read

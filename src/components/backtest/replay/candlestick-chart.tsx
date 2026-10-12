@@ -19,7 +19,7 @@ import type { Bar, SimPosition } from "@/lib/backtest/types";
  * hex values, so the chart still follows the app's real tokens (and the
  * light/dark swap) rather than a second, drifting copy of the palette.
  */
-function readTokens() {
+export function readTokens() {
   const style = getComputedStyle(document.documentElement);
   const v = (name: string) => style.getPropertyValue(name).trim();
   return {

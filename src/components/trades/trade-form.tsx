@@ -38,6 +38,8 @@ import {
 import { PreviewStrip, buildPreview, buildWarnings } from "./trade-preview";
 
 const RESPONSIVE_HEIGHT = "h-control-lg sm:h-control";
+/** Radix Select can't use "" as an item value; this stands for "no playbook". */
+const NO_PLAYBOOK = "__none__";
 
 /** Fields rendered inside the collapsible "Discipline & notes" panel. */
 const ADVANCED_FIELDS = [
@@ -60,6 +62,7 @@ export function TradeForm({
   currency,
   defaults,
   fillsLocked = false,
+  playbooks = [],
 }: {
   mode: "create" | "edit";
   accountId: string;
@@ -71,6 +74,8 @@ export function TradeForm({
   /** The trade has several fills: its prices, size, times and status come
    * from them (lib/metrics/fills.ts), so those fields are read-only here. */
   fillsLocked?: boolean;
+  /** The user's active playbooks, for the optional "taken as" picker. */
+  playbooks?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -367,6 +372,36 @@ export function TradeForm({
               <FieldError>{errors.openedAt?.message}</FieldError>
             </Field>
           </fieldset>
+
+          {playbooks.length ? (
+            <Field>
+              <FieldLabel optional>Playbook</FieldLabel>
+              <Controller
+                control={form.control}
+                name="playbookId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || NO_PLAYBOOK}
+                    onValueChange={(v) => field.onChange(v === NO_PLAYBOOK ? "" : v)}
+                  >
+                    <SelectTrigger className={RESPONSIVE_HEIGHT}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PLAYBOOK}>None</SelectItem>
+                      {playbooks.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldHint>The setup this trade was. Check its rules on the trade page.</FieldHint>
+              <FieldError>{errors.playbookId?.message}</FieldError>
+            </Field>
+          ) : null}
 
           <Field>
             <FieldLabel optional>Tags</FieldLabel>

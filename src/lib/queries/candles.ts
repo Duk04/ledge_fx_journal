@@ -301,3 +301,42 @@ export async function lastCloseIn(params: {
 
   return row ? Number(row.close) : null;
 }
+
+/**
+ * Bars around one trade, for its chart: the holding period padded by half of
+ * itself (at least an hour) on each side, at the coarsest timeframe that
+ * still gives ~150 bars — fine enough to see the entry, coarse enough that a
+ * week-long trade is not 10,000 M1 bars. Falls back to finer stored data via
+ * getBars' aggregation. null when nothing covers the window.
+ */
+export async function tradeChartBars(trade: { symbol: string; openedAt: Date; closedAt: Date | null }) {
+  const end = trade.closedAt ?? new Date();
+  const span = Math.max(end.getTime() - trade.openedAt.getTime(), 60_000);
+  const pad = Math.max(span / 2, 3_600_000);
+  const from = new Date(trade.openedAt.getTime() - pad);
+  const to = new Date(end.getTime() + pad);
+  const minutes = (to.getTime() - from.getTime()) / 60_000 / 150;
+  const TF_MINUTES: [Timeframe, number][] = [
+    ["M1", 1],
+    ["M5", 5],
+    ["M15", 15],
+    ["M30", 30],
+    ["H1", 60],
+    ["H4", 240],
+    ["D1", 1440],
+  ];
+  const start = Math.max(
+    0,
+    TF_MINUTES.findIndex(([, m]) => m >= minutes),
+  );
+  for (let i = start; i < TF_MINUTES.length; i++) {
+    const { bars, timeframe, aggregatedFrom } = await getBars({
+      symbol: trade.symbol,
+      timeframe: TF_MINUTES[i][0],
+      from,
+      to,
+    });
+    if (bars.length >= 5) return { bars, timeframe, aggregatedFrom };
+  }
+  return null;
+}

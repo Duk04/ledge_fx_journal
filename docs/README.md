@@ -23,6 +23,8 @@ this directory explains the reasoning behind them.
   what counts as a breakeven, how expectancy is built, why a deposit never
   sets a new high-water mark. Read this before "fixing" a statistic.
 - `TRADES.md` — the trade lifecycle, and the derived columns the app owns.
+- `PLAYBOOKS.md` — setups and their rules, per-trade checklists, and the
+  by-the-book vs broke-a-rule comparison.
 - `SIMULATE.md` — what-if replays, Monte Carlo on your R multiples, and the
   position-size calculator.
 - `IMPORT.md` — MT4/MT5/CSV statement import: formats, broker time, the

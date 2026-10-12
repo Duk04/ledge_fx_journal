@@ -97,6 +97,14 @@ function formTradeInput(
 /** Confirms every id in `tagIds` is a real tag owned by `userId`. Returns
  * null (rather than throwing) if any id doesn't check out, so the caller can
  * turn it into a field error instead of a 500. */
+/** The playbook id if it is the user's, undefined for none, null if it isn't
+ * theirs (a field error, like a foreign tag). */
+async function ownedPlaybook(userId: string, playbookId: string | undefined): Promise<string | undefined | null> {
+  if (!playbookId) return undefined;
+  const pb = await prisma.playbook.findFirst({ where: { id: playbookId, userId }, select: { id: true } });
+  return pb ? pb.id : null;
+}
+
 async function assertTagsOwned(userId: string, tagIds: string[]): Promise<string[] | null> {
   const unique = [...new Set(tagIds)];
   if (unique.length === 0) return [];
@@ -129,6 +137,8 @@ export async function createTrade(accountId: string, formData: FormData): Promis
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
   if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
+  const playbookId = await ownedPlaybook(user.id, parsed.values.playbookId);
+  if (playbookId === null) return failFields({ playbookId: ["That playbook was not found."] });
 
   const derived = derivedColumns(formTradeInput(parsed.values, instrument, account.currency));
 
@@ -158,6 +168,7 @@ export async function createTrade(accountId: string, formData: FormData): Promis
       ...(derived as unknown as PlainDerivedNumbers),
       tradeTags: tagIds.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
       executions: { create: simpleExecutionsCreate(parsed.values) },
+      playbookId: playbookId ?? null,
     },
   });
 
@@ -190,6 +201,8 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
   if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
+  const playbookId = await ownedPlaybook(user.id, parsed.values.playbookId);
+  if (playbookId === null) return failFields({ playbookId: ["That playbook was not found."] });
 
   // Everything the fills do NOT own. `initialStopLoss` keeps its stored value
   // when the field is left blank, and only falls back to the stop for a trade
@@ -209,6 +222,9 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
     confidence: parsed.values.confidence ?? null,
     notes: parsed.values.notes ?? null,
     tradeTags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
+    playbookId: playbookId ?? null,
+    // Checklist answers belong to the playbook they were given for.
+    ...(existing.playbookId !== (playbookId ?? null) ? { ruleChecks: { deleteMany: {} } } : {}),
   };
 
   if (hasMultipleFills(existing.executions)) {

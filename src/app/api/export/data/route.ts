@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const user = await requireUser();
 
-  const [profile, accounts, tags, journalEntries] = await Promise.all([
+  const [profile, accounts, tags, journalEntries, playbooks] = await Promise.all([
     prisma.user.findUnique({
       where: { id: user.id },
       select: { id: true, email: true, name: true, timezone: true, role: true, createdAt: true },
@@ -27,12 +27,19 @@ export async function GET() {
             tradeTags: { include: { tag: { select: { name: true, kind: true } } } },
             attachments: true,
             executions: { orderBy: { executedAt: "asc" } },
+            playbook: { select: { name: true } },
+            ruleChecks: { include: { rule: { select: { text: true } } } },
           },
         },
       },
     }),
     prisma.tag.findMany({ where: { userId: user.id }, orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] }),
     prisma.journalEntry.findMany({ where: { userId: user.id }, orderBy: { entryDate: "asc" } }),
+    prisma.playbook.findMany({
+      where: { userId: user.id },
+      orderBy: { name: "asc" },
+      include: { rules: { orderBy: { sortOrder: "asc" } } },
+    }),
   ]);
 
   const payload = {
@@ -103,6 +110,8 @@ export async function GET() {
           externalDealId: e.externalDealId,
         })),
         tags: t.tradeTags.map((tt) => tt.tag.name),
+        playbook: t.playbook?.name ?? null,
+        ruleChecks: t.ruleChecks.map((c) => ({ rule: c.rule.text, followed: c.followed })),
         attachments: t.attachments.map((att) => ({
           id: att.id,
           kind: att.kind,
@@ -115,6 +124,12 @@ export async function GET() {
       })),
     })),
     tags: tags.map((t) => ({ id: t.id, name: t.name, kind: t.kind, color: t.color, sortOrder: t.sortOrder })),
+    playbooks: playbooks.map((p) => ({
+      name: p.name,
+      description: p.description,
+      isArchived: p.isArchived,
+      rules: p.rules.map((r) => r.text),
+    })),
     journalEntries: journalEntries.map((e) => ({
       date: e.entryDate.toISOString().slice(0, 10),
       preMarket: e.preMarket,

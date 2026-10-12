@@ -47,6 +47,7 @@ const VALUES: TradeFormInput = {
   emotion: "4",
   confidence: "3",
   notes: "Clean break of the Asian range.",
+  playbookId: "",
   tagIds: ["tag-a", "tag-b"],
 };
 

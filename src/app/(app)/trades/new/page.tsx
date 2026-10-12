@@ -4,6 +4,7 @@ import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import { listInstruments, listTagsForUser } from "@/lib/queries/trades";
 import { TradeForm } from "@/components/trades/trade-form";
+import { listPlaybookOptions } from "@/lib/queries/playbooks";
 import { EmptyState } from "@/components/ui/empty";
 import { Panel, PanelBody } from "@/components/ui/panel";
 
@@ -25,7 +26,11 @@ export default async function NewTradePage() {
   }
 
   const account = await requireAccountAccess(activeAccountId);
-  const [instruments, tags] = await Promise.all([listInstruments(), listTagsForUser(user.id)]);
+  const [instruments, tags, playbooks] = await Promise.all([
+    listInstruments(),
+    listTagsForUser(user.id),
+    listPlaybookOptions(user.id),
+  ]);
 
   return (
     <Page width="reading">
@@ -36,6 +41,7 @@ export default async function NewTradePage() {
         instruments={instruments}
         tags={tags}
         currency={account.currency}
+        playbooks={playbooks}
       />
     </Page>
   );

@@ -12,6 +12,10 @@ import { PriceLadder } from "@/components/trades/price-ladder";
 import { ScreenshotGallery } from "@/components/trades/screenshot-gallery";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
 import { ExecutionsPanel } from "@/components/trades/executions-panel";
+import { ChecklistPanel } from "@/components/trades/checklist-panel";
+import { TradeChart } from "@/components/trades/trade-chart";
+import { tradeChartBars } from "@/lib/queries/candles";
+import { listPlaybookOptions } from "@/lib/queries/playbooks";
 import { ExcursionFromCandlesButton } from "@/components/trades/excursion-button";
 
 function outcomeOf(
@@ -28,8 +32,13 @@ function outcomeOf(
 export default async function TradeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const trade = await getTrade(user.id, id);
+  const [trade, playbookOptions] = await Promise.all([getTrade(user.id, id), listPlaybookOptions(user.id)]);
   if (!trade) notFound();
+  const chart = await tradeChartBars({
+    symbol: trade.symbol,
+    openedAt: new Date(trade.openedAt),
+    closedAt: trade.closedAt ? new Date(trade.closedAt) : null,
+  });
 
   const outcome = outcomeOf(trade.status, trade.netPnl);
   const openedAt = new Date(trade.openedAt);
@@ -72,8 +81,33 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
 
       <Grid>
         <div className="flex flex-col gap-4 lg:col-span-7">
+          {chart ? (
+            <Panel>
+              <PanelHeader
+                title="Chart"
+                caption={`${chart.timeframe}${chart.aggregatedFrom ? ` (from ${chart.aggregatedFrom})` : ""}`}
+              />
+              <PanelBody padded={false} className="p-2">
+                <TradeChart
+                  bars={chart.bars}
+                  digits={trade.digits}
+                  direction={trade.direction}
+                  executions={trade.executions}
+                  stopLoss={trade.stopLoss !== null ? Number(trade.stopLoss) : null}
+                  initialStopLoss={trade.initialStopLoss !== null ? Number(trade.initialStopLoss) : null}
+                  takeProfit={trade.takeProfit !== null ? Number(trade.takeProfit) : null}
+                />
+              </PanelBody>
+            </Panel>
+          ) : null}
+
           <Panel>
-            <PanelHeader title="Price geometry" />
+            <PanelHeader
+              title="Price geometry"
+              caption={
+                chart ? undefined : "import candles for this symbol (Backtest → Data) to see the trade on a chart"
+              }
+            />
             <PanelBody className="flex justify-center py-6">
               <PriceLadder
                 direction={trade.direction}
@@ -199,6 +233,13 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
               </PanelBody>
             </Panel>
           ) : null}
+
+          <ChecklistPanel
+            accountId={trade.accountId}
+            tradeId={trade.id}
+            playbook={trade.playbook}
+            options={playbookOptions}
+          />
 
           <Panel>
             <PanelHeader title="Discipline" />

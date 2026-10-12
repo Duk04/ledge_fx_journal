@@ -1,4 +1,15 @@
-import { BookOpen, Calculator, ChartLine, Dices, FlaskConical, Gauge, Settings, Table2, Wallet } from "lucide-react";
+import {
+  BookMarked,
+  BookOpen,
+  Calculator,
+  ChartLine,
+  Dices,
+  FlaskConical,
+  Gauge,
+  Settings,
+  Table2,
+  Wallet,
+} from "lucide-react";
 
 /**
  * The navigation, in the order a trading day actually runs: check the state of
@@ -19,6 +30,7 @@ export const NAV_GROUPS = [
     label: "Review",
     items: [
       { href: "/analytics", label: "Analytics", icon: ChartLine },
+      { href: "/playbooks", label: "Playbooks", icon: BookMarked },
       { href: "/simulate", label: "Simulate", icon: Dices },
       { href: "/journal", label: "Journal", icon: BookOpen },
       { href: "/backtest", label: "Backtest", icon: FlaskConical },

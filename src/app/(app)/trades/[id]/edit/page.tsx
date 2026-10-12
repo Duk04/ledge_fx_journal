@@ -4,6 +4,7 @@ import { SectionHead } from "@/components/ui/panel";
 import { requireUser } from "@/lib/session";
 import { getTrade, listInstruments, listTagsForUser } from "@/lib/queries/trades";
 import { TradeForm } from "@/components/trades/trade-form";
+import { listPlaybookOptions } from "@/lib/queries/playbooks";
 // From the pure module, not the client component: a server page reaching
 // into a "use client" file for a date helper pulls that whole module into
 // the server graph.
@@ -16,7 +17,11 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   const trade = await getTrade(user.id, id);
   if (!trade) notFound();
 
-  const [instruments, tags] = await Promise.all([listInstruments(), listTagsForUser(user.id)]);
+  const [instruments, tags, playbooks] = await Promise.all([
+    listInstruments(),
+    listTagsForUser(user.id),
+    listPlaybookOptions(user.id),
+  ]);
 
   const defaults: Partial<TradeFormInput> = {
     symbol: trade.symbol,
@@ -43,6 +48,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     confidence: trade.confidence !== null ? String(trade.confidence) : "",
     notes: trade.notes ?? "",
     tagIds: trade.tags.map((t) => t.id),
+    playbookId: trade.playbook?.id ?? "",
   };
 
   return (
@@ -59,6 +65,11 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         tags={tags}
         currency={trade.currency}
         fillsLocked={trade.multiFill}
+        playbooks={
+          trade.playbook && !playbooks.some((p) => p.id === trade.playbook!.id)
+            ? [...playbooks, { id: trade.playbook.id, name: trade.playbook.name }]
+            : playbooks
+        }
         defaults={defaults}
       />
     </Page>

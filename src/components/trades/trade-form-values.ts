@@ -42,6 +42,7 @@ export interface TradeFormInput {
   confidence: string;
   notes: string;
   tagIds: string[];
+  playbookId: string;
 }
 
 export function pad(n: number): string {
@@ -119,6 +120,7 @@ export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeForm
     confidence: "",
     notes: "",
     tagIds: [],
+    playbookId: "",
     ...localised,
   };
 }
@@ -146,5 +148,6 @@ export function buildFormData(values: TradeFormInput): FormData {
   if (values.confidence) fd.set("confidence", values.confidence);
   if (values.notes) fd.set("notes", values.notes);
   values.tagIds.forEach((id) => fd.append("tagIds", id));
+  if (values.playbookId) fd.set("playbookId", values.playbookId);
   return fd;
 }

@@ -28,6 +28,11 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
 - **Periods and exit efficiency** — month-by-month P&L, the selected range
   against the one before it, and MAE/MFE in R (entered, or measured from M1
   candles).
+- **Playbooks** — your setups as named rule lists; tick each trade against
+  its rules and see whether trades taken by the book actually do better.
+  See `docs/PLAYBOOKS.md`.
+- **Trade charts** — the candles around a trade with every fill marked and
+  the stop and target drawn, whenever bars for the symbol are imported.
 - **Simulate** — replay your own trades under a different rule (cap losses,
   skip weekdays/sessions/tags, fixed % sizing), Monte Carlo on your R
   multiples, and a position-size calculator that warns before the trade.
@@ -72,7 +77,7 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 759 unit tests across the pure layers (metrics, the backtest
+- **Vitest** — 765 unit tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
   no I/O and no mocking, running in about a second; plus a Postgres-backed
   tier for the authorization wiring and Playwright e2e for four user flows.

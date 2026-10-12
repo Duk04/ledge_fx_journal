@@ -222,6 +222,8 @@ const DETAIL_INCLUDE = {
   tradeTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
   attachments: { orderBy: { createdAt: "asc" } },
   executions: { orderBy: [{ executedAt: "asc" }, { createdAt: "asc" }] },
+  playbook: { include: { rules: { orderBy: { sortOrder: "asc" } } } },
+  ruleChecks: { select: { ruleId: true, followed: true } },
 } satisfies Prisma.TradeInclude;
 
 export interface TradeExecution {
@@ -244,6 +246,7 @@ export interface TradeDetail {
   maeR: number | null;
   mfeR: number | null;
   executions: TradeExecution[];
+  playbook: { id: string; name: string; rules: { id: string; text: string; followed: boolean | null }[] } | null;
   /** Lots still open: total entered minus total exited. */
   openLots: string;
   /** More than one entry or exit — the edit form can't change prices then. */
@@ -350,6 +353,17 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
       });
       return { maeR: maeR?.toNumber() ?? null, mfeR: mfeR?.toNumber() ?? null };
     })(),
+    playbook: trade.playbook
+      ? {
+          id: trade.playbook.id,
+          name: trade.playbook.name,
+          rules: trade.playbook.rules.map((r) => ({
+            id: r.id,
+            text: r.text,
+            followed: trade.ruleChecks.find((c) => c.ruleId === r.id)?.followed ?? null,
+          })),
+        }
+      : null,
     executions: trade.executions.map((e) => ({
       id: e.id,
       kind: e.kind,
