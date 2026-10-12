@@ -85,8 +85,11 @@ Why one shared function instead of computing them at every write site:
 - `trades(account_id, status)` — separating OPEN from CLOSED (and CANCELLED)
   trades, used on every dashboard load.
 - `trades(account_id, external_ticket)` **unique** — the broker-ticket dedupe
-  key for MT4/MT5/cTrader statement imports: re-importing the same
-  statement must upsert, not duplicate, per account.
+  key for statement imports: re-importing the same statement must not
+  duplicate, per account. Written by `src/lib/actions/statements.ts`;
+  `balance_events(account_id, external_ticket)` is its twin for deposits and
+  withdrawals. `trade_imports`, `symbol_aliases` and `trades.broker_profit`
+  belong to the same feature — `docs/IMPORT.md`.
 - `tags(user_id, kind, name)` **unique** — a user can't create the same
   named tag twice within one kind (e.g. two SETUP tags both called "OB
   retest"), while the same name is still allowed across different kinds.

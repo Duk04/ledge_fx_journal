@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { subDays, startOfYear, endOfDay } from "date-fns";
 import type { Direction } from "@prisma/client";
 import { Page } from "@/components/shell/page";
@@ -178,6 +178,13 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
             {total} trade{total === 1 ? "" : "s"} in view · net{" "}
             <Money value={stats.netPnl} currency={account.currency} signed />
           </>
+        }
+        actions={
+          <Button asChild variant="default" size="sm">
+            <Link href="/trades/import">
+              <Upload aria-hidden /> Import statement
+            </Link>
+          </Button>
         }
       />
 

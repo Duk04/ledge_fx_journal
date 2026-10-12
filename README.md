@@ -7,6 +7,10 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
 
 ## What it does
 
+- **Statement import** — MT4 Detailed Statements, MT5 Reports and CSV, with a
+  preview before anything is written, broker-time handling that follows DST,
+  conversion rates for crosses taken from the broker's own profit, re-imports
+  that close previously-open positions, and undo. See `docs/IMPORT.md`.
 - **Trade logging** — full trade entry with instrument, direction, size,
   entry/exit/stop/target, commission/swap, tags, and discipline fields
   (followed the plan? emotion, confidence, notes).
@@ -58,7 +62,7 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 684 unit tests across the pure layers (metrics, the backtest
+- **Vitest** — 718 unit tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
   no I/O and no mocking, running in about a second; plus a Postgres-backed
   tier for the authorization wiring and Playwright e2e for four user flows.

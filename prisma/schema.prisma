@@ -5,7 +5,7 @@
 // columns backfilled by a single function rather than being recomputed ad hoc).
 
 generator client {
-  provider   = "prisma-client-js"
+  provider = "prisma-client-js"
   // No `engineType` here: the standard native query engine is the default and
   // is what you want on any machine that can reach binaries.prisma.sh. The
   // pure-JS engine (`engineType = "client"`) plus a driver adapter is the
@@ -109,6 +109,12 @@ enum Timeframe {
   W1
 }
 
+enum StatementSource {
+  MT4_HTML
+  MT5_HTML
+  CSV
+}
+
 enum CandleSource {
   MT5_CSV
   GENERIC_CSV
@@ -140,41 +146,43 @@ enum BalanceEventKind {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String?
-  image        String?
-  passwordHash String?  @map("password_hash")
+  id                String    @id @default(uuid())
+  email             String    @unique
+  name              String?
+  image             String?
+  passwordHash      String?   @map("password_hash")
   /// Required by @auth/prisma-adapter: its createUser passes emailVerified
   /// (as a Date for magic links, null for OAuth), and its stripUndefined only
   /// drops undefined — so without this column every Google and Resend sign-up
   /// failed with "Unknown argument emailVerified".
-  emailVerified DateTime? @map("email_verified")
+  emailVerified     DateTime? @map("email_verified")
   /// MEMBER by default. This was OWNER, which with open registration minted
   /// an instance owner on every sign-up. OWNER now means the single
   /// administrator who may write the shared Instrument and Candle tables.
-  role         UserRole @default(MEMBER)
-  timezone     String   @default("Asia/Ulaanbaatar")
+  role              UserRole  @default(MEMBER)
+  timezone          String    @default("Asia/Ulaanbaatar")
   /// Any session token issued before this instant is rejected by the DAL.
   /// This is how "sign out everywhere" works under a JWT strategy, where
   /// there is no server-side session row to delete: a password reset or
   /// change stamps it, and getCurrentUser() compares it to the token's
   /// authAt claim. Per-user, not per-device — see docs/AUTH.md.
   sessionsValidFrom DateTime? @map("sessions_valid_from")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  accounts       TradingAccount[]
-  tags           Tag[]
-  journalEntries JournalEntry[]
-  authAccounts   Account[]
-  candleImports  CandleImport[]
-  strategies     Strategy[]
-  backtestRuns   BacktestRun[]
-  authAttempts   AuthAttempt[]
+  accounts        TradingAccount[]
+  tags            Tag[]
+  journalEntries  JournalEntry[]
+  authAccounts    Account[]
+  candleImports   CandleImport[]
+  strategies      Strategy[]
+  backtestRuns    BacktestRun[]
+  authAttempts    AuthAttempt[]
+  revokedSessions RevokedSession[]
+  symbolAliases   SymbolAlias[]
+  tradeImports    TradeImport[]
 
   @@map("users")
-  revokedSessions RevokedSession[]
 }
 
 // Auth.js (next-auth) Prisma adapter models. Field names on these three
@@ -290,6 +298,7 @@ model TradingAccount {
   trades        Trade[]
   balanceEvents BalanceEvent[]
   backtestRuns  BacktestRun[]
+  tradeImports  TradeImport[]
 
   @@index([userId])
   @@map("accounts")
@@ -308,6 +317,7 @@ model Instrument {
 
   trades  Trade[]
   candles Candle[]
+  aliases SymbolAlias[]
 
   @@map("instruments")
 }
@@ -352,6 +362,11 @@ model Trade {
   confidence     Int?
   notes          String?
   externalTicket String?  @map("external_ticket")
+  /// The broker's own gross profit, from an imported statement — the ground
+  /// truth our computed grossPnl is checked against (docs/IMPORT.md).
+  brokerProfit   Decimal? @map("broker_profit") @db.Decimal(18, 2)
+  /// The statement import that created this trade; lets an import be undone.
+  importId       String?  @map("import_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -361,12 +376,14 @@ model Trade {
   attachments Attachment[]
   tradeTags   TradeTag[]
   backtestRun BacktestRun?   @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+  tradeImport TradeImport?   @relation(fields: [importId], references: [id], onDelete: SetNull)
 
   @@unique([accountId, externalTicket])
   @@index([accountId, openedAt(sort: Desc)])
   @@index([accountId, symbol])
   @@index([accountId, status])
   @@index([backtestRunId])
+  @@index([importId])
   @@map("trades")
 }
 
@@ -433,17 +450,64 @@ model JournalEntry {
 }
 
 model BalanceEvent {
-  id         String           @id @default(uuid())
-  accountId  String           @map("account_id")
-  kind       BalanceEventKind
-  amount     Decimal          @db.Decimal(18, 2)
-  occurredAt DateTime         @map("occurred_at")
-  note       String?
+  id             String           @id @default(uuid())
+  accountId      String           @map("account_id")
+  kind           BalanceEventKind
+  amount         Decimal          @db.Decimal(18, 2)
+  occurredAt     DateTime         @map("occurred_at")
+  note           String?
+  /// Broker deal/ticket id when imported from a statement; dedupe key.
+  externalTicket String?          @map("external_ticket")
+  importId       String?          @map("import_id")
 
-  account TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account     TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tradeImport TradeImport?   @relation(fields: [importId], references: [id], onDelete: SetNull)
 
+  @@unique([accountId, externalTicket])
   @@index([accountId, occurredAt(sort: Desc)])
   @@map("balance_events")
+}
+
+/// A broker symbol the user has told the importer how to read, e.g.
+/// "GER30.cash" -> GER40. Per user: two brokers can use one name for
+/// different things. See src/lib/statements/symbols.ts for the resolution order.
+model SymbolAlias {
+  id           String @id @default(uuid())
+  userId       String @map("user_id")
+  brokerSymbol String @map("broker_symbol")
+  symbol       String
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [symbol], references: [symbol])
+
+  @@unique([userId, brokerSymbol])
+  @@map("symbol_aliases")
+}
+
+/// One statement import: what file, which timezone reading, what it created.
+/// Kept so "why is this trade at this hour" stays answerable, and so an
+/// import can be undone as a unit (its trades and balance events point here).
+model TradeImport {
+  id              String          @id @default(uuid())
+  userId          String          @map("user_id")
+  accountId       String          @map("account_id")
+  source          StatementSource
+  fileName        String?         @map("file_name")
+  /// "ny-close" or "fixed"; with tzOffsetMinutes for the latter.
+  tzMode          String          @map("tz_mode")
+  tzOffsetMinutes Int?            @map("tz_offset_minutes")
+  tradesCreated   Int             @map("trades_created")
+  tradesSkipped   Int             @map("trades_skipped")
+  balanceEvents   Int             @map("balance_events")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  trades    Trade[]
+  cashMoves BalanceEvent[]
+
+  @@index([accountId, createdAt(sort: Desc)])
+  @@map("trade_imports")
 }
 
 /// One OHLC bar. The primary key is (symbol, timeframe, ts) so re-importing an
