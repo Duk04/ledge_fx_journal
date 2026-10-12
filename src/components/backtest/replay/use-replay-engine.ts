@@ -85,6 +85,8 @@ export function useReplayEngine({
   const closeTrade = React.useCallback(
     (price: number, ts: number, reason: SimTrade["exitReason"], pos: SimPosition) => {
       const trade = closeAtPrice(pos, price, ts, reason, fill, instrument);
+      // Functional updates: a multi-bar step can close more than one trade
+      // before React re-renders.
       setTrades((prev) => [...prev, trade]);
       setBalance((prev) => prev + trade.netPnl);
       setPosition(null);
@@ -111,42 +113,59 @@ export function useReplayEngine({
    * inside one. `stepForward` is recreated whenever the values it reads
    * change (see the dependency list), so the closure is never stale.
    */
-  const stepForward = React.useCallback(() => {
-    if (cursor >= bars.length - 1) return;
-    const nextIndex = cursor + 1;
-    const bar = bars[nextIndex];
+  const stepForward = React.useCallback(
+    (count = 1) => {
+      if (cursor >= bars.length - 1) return;
+      const last = Math.min(bars.length - 1, cursor + Math.max(1, Math.floor(count)));
 
-    let nextPosition = position;
+      // Walks the bars with local copies of the state, so ten bars in one
+      // call behave exactly like ten separate steps (each bar sees the
+      // fills of the one before), then commits once. Calling a one-bar
+      // step ten times in a row would not: every call would read the same
+      // pre-step closure and land on the same next bar.
+      let nextPosition = position;
+      let nextPendingOrder = pendingOrder;
+      let nextPendingClose = pendingClose;
+      for (let index = cursor + 1; index <= last; index++) {
+        const bar = bars[index];
 
-    if (pendingOrder && !nextPosition) {
-      const price = entryPrice(bar, pendingOrder.side, fill, instrument);
-      nextPosition = {
-        side: pendingOrder.side,
-        lots: pendingOrder.lots,
-        entryTs: bar.ts,
-        entryPrice: price,
-        stopLoss: pendingOrder.stopLoss,
-        takeProfit: pendingOrder.takeProfit,
-        reason: pendingOrder.reason,
-      };
+        if (nextPendingOrder && !nextPosition) {
+          const price = entryPrice(bar, nextPendingOrder.side, fill, instrument);
+          nextPosition = {
+            side: nextPendingOrder.side,
+            lots: nextPendingOrder.lots,
+            entryTs: bar.ts,
+            entryPrice: price,
+            stopLoss: nextPendingOrder.stopLoss,
+            takeProfit: nextPendingOrder.takeProfit,
+            reason: nextPendingOrder.reason,
+          };
+          nextPendingOrder = null;
+        }
+
+        if (nextPendingClose && nextPosition) {
+          const price = exitAtMarket(bar.open, nextPosition.side, fill, instrument, bar.spread ?? fill.spreadPoints);
+          closeTrade(price, bar.ts, "SIGNAL", nextPosition);
+          nextPosition = null;
+          nextPendingClose = false;
+        }
+
+        if (nextPosition) {
+          const hit = exitOnBar(nextPosition, bar, fill, instrument);
+          if (hit) {
+            closeTrade(hit.price, bar.ts, hit.reason, nextPosition);
+            nextPosition = null;
+          }
+        }
+      }
+
       setPosition(nextPosition);
-      setPendingOrder(null);
-    }
-
-    if (pendingClose && nextPosition) {
-      const price = exitAtMarket(bar.open, nextPosition.side, fill, instrument, bar.spread ?? fill.spreadPoints);
-      closeTrade(price, bar.ts, "SIGNAL", nextPosition);
-      nextPosition = null;
-      setPendingClose(false);
-    }
-
-    if (nextPosition) {
-      const hit = exitOnBar(nextPosition, bar, fill, instrument);
-      if (hit) closeTrade(hit.price, bar.ts, hit.reason, nextPosition);
-    }
-
-    setCursor(nextIndex);
-  }, [cursor, bars, fill, instrument, closeTrade, position, pendingOrder, pendingClose]);
+      setPendingOrder(nextPendingOrder);
+      setPendingClose(nextPendingClose);
+      setCursor(last);
+    },
+    [cursor, bars, fill, instrument, closeTrade, position, pendingOrder, pendingClose],
+  );
 
   /** Rewinds the visible window by one bar, for reviewing price action —
    * NOT an undo. A trade already filled or closed stays filled/closed (it

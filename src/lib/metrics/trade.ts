@@ -22,7 +22,10 @@ import type { DecimalInput, InstrumentSpec, Outcome, TradeGeometryProblem, Trade
  * USDJPY, quoted in JPY) pass conversionRate = 1 / (USDJPY rate), i.e. the
  * JPY->USD rate, so the result comes out in USD.
  */
-export function pipValuePerLot(instrument: InstrumentSpec, conversionRate: DecimalInput = 1): Decimal {
+export function pipValuePerLot(
+  instrument: Pick<InstrumentSpec, "pipSize" | "contractSize">,
+  conversionRate: DecimalInput = 1,
+): Decimal {
   return d(instrument.pipSize).times(d(instrument.contractSize)).times(d(conversionRate));
 }
 

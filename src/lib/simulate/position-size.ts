@@ -13,7 +13,9 @@ import { pipValuePerLot } from "@/lib/metrics/trade";
 import type { InstrumentSpec } from "@/lib/metrics/types";
 
 export interface PositionSizeInput {
-  instrument: InstrumentSpec;
+  /** Only the two fields sizing reads, so the replay's SimInstrument (which
+   * has no asset class) can be sized by the same function. */
+  instrument: Pick<InstrumentSpec, "pipSize" | "contractSize">;
   balance: Decimal.Value;
   riskPct: Decimal.Value;
   entry: Decimal.Value;

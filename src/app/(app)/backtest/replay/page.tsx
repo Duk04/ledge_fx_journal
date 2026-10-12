@@ -95,6 +95,7 @@ export default async function ReplayPage({ searchParams }: { searchParams: Promi
         }}
         initialBalance={Number(run.initialBalance)}
         currency={run.currency}
+        timeframe={run.timeframe}
       />
     </Page>
   );

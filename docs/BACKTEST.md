@@ -99,9 +99,22 @@ interrupted has already saved everything up to that point. "Save to journal"
 force-closes any still-open position at the current bar (mirroring the
 engine's own `END_OF_DATA` handling) and takes you to the run's results page.
 
-Keyboard: `Space` play/pause, `→` step forward, `←` step back (only while
-flat — see the code comment on why rewinding is "review", not "undo"), `B`
-buy, `S` sell. The shortcut row lives in the chart panel's header.
+### Chart tools
+
+The toolbar above the replay chart covers what FX Replay-style practice needs. It is built on lightweight-charts, not TradingView's Advanced Charts. That library is licensed only to companies for public products, and must not appear in a public repository, which this one is.
+
+- **Drawings.** The tools are trend line (`T`), horizontal line (`H`), rectangle (`R`) and Fibonacci retracement (`F`). The fib's 0 is the second click and its 1 the first.
+  - `V` / `Esc` returns to select. A click on a drawing selects it, and `Del` removes it. `⌘/Ctrl+Z` undoes the last drawing.
+  - Drawings are painted by a series primitive (`drawings-primitive.ts`). They are anchored to (bar index, price), not to time, so a line can reach into the empty space right of the last bar, and it stays put when the replay steps back (`lib/backtest/replay-tools.ts` explains why).
+  - They are kept in this browser's localStorage per run. They are a per-viewer working surface, not journal data.
+  - Clicks are taken from pointer events, not `chart.subscribeClick`. The library delivers that click late, so a fast second click, or a tool key pressed right after, landed against the wrong tool.
+- **Position tool** (`⇧B` long, `⇧S` short). Entry is the last close, because orders here are market orders that fill at the next bar's open. Stop and target start at 20 pips and 1:2 and are dragged on the chart.
+  - The zones show pips, R:R and money.
+  - Lots are sized from the Risk % with the same `positionSize()` the calculator uses, rounded down so the risk is never exceeded.
+  - `B` / `S` (or Buy/Sell) turns the plan into an order. Once it fills, the same zones follow the open position, and dragging them modifies its stop/target.
+- **Second chart** (`M`). A higher timeframe built from the bars shown so far (`aggregateBars`), so its newest candle is still forming. Like the main chart, it never shows a moment that has not been replayed.
+
+Keyboard: `Space` play/pause, `→` step one bar, `⇧→` ten bars, `←` step back (only while flat — see the code comment on why rewinding is "review", not "undo"), `+`/`−` speed, `B` buy, `S` sell, `C` close, `X` cancel the pending order. The keyboard button at the end of the toolbar lists them all. `stepForward(n)` walks n bars with local copies of the position state and commits once. Calling a one-bar step n times would not work: every call would read the same pre-step state.
 
 ## Writing a strategy
 

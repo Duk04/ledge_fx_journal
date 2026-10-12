@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Play, Pause, StepForward, StepBack, Keyboard, ArrowUpCircle, ArrowDownCircle, X } from "lucide-react";
+import { Play, Pause, StepForward, StepBack, ArrowUpCircle, ArrowDownCircle, X } from "lucide-react";
+import type { Timeframe } from "@prisma/client";
 import {
   Panel,
   PanelHeader,
@@ -20,15 +21,28 @@ import {
   Th,
   Td,
   TableEmpty,
-  Tip,
   useToast,
 } from "@/components/ui";
 import { Money, RValue, Pips } from "@/components/ui/value";
-import { formatPrice } from "@/lib/metrics/formatters";
+import { formatMoney, formatPrice } from "@/lib/metrics/formatters";
+import { aggregateBars } from "@/lib/candles/aggregate";
+import { defaultPositionTool, positionToolStats } from "@/lib/backtest/replay-tools";
 import { recordReplayTrade } from "@/lib/actions/backtests";
 import type { Bar, FillModel, SimInstrument, SimTrade } from "@/lib/backtest/types";
 import { useReplayEngine, type ReplaySpeed } from "./use-replay-engine";
-import { CandlestickChart } from "./candlestick-chart";
+import { CandlestickChart, type ChartTool, type ChartTools } from "./candlestick-chart";
+import { ReplayToolbar, type PositionToolSide } from "./replay-toolbar";
+import { useReplayDrawings } from "./use-replay-drawings";
+import type { PositionScene } from "./drawings-primitive";
+
+const TIMEFRAME_ORDER: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
+const SPEED_STEPS: readonly ReplaySpeed[] = [0.5, 1, 2, 5, "max"];
+
+/** Typing into a field must never trigger a chart shortcut. */
+function isTyping(target: EventTarget | null) {
+  const el = target as HTMLElement | null;
+  return el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.tagName === "SELECT" || el?.isContentEditable;
+}
 
 const SPEED_LABEL: Record<Exclude<ReplaySpeed, "max">, string> = { 0.5: "0.5x", 1: "1x", 2: "2x", 5: "5x" };
 
@@ -49,9 +63,12 @@ export function ReplaySession({
   fill,
   initialBalance,
   currency,
+  timeframe,
 }: {
   runId: string;
   symbol: string;
+  /** The bars' own timeframe; the second chart offers the coarser ones. */
+  timeframe: Timeframe;
   bars: Bar[];
   instrument: SimInstrument;
   fill: FillModel;
@@ -105,6 +122,7 @@ export function ReplaySession({
     sell,
     cancelPendingOrder,
     requestClose,
+    modify,
     finish,
   } = engine;
 
@@ -116,6 +134,57 @@ export function ReplaySession({
   const digits = instrument.digits;
   const canOrder = !position && !pendingOrder;
 
+  // ------------------------------------------------------------ chart tools
+  const draw = useReplayDrawings(runId);
+  const [tool, setTool] = React.useState<ChartTool>("cursor");
+  /** The position tool while flat: entry at the last close, stop and
+   * target in the order fields, lots from the risk %. */
+  const [positionSide, setPositionSide] = React.useState<PositionToolSide>(null);
+  const [riskPct, setRiskPct] = React.useState("1");
+  const toolActive = positionSide !== null && canOrder;
+  const round = React.useCallback((price: number) => Number(price.toFixed(digits)), [digits]);
+
+  const startPositionTool = React.useCallback(
+    (side: PositionToolSide) => {
+      setPositionSide(side);
+      if (!side || !currentBar) return;
+      const plan = defaultPositionTool(side, currentBar.close, instrument);
+      setStopLoss(String(round(plan.stop)));
+      setTakeProfit(String(round(plan.target)));
+    },
+    [currentBar, instrument, round],
+  );
+
+  const toolStats = React.useMemo(() => {
+    if (!toolActive || !currentBar) return null;
+    const stop = Number(stopLoss);
+    const target = Number(takeProfit);
+    if (!stopLoss.trim() || !takeProfit.trim() || !Number.isFinite(stop) || !Number.isFinite(target)) return null;
+    return positionToolStats(
+      { side: positionSide!, entry: currentBar.close, stop, target },
+      { instrument, balance, riskPct: Number(riskPct) || 0, conversionRate: fill.conversionRate },
+    );
+  }, [toolActive, currentBar, stopLoss, takeProfit, positionSide, instrument, balance, riskPct, fill.conversionRate]);
+
+  /** What an order would be sized at: the tool's risk-based lots while it
+   * is out, otherwise whatever was typed. */
+  const orderLots = toolActive ? (toolStats?.lots ?? 0) : Number(lots);
+
+  // ------------------------------------------------------------ second chart
+  const htfOptions = React.useMemo(() => TIMEFRAME_ORDER.slice(TIMEFRAME_ORDER.indexOf(timeframe) + 1), [timeframe]);
+  const [htf, setHtf] = React.useState<Timeframe | null>(null);
+  const lastHtf = React.useRef<Timeframe | null>(null);
+  const chooseHtf = React.useCallback((tf: Timeframe | null) => {
+    if (tf) lastHtf.current = tf;
+    setHtf(tf);
+  }, []);
+  // Built from the bars shown so far, so the newest higher-timeframe candle
+  // is still forming — it never shows the rest of a period that has not
+  // been replayed yet.
+  const htfBars = React.useMemo(
+    () => (htf ? aggregateBars(visibleBars, timeframe, htf) : []),
+    [htf, visibleBars, timeframe],
+  );
   /**
    * Declared above the keyboard effect, and memoised, so that effect can list
    * it as a dependency.
@@ -130,7 +199,11 @@ export function ReplaySession({
    */
   const submitOrder = React.useCallback(
     (side: "LONG" | "SHORT") => {
-      const lotsNum = Number(lots);
+      const lotsNum = orderLots;
+      if (toolActive && toolStats && !toolStats.valid) {
+        toast({ title: t("replay.toolInvalid"), tone: "warn" });
+        return;
+      }
       if (!Number.isFinite(lotsNum) || lotsNum <= 0) {
         toast({ title: t("replay.enterLots"), tone: "warn" });
         return;
@@ -140,48 +213,210 @@ export function ReplaySession({
       const order = { lots: lotsNum, stopLoss: sl, takeProfit: tp };
       if (side === "LONG") buy(order);
       else sell(order);
+      // The plan became an order; its zones now follow the position.
+      setPositionSide(null);
     },
-    [lots, stopLoss, takeProfit, toast, buy, sell, t],
+    [orderLots, toolActive, toolStats, stopLoss, takeProfit, toast, buy, sell, t],
   );
 
   // -------------------------------------------------------------- keyboard
+  // docs/BACKTEST.md lists these; the toolbar's keyboard button shows them.
   React.useEffect(() => {
-    function isTyping(target: EventTarget | null) {
-      const el = target as HTMLElement | null;
-      return el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.isContentEditable;
-    }
     function onKeyDown(e: KeyboardEvent) {
       if (isTyping(e.target)) return;
-      switch (e.key) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        draw.undo();
+        return;
+      }
+      if (mod || e.altKey) return;
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      switch (key) {
         case " ":
           e.preventDefault();
           togglePlaying();
           break;
         case "ArrowRight":
           e.preventDefault();
-          stepForward();
+          stepForward(e.shiftKey ? 10 : 1);
           break;
         case "ArrowLeft":
           e.preventDefault();
           stepBack();
           break;
+        case "+":
+        case "=":
+        case "-": {
+          const i = SPEED_STEPS.indexOf(speed);
+          const next = SPEED_STEPS[Math.max(0, Math.min(SPEED_STEPS.length - 1, i + (key === "-" ? -1 : 1)))];
+          setSpeed(next);
+          break;
+        }
         case "b":
-        case "B":
-          if (canOrder) submitOrder("LONG");
+          if (!canOrder) break;
+          if (e.shiftKey) startPositionTool(positionSide === "LONG" ? null : "LONG");
+          else submitOrder("LONG");
           break;
         case "s":
-        case "S":
-          if (canOrder) submitOrder("SHORT");
+          if (!canOrder) break;
+          if (e.shiftKey) startPositionTool(positionSide === "SHORT" ? null : "SHORT");
+          else submitOrder("SHORT");
+          break;
+        case "c":
+          requestClose();
+          break;
+        case "x":
+          cancelPendingOrder();
+          break;
+        case "v":
+          setTool("cursor");
+          break;
+        case "t":
+          setTool("trend");
+          break;
+        case "h":
+          setTool("hline");
+          break;
+        case "r":
+          setTool("rect");
+          break;
+        case "f":
+          setTool("fib");
+          break;
+        case "m":
+          if (htfOptions.length) chooseHtf(htf ? null : (lastHtf.current ?? htfOptions[0]));
+          break;
+        case "Escape":
+          setTool("cursor");
+          draw.select(null);
+          setPositionSide(null);
+          break;
+        case "Delete":
+        case "Backspace":
+          draw.removeSelected();
           break;
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-    // Re-subscribes whenever a lots/SL/TP keystroke changes `submitOrder`.
-    // That is a `removeEventListener` plus an `addEventListener` on one
-    // `window` listener — the original comment was right that it is cheap,
-    // and it is now correct as well as cheap.
-  }, [togglePlaying, stepForward, stepBack, canOrder, submitOrder]);
+  }, [
+    togglePlaying,
+    stepForward,
+    stepBack,
+    speed,
+    setSpeed,
+    canOrder,
+    submitOrder,
+    startPositionTool,
+    positionSide,
+    requestClose,
+    cancelPendingOrder,
+    draw,
+    htf,
+    htfOptions,
+    chooseHtf,
+  ]);
+
+  // ------------------------------------------------------------ chart scene
+  const money = React.useCallback((n: number) => formatMoney(n, currency), [currency]);
+  const positionScene = React.useMemo<PositionScene | null>(() => {
+    const pipsOf = (a: number, b: number) => (Math.abs(a - b) / instrument.pipSize).toFixed(1);
+    if (position) {
+      const fromIndex = Math.max(
+        0,
+        bars.findIndex((b) => b.ts >= position.entryTs),
+      );
+      const perPip = instrument.pipSize * instrument.contractSize * fill.conversionRate * position.lots;
+      const sl = position.stopLoss ?? null;
+      const tp = position.takeProfit ?? null;
+      return {
+        side: position.side,
+        entry: position.entryPrice,
+        stop: sl,
+        target: tp,
+        fromIndex,
+        valid: true,
+        stopLabel:
+          sl === null
+            ? ""
+            : t("replay.positionStop", {
+                pips: pipsOf(sl, position.entryPrice),
+                money: money((Math.abs(sl - position.entryPrice) / instrument.pipSize) * perPip),
+              }),
+        targetLabel:
+          tp === null
+            ? ""
+            : t("replay.positionTarget", {
+                pips: pipsOf(tp, position.entryPrice),
+                money: money((Math.abs(tp - position.entryPrice) / instrument.pipSize) * perPip),
+              }),
+      };
+    }
+    if (!toolActive || !currentBar || !toolStats) return null;
+    const rr = toolStats.rr === null ? "—" : toolStats.rr.toFixed(2);
+    return {
+      side: positionSide!,
+      entry: currentBar.close,
+      stop: Number(stopLoss),
+      target: Number(takeProfit),
+      fromIndex: cursor,
+      valid: toolStats.valid,
+      stopLabel:
+        toolStats.lots === null
+          ? t("replay.toolStopNoSize", { pips: toolStats.stopPips.toFixed(1) })
+          : t("replay.toolStop", {
+              pips: toolStats.stopPips.toFixed(1),
+              money: money(toolStats.riskAmount ?? 0),
+              lots: toolStats.lots.toFixed(2),
+            }),
+      targetLabel:
+        toolStats.lots === null
+          ? t("replay.toolTargetNoSize", { pips: toolStats.targetPips.toFixed(1), rr })
+          : t("replay.toolTarget", {
+              pips: toolStats.targetPips.toFixed(1),
+              rr,
+              money: money(toolStats.rewardAmount ?? 0),
+            }),
+    };
+  }, [
+    position,
+    bars,
+    instrument,
+    fill.conversionRate,
+    toolActive,
+    currentBar,
+    toolStats,
+    positionSide,
+    stopLoss,
+    takeProfit,
+    cursor,
+    money,
+    t,
+  ]);
+
+  const onDragPosition = React.useCallback(
+    (handle: "stop" | "target", price: number) => {
+      const value = round(price);
+      if (position) modify(handle === "stop" ? { stopLoss: value } : { takeProfit: value });
+      else if (handle === "stop") setStopLoss(String(value));
+      else setTakeProfit(String(value));
+    },
+    [position, modify, round],
+  );
+
+  const chartTools = React.useMemo<ChartTools>(
+    () => ({
+      tool,
+      drawings: draw.drawings,
+      selectedId: draw.selectedId,
+      onAddDrawing: draw.add,
+      onSelect: draw.select,
+      position: positionScene,
+      onDragPosition: positionScene ? onDragPosition : undefined,
+    }),
+    [tool, draw.drawings, draw.selectedId, draw.add, draw.select, positionScene, onDragPosition],
+  );
 
   async function handleSaveToJournal() {
     setFinishing(true);
@@ -206,26 +441,45 @@ export function ReplaySession({
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
       <div className="flex flex-col gap-3 xl:col-span-9">
         <Panel className="h-[65vh] min-h-96">
-          <PanelHeader
-            title={symbol}
-            caption={currentBar ? formatTs(currentBar.ts) : undefined}
-            actions={
-              <Tip label={t("replay.shortcutsTip")}>
-                <span className="flex items-center gap-1 text-2xs text-ink-3">
-                  <Keyboard className="size-3.5" /> {t("replay.shortcuts")}
-                </span>
-              </Tip>
-            }
-          />
-          <PanelBody padded={false} className="h-full">
+          <PanelHeader title={symbol} caption={currentBar ? formatTs(currentBar.ts) : undefined} />
+          <div className="border-b border-line px-2 py-1">
+            <ReplayToolbar
+              tool={tool}
+              onTool={setTool}
+              positionSide={toolActive ? positionSide : null}
+              onPositionSide={startPositionTool}
+              positionDisabled={!canOrder}
+              canUndo={draw.drawings.length > 0}
+              hasSelection={draw.selectedId !== null}
+              onUndo={draw.undo}
+              onDeleteSelected={draw.removeSelected}
+              onClearAll={draw.clear}
+              htfOptions={htfOptions}
+              htf={htf}
+              onHtf={chooseHtf}
+            />
+          </div>
+          <PanelBody
+            padded={false}
+            className={htf ? "grid h-full min-h-0 grid-cols-1 lg:grid-cols-2" : "h-full min-h-0"}
+          >
             <CandlestickChart
               bars={visibleBars}
               digits={digits}
               position={position}
               pendingStop={stopLoss.trim() === "" ? undefined : Number(stopLoss)}
               pendingTarget={takeProfit.trim() === "" ? undefined : Number(takeProfit)}
-              className="h-full w-full"
+              tools={chartTools}
+              className="h-full min-h-64 w-full"
             />
+            {htf ? (
+              <div className="relative h-full min-h-64 border-t border-line lg:border-t-0 lg:border-l">
+                <span className="pointer-events-none absolute top-1.5 left-2 z-10 text-2xs font-medium text-ink-3">
+                  {symbol} · {htf}
+                </span>
+                <CandlestickChart bars={htfBars} digits={digits} position={position} className="h-full w-full" />
+              </div>
+            ) : null}
           </PanelBody>
           <PanelFooter className="flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <div className="flex items-center gap-1">
@@ -252,7 +506,7 @@ export function ReplaySession({
               <Button
                 variant="default"
                 size="icon-sm"
-                onClick={stepForward}
+                onClick={() => stepForward()}
                 disabled={atEnd}
                 aria-label={t("replay.stepForward")}
               >
@@ -302,9 +556,21 @@ export function ReplaySession({
             caption={canOrder ? t("replay.flat") : position ? t("replay.inPosition") : t("replay.orderPending")}
           />
           <PanelBody className="flex flex-wrap items-end gap-3">
-            <Field className="w-24">
+            {toolActive ? (
+              <Field className="w-24">
+                <FieldLabel>{t("replay.riskPct")}</FieldLabel>
+                <NumberInput value={riskPct} onChange={(e) => setRiskPct(e.target.value)} unit="%" />
+              </Field>
+            ) : null}
+            <Field className="w-28">
               <FieldLabel>{t("replay.lots")}</FieldLabel>
-              <NumberInput value={lots} onChange={(e) => setLots(e.target.value)} disabled={!canOrder} />
+              <NumberInput
+                value={position ? position.lots.toFixed(2) : toolActive ? (toolStats?.lots?.toFixed(2) ?? "") : lots}
+                onChange={(e) => setLots(e.target.value)}
+                disabled={!canOrder}
+                readOnly={toolActive}
+                title={toolActive ? t("replay.lotsFromRisk", { pct: riskPct }) : undefined}
+              />
             </Field>
             <Field className="w-32">
               <FieldLabel optional>{t("replay.stopLoss")}</FieldLabel>
