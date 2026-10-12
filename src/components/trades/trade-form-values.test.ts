@@ -35,6 +35,7 @@ const VALUES: TradeFormInput = {
   entryPrice: "1.1000",
   exitPrice: "1.1050",
   stopLoss: "1.0950",
+  initialStopLoss: "",
   takeProfit: "1.1100",
   volumeLots: "1",
   commission: "3.50",

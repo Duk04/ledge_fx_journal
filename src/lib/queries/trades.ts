@@ -1,4 +1,5 @@
 import "server-only";
+import { Decimal } from "decimal.js";
 import type { Direction, MarketSession, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
@@ -219,12 +220,28 @@ const DETAIL_INCLUDE = {
   account: { select: { currency: true } },
   tradeTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
   attachments: { orderBy: { createdAt: "asc" } },
+  executions: { orderBy: [{ executedAt: "asc" }, { createdAt: "asc" }] },
 } satisfies Prisma.TradeInclude;
+
+export interface TradeExecution {
+  id: string;
+  kind: "ENTRY" | "EXIT";
+  executedAt: string;
+  price: string;
+  volumeLots: string;
+}
 
 export interface TradeDetail {
   id: string;
   accountId: string;
   currency: string;
+  /** Where the stop was at entry — what risk and R are measured from. */
+  initialStopLoss: string | null;
+  executions: TradeExecution[];
+  /** Lots still open: total entered minus total exited. */
+  openLots: string;
+  /** More than one entry or exit — the edit form can't change prices then. */
+  multiFill: boolean;
   symbol: string;
   displayName: string;
   digits: number;
@@ -314,6 +331,20 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
     id: trade.id,
     accountId: trade.accountId,
     currency: trade.account.currency,
+    initialStopLoss: toPlain(trade.initialStopLoss),
+    executions: trade.executions.map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      executedAt: e.executedAt.toISOString(),
+      price: toPlain(e.price)!,
+      volumeLots: toPlain(e.volumeLots)!,
+    })),
+    openLots: trade.executions
+      .reduce((acc, e) => (e.kind === "ENTRY" ? acc.plus(e.volumeLots) : acc.minus(e.volumeLots)), new Decimal(0))
+      .toString(),
+    multiFill:
+      trade.executions.filter((e) => e.kind === "ENTRY").length > 1 ||
+      trade.executions.filter((e) => e.kind === "EXIT").length > 1,
     symbol: trade.symbol,
     displayName: trade.instrument.displayName,
     digits: spec.digits,

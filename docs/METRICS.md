@@ -70,12 +70,21 @@ meaning. This keeps the formula a single line with no branching.
 
 ```
 computeRiskAmount(trade)
-  = |entryPrice − stopLoss| / pipSize × pipValuePerLot × volumeLots
-  = null if there is no stop loss
+  = |entryPrice − riskStop| / pipSize × pipValuePerLot × volumeLots
+  riskStop = initialStopLoss ?? stopLoss
+  = null if there is no stop at all
 
 computeRMultiple(trade) = netPnl / riskAmount
   = null if riskAmount is null or zero
 ```
+
+**Judgement call: risk is measured from the stop the trade was OPENED with.**
+`stopLoss` is where the stop is now; trailing it to breakeven is normal and
+would otherwise make risk zero (R undefined) or tiny (R in the dozens) on a
+trade that risked a full 1R when it was taken. `Trade.initialStopLoss` is
+recorded at entry (the form's "Initial stop", defaulting to the stop loss)
+and is what risk, R and planned R:R use. Existing trades were migrated with
+`initialStopLoss = stopLoss`, so no stored R changed.
 
 **Judgement call: risk excludes commission and swap on purpose.** Risk is
 defined here as "what you lose if price simply reaches your stop" — the
@@ -91,7 +100,7 @@ denominator too.
 ### Planned reward:risk and geometry validation
 
 ```
-computePlannedRR(trade) = |takeProfit − entryPrice| / |stopLoss − entryPrice|
+computePlannedRR(trade) = |takeProfit − entryPrice| / |riskStop − entryPrice|
 ```
 
 Returns `null` if either leg is missing, if the stop distance is zero, or if

@@ -43,6 +43,7 @@ export function tradeInput(
     | "entryPrice"
     | "exitPrice"
     | "stopLoss"
+    | "initialStopLoss"
     | "takeProfit"
     | "volumeLots"
     | "commission"
@@ -71,6 +72,7 @@ export function tradeInput(
     entryPrice: trade.entryPrice.toString(),
     exitPrice: trade.exitPrice?.toString(),
     stopLoss: trade.stopLoss?.toString(),
+    initialStopLoss: trade.initialStopLoss?.toString(),
     takeProfit: trade.takeProfit?.toString(),
     volumeLots: trade.volumeLots.toString(),
     commission: trade.commission.toString(),

@@ -43,8 +43,15 @@ export interface TradeInput {
   entryPrice: DecimalInput;
   /** Price at which the position was closed. Undefined while the trade is still open. */
   exitPrice?: DecimalInput;
-  /** Planned protective stop price, if any. */
+  /** Protective stop price, if any — where it is NOW (it may have been moved). */
   stopLoss?: DecimalInput;
+  /**
+   * Where the stop was when the trade was opened. Risk, and therefore R, is
+   * measured against this when present: a stop trailed to breakeven must not
+   * turn a +1R winner into a +40R one (or make R undefined at zero risk).
+   * Falls back to `stopLoss` when absent.
+   */
+  initialStopLoss?: DecimalInput;
   /** Planned target price, if any. */
   takeProfit?: DecimalInput;
   /** Position size in lots (1.0 = one standard lot per contractSize). */

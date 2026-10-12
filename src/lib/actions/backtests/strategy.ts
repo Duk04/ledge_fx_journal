@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { simpleExecutionsCreate } from "../fills-store";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { type Prisma, type Timeframe } from "@prisma/client";
@@ -175,7 +177,7 @@ export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<
     });
 
     if (trades.length > 0) {
-      const data: Prisma.TradeCreateManyInput[] = trades.map((t) => {
+      const data = trades.map((t) => {
         // The conversion rate the client used is irrelevant here: toJournalTrade
         // works from the trade's own already-converted figures. The rate is
         // stored on the run for provenance, and re-derived above so the value
@@ -186,6 +188,9 @@ export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<
           backtestRunId: run.id,
         });
         return {
+          // Ids assigned here so the executions below can point at the rows
+          // createMany writes (it returns no ids).
+          id: randomUUID(),
           accountId: j.accountId,
           symbol: j.symbol,
           direction: j.direction,
@@ -195,6 +200,7 @@ export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<
           entryPrice: j.entryPrice,
           exitPrice: j.exitPrice,
           stopLoss: j.stopLoss,
+          initialStopLoss: j.stopLoss,
           takeProfit: j.takeProfit,
           volumeLots: j.volumeLots,
           commission: j.commission,
@@ -207,9 +213,12 @@ export async function recordStrategyRun(input: RecordStrategyRunInput): Promise<
           marketSession: j.marketSession,
           backtestRunId: j.backtestRunId,
           notes: j.notes,
-        };
+        } satisfies Prisma.TradeCreateManyInput;
       });
       await tx.trade.createMany({ data });
+      await tx.execution.createMany({
+        data: data.flatMap((t) => simpleExecutionsCreate(t).map((e) => ({ ...e, tradeId: t.id }))),
+      });
     }
 
     return run.id;

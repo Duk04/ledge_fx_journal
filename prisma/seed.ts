@@ -339,7 +339,11 @@ async function main() {
         stopLoss: stopLoss.toFixed(priceDigits),
         takeProfit: takeProfit.toFixed(priceDigits),
         volumeLots: volumeLots.toFixed(2),
-        commission: (volumeLots * -7).toFixed(2),
+        // $7/lot, POSITIVE: the journal stores commission as a cost
+        // (docs/METRICS.md). This used to be negative — the broker's sign —
+        // which the formulas read as a rebate, so every seeded trade was
+        // paid to trade instead of charged.
+        commission: (volumeLots * 7).toFixed(2),
         swap: (rand() < 0.3 ? -randFloat(0.5, 4) : 0).toFixed(2),
         conversionRate: symbol.endsWith("USD") || symbol === "NAS100" ? "1.00000000" : null,
         followedPlan,
@@ -347,6 +351,24 @@ async function main() {
         confidence,
         notes,
         externalTicket: `${account.id === ACCOUNT_FTMO_ID ? "FTMO" : "ICM"}-${ticket}`,
+        initialStopLoss: stopLoss.toFixed(priceDigits),
+        // One entry, one exit — every trade's fills (lib/metrics/fills.ts).
+        executions: {
+          create: [
+            {
+              kind: "ENTRY",
+              executedAt: openedAt,
+              price: entryPrice.toFixed(priceDigits),
+              volumeLots: volumeLots.toFixed(2),
+            },
+            {
+              kind: "EXIT",
+              executedAt: closedAt,
+              price: exitPrice.toFixed(priceDigits),
+              volumeLots: volumeLots.toFixed(2),
+            },
+          ],
+        },
         // netPnl / grossPnl / pips / rMultiple / riskAmount / holdingMinutes /
         // marketSession are intentionally left NULL — backfilled later by
         // lib/metrics from the raw fields above.
@@ -428,10 +450,25 @@ async function main() {
         stopLoss: stopLoss.toFixed(priceDigits),
         takeProfit: takeProfit.toFixed(priceDigits),
         volumeLots: volumeLots.toFixed(2),
-        commission: (volumeLots * -7).toFixed(2),
+        // $7/lot, POSITIVE: the journal stores commission as a cost
+        // (docs/METRICS.md). This used to be negative — the broker's sign —
+        // which the formulas read as a rebate, so every seeded trade was
+        // paid to trade instead of charged.
+        commission: (volumeLots * 7).toFixed(2),
         swap: "0.00",
         conversionRate: symbol.endsWith("USD") || symbol === "NAS100" ? "1.00000000" : null,
         externalTicket: `${account.id === ACCOUNT_FTMO_ID ? "FTMO" : "ICM"}-${ticket}`,
+        initialStopLoss: stopLoss.toFixed(priceDigits),
+        executions: {
+          create: [
+            {
+              kind: "ENTRY",
+              executedAt: openedAt,
+              price: entryPrice.toFixed(priceDigits),
+              volumeLots: volumeLots.toFixed(2),
+            },
+          ],
+        },
       },
     });
   }

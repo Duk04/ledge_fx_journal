@@ -26,6 +26,7 @@ export async function GET() {
           include: {
             tradeTags: { include: { tag: { select: { name: true, kind: true } } } },
             attachments: true,
+            executions: { orderBy: { executedAt: "asc" } },
           },
         },
       },
@@ -35,6 +36,10 @@ export async function GET() {
   ]);
 
   const payload = {
+    // 2: trades carry `executions` and `initialStopLoss`. Version 1 had
+    // neither; a reader of a v1 file should treat each trade as one entry
+    // (and one exit if closed) at its own prices and times.
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     notIncluded: [
       "password hash",
@@ -71,6 +76,7 @@ export async function GET() {
         entryPrice: t.entryPrice.toString(),
         exitPrice: t.exitPrice?.toString() ?? null,
         stopLoss: t.stopLoss?.toString() ?? null,
+        initialStopLoss: t.initialStopLoss?.toString() ?? null,
         takeProfit: t.takeProfit?.toString() ?? null,
         volumeLots: t.volumeLots.toString(),
         commission: t.commission.toString(),
@@ -88,6 +94,14 @@ export async function GET() {
         confidence: t.confidence,
         notes: t.notes,
         externalTicket: t.externalTicket,
+        brokerProfit: t.brokerProfit?.toString() ?? null,
+        executions: t.executions.map((e) => ({
+          kind: e.kind,
+          executedAt: e.executedAt.toISOString(),
+          price: e.price.toString(),
+          volumeLots: e.volumeLots.toString(),
+          externalDealId: e.externalDealId,
+        })),
         tags: t.tradeTags.map((tt) => tt.tag.name),
         attachments: t.attachments.map((att) => ({
           id: att.id,

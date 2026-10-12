@@ -5,6 +5,8 @@ import type { Instrument, MarketSession } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { accountOrFailure } from "./guard";
+import { syncTradeFromFills, toFill } from "./fills-store";
+import { aggregateFills } from "@/lib/metrics/fills";
 import { fail, ok, type ActionResult } from "./result";
 import {
   decodeStatement,
@@ -217,46 +219,78 @@ export async function importStatement(accountId: string, formData: FormData): Pr
       },
     });
 
-    if (creates.length) {
-      await tx.trade.createMany({
+    // One create per position rather than createMany: each needs its
+    // executions, and createMany returns no ids to hang them on. Statements
+    // are hundreds of rows, not hundreds of thousands.
+    for (const { position: p, symbol, reconciliation, derived } of creates) {
+      const created = await tx.trade.createMany({
         skipDuplicates: true,
-        data: creates.map(({ position: p, symbol, reconciliation, derived }) => ({
-          accountId: account.id,
-          symbol: symbol!,
-          direction: p.direction,
-          status: p.closedAt === null ? "OPEN" : "CLOSED",
-          openedAt: new Date(p.openedAt),
-          closedAt: p.closedAt === null ? null : new Date(p.closedAt),
-          entryPrice: p.entryPrice,
-          exitPrice: p.exitPrice,
-          stopLoss: p.stopLoss,
-          takeProfit: p.takeProfit,
-          volumeLots: p.volumeLots,
-          commission: p.commission,
-          swap: p.swap,
-          conversionRate: reconciliation?.conversionRate ?? null,
-          brokerProfit: p.brokerProfit,
-          externalTicket: p.ticket,
-          importId: row.id,
-          ...(derived as unknown as Derived),
+        data: [
+          {
+            accountId: account.id,
+            symbol: symbol!,
+            direction: p.direction,
+            status: p.closedAt === null ? "OPEN" : "CLOSED",
+            openedAt: new Date(p.openedAt),
+            closedAt: p.closedAt === null ? null : new Date(p.closedAt),
+            entryPrice: p.entryPrice,
+            exitPrice: p.exitPrice,
+            stopLoss: p.stopLoss,
+            initialStopLoss: p.stopLoss,
+            takeProfit: p.takeProfit,
+            volumeLots: p.volumeLots,
+            commission: p.commission,
+            swap: p.swap,
+            conversionRate: reconciliation?.conversionRate ?? null,
+            brokerProfit: p.brokerProfit,
+            externalTicket: p.ticket,
+            importId: row.id,
+            ...(derived as unknown as Derived),
+          },
+        ],
+      });
+      // skipDuplicates: a concurrent import of the same ticket wins the race
+      // and this row is silently skipped — so are its fills.
+      if (created.count === 0) continue;
+      const trade = await tx.trade.findUniqueOrThrow({
+        where: { accountId_externalTicket: { accountId: account.id, externalTicket: p.ticket } },
+        select: { id: true },
+      });
+      await tx.execution.createMany({
+        data: p.fills.map((f) => ({
+          tradeId: trade.id,
+          kind: f.kind,
+          executedAt: new Date(f.at),
+          price: f.price,
+          volumeLots: f.volumeLots,
         })),
       });
     }
 
-    for (const { position: p, reconciliation, derived, existingId } of closes) {
+    for (const { position: p, reconciliation, existingId } of closes) {
+      // Broker facts first, then the exit as a fill for whatever is still
+      // open, then re-derive everything from the fills.
       await tx.trade.update({
         where: { id: existingId!, accountId: account.id },
         data: {
-          status: "CLOSED",
-          closedAt: new Date(p.closedAt!),
-          exitPrice: p.exitPrice,
           commission: p.commission,
           swap: p.swap,
           conversionRate: reconciliation?.conversionRate ?? null,
           brokerProfit: p.brokerProfit,
-          ...(derived as unknown as Derived),
         },
       });
+      const fills = await tx.execution.findMany({ where: { tradeId: existingId! } });
+      const open = aggregateFills(fills.map(toFill));
+      await tx.execution.create({
+        data: {
+          tradeId: existingId!,
+          kind: "EXIT",
+          executedAt: new Date(p.closedAt!),
+          price: p.exitPrice!,
+          volumeLots: open.volumeLots.minus(open.exitedLots).toString(),
+        },
+      });
+      await syncTradeFromFills(tx, existingId!, account.currency);
     }
 
     if (cash.length) {

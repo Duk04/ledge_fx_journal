@@ -62,7 +62,7 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 718 unit tests across the pure layers (metrics, the backtest
+- **Vitest** — 731 unit tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
   no I/O and no mocking, running in about a second; plus a Postgres-backed
   tier for the authorization wiring and Playwright e2e for four user flows.

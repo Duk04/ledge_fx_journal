@@ -109,6 +109,11 @@ enum Timeframe {
   W1
 }
 
+enum ExecutionKind {
+  ENTRY
+  EXIT
+}
+
 enum StatementSource {
   MT4_HTML
   MT5_HTML
@@ -333,10 +338,13 @@ model Trade {
   openedAt DateTime  @map("opened_at")
   closedAt DateTime? @map("closed_at")
 
-  entryPrice Decimal  @map("entry_price") @db.Decimal(18, 8)
-  exitPrice  Decimal? @map("exit_price") @db.Decimal(18, 8)
-  stopLoss   Decimal? @map("stop_loss") @db.Decimal(18, 8)
-  takeProfit Decimal? @map("take_profit") @db.Decimal(18, 8)
+  entryPrice      Decimal  @map("entry_price") @db.Decimal(18, 8)
+  exitPrice       Decimal? @map("exit_price") @db.Decimal(18, 8)
+  stopLoss        Decimal? @map("stop_loss") @db.Decimal(18, 8)
+  /// Where the stop was at entry. Risk and R are measured against this, so a
+  /// stop trailed to breakeven does not distort R (lib/metrics/trade.ts).
+  initialStopLoss Decimal? @map("initial_stop_loss") @db.Decimal(18, 8)
+  takeProfit      Decimal? @map("take_profit") @db.Decimal(18, 8)
 
   volumeLots     Decimal  @map("volume_lots") @db.Decimal(12, 4)
   commission     Decimal  @default(0) @db.Decimal(18, 2)
@@ -377,6 +385,7 @@ model Trade {
   tradeTags   TradeTag[]
   backtestRun BacktestRun?   @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
   tradeImport TradeImport?   @relation(fields: [importId], references: [id], onDelete: SetNull)
+  executions  Execution[]
 
   @@unique([accountId, externalTicket])
   @@index([accountId, openedAt(sort: Desc)])
@@ -466,6 +475,29 @@ model BalanceEvent {
   @@unique([accountId, externalTicket])
   @@index([accountId, occurredAt(sort: Desc)])
   @@map("balance_events")
+}
+
+/// One fill of a trade: an ENTRY (opening or scaling in) or an EXIT (closing
+/// all or part). The source of truth for a trade's prices and size — the
+/// Trade row's entry/exit/volume/opened/closed are aggregates of these,
+/// written only by trade-service (lib/metrics/fills.ts explains the
+/// aggregate and why it is exact). Every trade has at least one ENTRY.
+model Execution {
+  id             String        @id @default(uuid())
+  tradeId        String        @map("trade_id")
+  kind           ExecutionKind
+  executedAt     DateTime      @map("executed_at")
+  price          Decimal       @db.Decimal(18, 8)
+  volumeLots     Decimal       @map("volume_lots") @db.Decimal(12, 4)
+  /// Broker deal id when imported; dedupe key within the trade.
+  externalDealId String?       @map("external_deal_id")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@unique([tradeId, externalDealId])
+  @@index([tradeId, executedAt])
+  @@map("executions")
 }
 
 /// A broker symbol the user has told the importer how to read, e.g.

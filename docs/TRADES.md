@@ -57,6 +57,38 @@ fix landed instead: `prisma/schema.prisma` declares
 `NEW_YORK @map("NEWYORK")`, so `derivedColumns()` passes the metrics value
 straight through and Prisma maps it at the boundary. The workaround is gone.
 
+## Executions (fills), scaling in, partial closes
+
+A trade is built from `Execution` rows: ENTRY fills (the open, and any
+scale-ins) and EXIT fills (a partial close, the final close). Every OPEN or
+CLOSED trade has at least one ENTRY; a CANCELLED order never filled and has
+none. The fills are the source of truth. The trade row's `entryPrice`,
+`exitPrice`, `volumeLots`, `openedAt`, `closedAt` and `status` are their
+aggregate — volume-weighted prices, total size, first entry, last exit —
+written only by `syncTradeFromFills` (`src/lib/actions/fills-store.ts`), and
+then the derived columns are recomputed through the same trade-service path
+as any other write. `src/lib/metrics/fills.ts` explains why the aggregate is
+exact rather than an approximation for a fully closed trade.
+
+Where fills are created and changed:
+
+- **New trade / import / backtest / duplicate**: one ENTRY (and one EXIT if
+  closed) — what a one-shot trade stands for.
+- **Close trade** (detail page): adds an EXIT. The dialog's "Lots to close"
+  defaults to everything open; fewer is a partial close.
+- **Fills panel** (detail page): add an ENTRY (scale in) or EXIT, or remove a
+  fill. The only ENTRY cannot be removed — delete the trade instead.
+- **Edit form**: for a trade with one entry and at most one exit, editing
+  prices/size/times replaces its fills. With more fills than that the form
+  cannot describe the trade, so those fields are read-only (and the update
+  action ignores them even if posted — it is an endpoint).
+
+**A partly closed trade stays OPEN with no P&L.** Realised P&L on the closed
+part is well defined (average cost), but nothing downstream — stats, equity,
+the risk guard — has a notion of part of a trade being closed, and a number
+that only some reports honour is worse than none. It is reported, in full,
+when the last lot closes.
+
 ## Why geometry problems are warnings, not errors
 
 `validateTradeGeometry()` (from `src/lib/metrics`) flags things like a long

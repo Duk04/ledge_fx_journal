@@ -84,6 +84,9 @@ Why one shared function instead of computing them at every write site:
   account (e.g. "how have I done on XAUUSD").
 - `trades(account_id, status)` — separating OPEN from CLOSED (and CANCELLED)
   trades, used on every dashboard load.
+- `executions(trade_id, executed_at)` — a trade's fills in order; the
+  trade row's prices, size, times and status are their aggregate
+  (docs/TRADES.md, "Executions").
 - `trades(account_id, external_ticket)` **unique** — the broker-ticket dedupe
   key for statement imports: re-importing the same statement must not
   duplicate, per account. Written by `src/lib/actions/statements.ts`;

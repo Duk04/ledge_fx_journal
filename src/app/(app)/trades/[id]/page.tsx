@@ -11,6 +11,7 @@ import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
 import { ScreenshotGallery } from "@/components/trades/screenshot-gallery";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
+import { ExecutionsPanel } from "@/components/trades/executions-panel";
 
 function outcomeOf(
   status: string,
@@ -44,7 +45,14 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
           </span>
         }
         hint={trade.displayName}
-        actions={<TradeDetailActions accountId={trade.accountId} tradeId={trade.id} status={trade.status} />}
+        actions={
+          <TradeDetailActions
+            accountId={trade.accountId}
+            tradeId={trade.id}
+            status={trade.status}
+            openLots={trade.openLots}
+          />
+        }
       />
 
       {trade.hasDisagreement ? (
@@ -77,6 +85,16 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
             </PanelBody>
           </Panel>
 
+          <ExecutionsPanel
+            accountId={trade.accountId}
+            tradeId={trade.id}
+            digits={trade.digits}
+            timezone={user.timezone}
+            executions={trade.executions}
+            openLots={trade.openLots}
+            cancelled={trade.status === "CANCELLED"}
+          />
+
           <Panel>
             <PanelHeader title="Screenshots" />
             <PanelBody>
@@ -106,6 +124,10 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
                 label="Stop loss"
                 value={trade.stopLoss !== null ? formatPrice(Number(trade.stopLoss), trade.digits) : "—"}
               />
+              {trade.initialStopLoss !== null && trade.initialStopLoss !== trade.stopLoss ? (
+                // Shown only when the stop has moved: R is measured from this one.
+                <FactRow label="Initial stop" value={formatPrice(Number(trade.initialStopLoss), trade.digits)} />
+              ) : null}
               <FactRow
                 label="Take profit"
                 value={trade.takeProfit !== null ? formatPrice(Number(trade.takeProfit), trade.digits) : "—"}

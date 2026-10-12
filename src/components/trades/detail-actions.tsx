@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Copy, Pencil, Trash2, X as CloseIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input, NumberInput } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { closeTrade, deleteTrade, duplicateTrade } from "@/lib/actions/trades";
@@ -18,10 +18,13 @@ export function TradeDetailActions({
   accountId,
   tradeId,
   status,
+  openLots,
 }: {
   accountId: string;
   tradeId: string;
   status: string;
+  /** Lots still open — the close dialog's default, and its ceiling. */
+  openLots: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -90,14 +93,19 @@ export function TradeDetailActions({
         </DialogContent>
       </Dialog>
 
+      {/* Keyed on the open size so a partial close resets the default to
+          what is left, instead of offering the old size again. */}
       <CloseTradeDialog
+        key={openLots}
         open={closeOpen}
         onOpenChange={setCloseOpen}
+        openLots={openLots}
         onClose={async (input) => {
           const res = await closeTrade(accountId, tradeId, input);
           if (res.ok) {
             setCloseOpen(false);
-            toast({ title: "Trade closed" });
+            const partial = Number(input.volumeLots) < Number(openLots);
+            toast({ title: partial ? `Closed ${input.volumeLots} of ${openLots} lots` : "Trade closed" });
             router.refresh();
           }
           return res;
@@ -110,17 +118,20 @@ export function TradeDetailActions({
 function CloseTradeDialog({
   open,
   onOpenChange,
+  openLots,
   onClose,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClose: (input: { exitPrice: string; closedAt: string }) => Promise<{
+  openLots: string;
+  onClose: (input: { exitPrice: string; closedAt: string; volumeLots: string }) => Promise<{
     ok: boolean;
     fieldErrors?: Record<string, string[]>;
     formError?: string;
   }>;
 }) {
   const [exitPrice, setExitPrice] = React.useState("");
+  const [volumeLots, setVolumeLots] = React.useState(openLots);
   const [closedAt, setClosedAt] = React.useState(() => toDatetimeLocal(new Date()));
   const [errors, setErrors] = React.useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = React.useState(false);
@@ -130,7 +141,7 @@ function CloseTradeDialog({
     setSubmitting(true);
     setErrors({});
     const closedAtIso = closedAt ? new Date(closedAt).toISOString() : "";
-    const res = await onClose({ exitPrice, closedAt: closedAtIso });
+    const res = await onClose({ exitPrice, closedAt: closedAtIso, volumeLots });
     setSubmitting(false);
     if (!res.ok && res.fieldErrors) setErrors(res.fieldErrors);
   }
@@ -154,6 +165,17 @@ function CloseTradeDialog({
                 aria-invalid={!!errors.exitPrice}
               />
               <FieldError>{errors.exitPrice?.[0]}</FieldError>
+            </Field>
+            <Field>
+              <FieldLabel>Lots to close</FieldLabel>
+              <NumberInput
+                value={volumeLots}
+                onChange={(e) => setVolumeLots(e.target.value)}
+                unit={`of ${openLots}`}
+                aria-invalid={!!errors.volumeLots}
+              />
+              <FieldHint>Fewer than all of them is a partial close; the trade stays open.</FieldHint>
+              <FieldError>{errors.volumeLots?.[0]}</FieldError>
             </Field>
             <Field>
               <FieldLabel>Closed at</FieldLabel>

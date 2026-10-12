@@ -29,6 +29,8 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     entryPrice: trade.entryPrice,
     exitPrice: trade.exitPrice ?? "",
     stopLoss: trade.stopLoss ?? "",
+    // Shown only when it differs: blank means "same as the stop loss".
+    initialStopLoss: trade.initialStopLoss && trade.initialStopLoss !== trade.stopLoss ? trade.initialStopLoss : "",
     takeProfit: trade.takeProfit ?? "",
     volumeLots: trade.volumeLots,
     commission: trade.commission !== "0" ? trade.commission : "",
@@ -54,6 +56,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         instruments={instruments}
         tags={tags}
         currency={trade.currency}
+        fillsLocked={trade.multiFill}
         defaults={defaults}
       />
     </Page>

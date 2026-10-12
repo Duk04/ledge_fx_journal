@@ -57,6 +57,7 @@ export function TradeForm({
   tags,
   currency,
   defaults,
+  fillsLocked = false,
 }: {
   mode: "create" | "edit";
   accountId: string;
@@ -65,6 +66,9 @@ export function TradeForm({
   tags: TagOption[];
   currency: string;
   defaults?: Partial<TradeFormInput>;
+  /** The trade has several fills: its prices, size, times and status come
+   * from them (lib/metrics/fills.ts), so those fields are read-only here. */
+  fillsLocked?: boolean;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -184,73 +188,81 @@ export function TradeForm({
     >
       <Panel>
         <PanelBody className="flex flex-col gap-4">
-          <FieldRow>
-            <Field>
-              <FieldLabel>Symbol</FieldLabel>
-              <Controller
-                control={form.control}
-                name="symbol"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger aria-invalid={!!errors.symbol} className={RESPONSIVE_HEIGHT}>
-                      <SelectValue placeholder="Choose a symbol" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {instruments.map((i) => (
-                        <SelectItem key={i.symbol} value={i.symbol}>
-                          {i.symbol} — {i.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <FieldError>{errors.symbol?.message}</FieldError>
-            </Field>
+          {fillsLocked ? (
+            <p className="rounded-[var(--radius-control)] border border-line bg-panel-sunken px-3 py-2 text-xs text-ink-2">
+              This trade was scaled in or partly closed. Its symbol, prices, size, times and status come from its fills
+              — change those in the Fills panel on the trade page.
+            </p>
+          ) : null}
+          <fieldset disabled={fillsLocked} className="contents">
+            <FieldRow>
+              <Field>
+                <FieldLabel>Symbol</FieldLabel>
+                <Controller
+                  control={form.control}
+                  name="symbol"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger aria-invalid={!!errors.symbol} className={RESPONSIVE_HEIGHT}>
+                        <SelectValue placeholder="Choose a symbol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {instruments.map((i) => (
+                          <SelectItem key={i.symbol} value={i.symbol}>
+                            {i.symbol} — {i.displayName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <FieldError>{errors.symbol?.message}</FieldError>
+              </Field>
 
-            <Field>
-              <FieldLabel>Direction</FieldLabel>
-              <Controller
-                control={form.control}
-                name="direction"
-                render={({ field }) => (
-                  <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)} className="w-full">
-                    <SegmentedItem value="LONG" className="flex-1">
-                      Long
-                    </SegmentedItem>
-                    <SegmentedItem value="SHORT" className="flex-1">
-                      Short
-                    </SegmentedItem>
-                  </Segmented>
-                )}
-              />
-            </Field>
-          </FieldRow>
+              <Field>
+                <FieldLabel>Direction</FieldLabel>
+                <Controller
+                  control={form.control}
+                  name="direction"
+                  render={({ field }) => (
+                    <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)} className="w-full">
+                      <SegmentedItem value="LONG" className="flex-1">
+                        Long
+                      </SegmentedItem>
+                      <SegmentedItem value="SHORT" className="flex-1">
+                        Short
+                      </SegmentedItem>
+                    </Segmented>
+                  )}
+                />
+              </Field>
+            </FieldRow>
 
-          <FieldRow>
-            <Field>
-              <FieldLabel>Volume (lots)</FieldLabel>
-              <NumberInput
-                className={RESPONSIVE_HEIGHT}
-                unit="lots"
-                placeholder="1.00"
-                aria-invalid={!!errors.volumeLots}
-                {...form.register("volumeLots")}
-              />
-              <FieldError>{errors.volumeLots?.message}</FieldError>
-            </Field>
+            <FieldRow>
+              <Field>
+                <FieldLabel>Volume (lots)</FieldLabel>
+                <NumberInput
+                  className={RESPONSIVE_HEIGHT}
+                  unit="lots"
+                  placeholder="1.00"
+                  aria-invalid={!!errors.volumeLots}
+                  {...form.register("volumeLots")}
+                />
+                <FieldError>{errors.volumeLots?.message}</FieldError>
+              </Field>
 
-            <Field>
-              <FieldLabel>Entry price</FieldLabel>
-              <NumberInput
-                className={RESPONSIVE_HEIGHT}
-                placeholder="0.00000"
-                aria-invalid={!!errors.entryPrice}
-                {...form.register("entryPrice")}
-              />
-              <FieldError>{errors.entryPrice?.message}</FieldError>
-            </Field>
-          </FieldRow>
+              <Field>
+                <FieldLabel>Entry price</FieldLabel>
+                <NumberInput
+                  className={RESPONSIVE_HEIGHT}
+                  placeholder="0.00000"
+                  aria-invalid={!!errors.entryPrice}
+                  {...form.register("entryPrice")}
+                />
+                <FieldError>{errors.entryPrice?.message}</FieldError>
+              </Field>
+            </FieldRow>
+          </fieldset>
 
           <FieldRow>
             <Field>
@@ -276,6 +288,24 @@ export function TradeForm({
             </Field>
           </FieldRow>
 
+          <FieldRow>
+            <Field>
+              <FieldLabel optional>Initial stop</FieldLabel>
+              <NumberInput
+                className={RESPONSIVE_HEIGHT}
+                placeholder="same as stop loss"
+                aria-invalid={!!errors.initialStopLoss}
+                {...form.register("initialStopLoss")}
+              />
+              <FieldHint>
+                Where the stop was at entry. R is measured from it, so trailing your stop doesn&rsquo;t change R.
+              </FieldHint>
+              <FieldError>{errors.initialStopLoss?.message}</FieldError>
+            </Field>
+            {/* Keeps the field half-width, aligned with Stop loss above. */}
+            <div aria-hidden />
+          </FieldRow>
+
           {geometryWarnings.length > 0 ? (
             <div className="flex flex-col gap-1 rounded-[var(--radius-control)] border border-warn/30 bg-warn-weak px-3 py-2 text-xs text-warn">
               {geometryWarnings.map((w) => (
@@ -284,55 +314,57 @@ export function TradeForm({
             </div>
           ) : null}
 
-          <Field>
-            <FieldLabel>Status</FieldLabel>
-            <Controller
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)}>
-                  <SegmentedItem value="OPEN">Open</SegmentedItem>
-                  <SegmentedItem value="CLOSED">Closed</SegmentedItem>
-                  <SegmentedItem value="CANCELLED">Cancelled</SegmentedItem>
-                </Segmented>
-              )}
-            />
-          </Field>
-
-          <FieldRow>
+          <fieldset disabled={fillsLocked} className="contents">
             <Field>
-              <FieldLabel optional={status !== "CLOSED"}>Exit price</FieldLabel>
-              <NumberInput
-                className={RESPONSIVE_HEIGHT}
-                placeholder="0.00000"
-                aria-invalid={!!errors.exitPrice}
-                {...form.register("exitPrice")}
+              <FieldLabel>Status</FieldLabel>
+              <Controller
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <Segmented value={field.value} onValueChange={(v) => v && field.onChange(v)}>
+                    <SegmentedItem value="OPEN">Open</SegmentedItem>
+                    <SegmentedItem value="CLOSED">Closed</SegmentedItem>
+                    <SegmentedItem value="CANCELLED">Cancelled</SegmentedItem>
+                  </Segmented>
+                )}
               />
-              <FieldError>{errors.exitPrice?.message}</FieldError>
             </Field>
 
+            <FieldRow>
+              <Field>
+                <FieldLabel optional={status !== "CLOSED"}>Exit price</FieldLabel>
+                <NumberInput
+                  className={RESPONSIVE_HEIGHT}
+                  placeholder="0.00000"
+                  aria-invalid={!!errors.exitPrice}
+                  {...form.register("exitPrice")}
+                />
+                <FieldError>{errors.exitPrice?.message}</FieldError>
+              </Field>
+
+              <Field>
+                <FieldLabel optional={status !== "CLOSED"}>Closed at</FieldLabel>
+                <Input
+                  type="datetime-local"
+                  className={RESPONSIVE_HEIGHT}
+                  aria-invalid={!!errors.closedAt}
+                  {...form.register("closedAt")}
+                />
+                <FieldError>{errors.closedAt?.message}</FieldError>
+              </Field>
+            </FieldRow>
+
             <Field>
-              <FieldLabel optional={status !== "CLOSED"}>Closed at</FieldLabel>
+              <FieldLabel>Opened at</FieldLabel>
               <Input
                 type="datetime-local"
-                className={RESPONSIVE_HEIGHT}
-                aria-invalid={!!errors.closedAt}
-                {...form.register("closedAt")}
+                className={cn(RESPONSIVE_HEIGHT, "max-w-xs")}
+                aria-invalid={!!errors.openedAt}
+                {...form.register("openedAt")}
               />
-              <FieldError>{errors.closedAt?.message}</FieldError>
+              <FieldError>{errors.openedAt?.message}</FieldError>
             </Field>
-          </FieldRow>
-
-          <Field>
-            <FieldLabel>Opened at</FieldLabel>
-            <Input
-              type="datetime-local"
-              className={cn(RESPONSIVE_HEIGHT, "max-w-xs")}
-              aria-invalid={!!errors.openedAt}
-              {...form.register("openedAt")}
-            />
-            <FieldError>{errors.openedAt?.message}</FieldError>
-          </Field>
+          </fieldset>
 
           <Field>
             <FieldLabel optional>Tags</FieldLabel>

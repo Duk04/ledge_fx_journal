@@ -11,6 +11,9 @@ import { closeTradeSchema, parseTradeForm, type TradeFormValues } from "@/lib/sc
 import { derivedColumns, instrumentSpec } from "@/lib/trade-service";
 import { resolveConversion } from "@/lib/conversion";
 import type { TradeInput } from "@/lib/metrics/types";
+import { hasMultipleFills, simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
+import { aggregateFills, validateFills } from "@/lib/metrics/fills";
+import { Decimal } from "decimal.js";
 
 /**
  * Trade writes. Every action here follows the same shape: authenticate,
@@ -60,7 +63,14 @@ type PlainDerivedNumbers = {
  * account records a P&L that is wrong by two orders of magnitude. See
  * src/lib/conversion.ts for why this is never allowed to default silently.
  */
-function formTradeInput(values: TradeFormValues, instrument: Instrument, accountCurrency: string): TradeInput {
+function formTradeInput(
+  values: TradeFormValues,
+  instrument: Instrument,
+  accountCurrency: string,
+  /** The stop R is measured from, when it is not simply the form's value
+   * (an edit that leaves the field blank keeps the stored one). */
+  initialStopLoss?: string | null,
+): TradeInput {
   const conversion = resolveConversion({
     instrument,
     accountCurrency,
@@ -73,6 +83,7 @@ function formTradeInput(values: TradeFormValues, instrument: Instrument, account
     entryPrice: values.entryPrice,
     exitPrice: values.exitPrice,
     stopLoss: values.stopLoss,
+    initialStopLoss: initialStopLoss ?? values.initialStopLoss ?? values.stopLoss,
     takeProfit: values.takeProfit,
     volumeLots: values.volumeLots,
     commission: values.commission ?? 0,
@@ -132,6 +143,7 @@ export async function createTrade(accountId: string, formData: FormData): Promis
       entryPrice: parsed.values.entryPrice.toString(),
       exitPrice: parsed.values.exitPrice?.toString() ?? null,
       stopLoss: parsed.values.stopLoss?.toString() ?? null,
+      initialStopLoss: (parsed.values.initialStopLoss ?? parsed.values.stopLoss)?.toString() ?? null,
       takeProfit: parsed.values.takeProfit?.toString() ?? null,
       volumeLots: parsed.values.volumeLots.toString(),
       commission: (parsed.values.commission ?? 0).toString(),
@@ -143,6 +155,7 @@ export async function createTrade(accountId: string, formData: FormData): Promis
       notes: parsed.values.notes ?? null,
       ...(derived as unknown as PlainDerivedNumbers),
       tradeTags: tagIds.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
+      executions: { create: simpleExecutionsCreate(parsed.values) },
     },
   });
 
@@ -160,7 +173,10 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
   if ("failure" in found) return found.failure;
   const account = found.account;
 
-  const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId: account.id } });
+  const existing = await prisma.trade.findFirst({
+    where: { id: tradeId, accountId: account.id },
+    include: { executions: { select: { kind: true } } },
+  });
   if (!existing) return fail("Trade not found.");
 
   const symbols = await listActiveSymbols();
@@ -173,32 +189,55 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
   const tagIds = await assertTagsOwned(user.id, parsed.values.tagIds);
   if (tagIds === null) return failFields({ tagIds: ["One or more tags could not be found."] });
 
-  const derived = derivedColumns(formTradeInput(parsed.values, instrument, account.currency));
+  // Everything the fills do NOT own. `initialStopLoss` keeps its stored value
+  // when the field is left blank, and only falls back to the stop for a trade
+  // that never had one.
+  const descriptive = {
+    stopLoss: parsed.values.stopLoss?.toString() ?? null,
+    initialStopLoss:
+      (parsed.values.initialStopLoss ?? existing.initialStopLoss ?? parsed.values.stopLoss)?.toString() ?? null,
+    takeProfit: parsed.values.takeProfit?.toString() ?? null,
+    commission: (parsed.values.commission ?? 0).toString(),
+    swap: (parsed.values.swap ?? 0).toString(),
+    conversionRate: parsed.values.conversionRate?.toString() ?? null,
+    followedPlan: parsed.values.followedPlan ?? null,
+    emotion: parsed.values.emotion ?? null,
+    confidence: parsed.values.confidence ?? null,
+    notes: parsed.values.notes ?? null,
+    tradeTags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
+  };
 
-  await prisma.trade.update({
-    where: { id: tradeId },
-    data: {
-      symbol: instrument.symbol,
-      direction: parsed.values.direction,
-      status: parsed.values.status,
-      openedAt: parsed.values.openedAt,
-      closedAt: parsed.values.closedAt ?? null,
-      entryPrice: parsed.values.entryPrice.toString(),
-      exitPrice: parsed.values.exitPrice?.toString() ?? null,
-      stopLoss: parsed.values.stopLoss?.toString() ?? null,
-      takeProfit: parsed.values.takeProfit?.toString() ?? null,
-      volumeLots: parsed.values.volumeLots.toString(),
-      commission: (parsed.values.commission ?? 0).toString(),
-      swap: (parsed.values.swap ?? 0).toString(),
-      conversionRate: parsed.values.conversionRate?.toString() ?? null,
-      followedPlan: parsed.values.followedPlan ?? null,
-      emotion: parsed.values.emotion ?? null,
-      confidence: parsed.values.confidence ?? null,
-      notes: parsed.values.notes ?? null,
-      ...derived,
-      tradeTags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
-    },
-  });
+  if (hasMultipleFills(existing.executions)) {
+    // Scaled in or partly closed: prices, size, times and status come from
+    // the fills, which the form cannot express. Those form fields are
+    // read-only in that case, and are ignored here regardless — this is an
+    // endpoint, and a crafted POST must not desync the aggregate.
+    await prisma.$transaction(async (tx) => {
+      await tx.trade.update({ where: { id: tradeId }, data: descriptive });
+      await syncTradeFromFills(tx, tradeId, account.currency);
+    });
+  } else {
+    const derived = derivedColumns(
+      formTradeInput(parsed.values, instrument, account.currency, descriptive.initialStopLoss),
+    );
+    await prisma.trade.update({
+      where: { id: tradeId },
+      data: {
+        ...descriptive,
+        symbol: instrument.symbol,
+        direction: parsed.values.direction,
+        status: parsed.values.status,
+        openedAt: parsed.values.openedAt,
+        closedAt: parsed.values.closedAt ?? null,
+        entryPrice: parsed.values.entryPrice.toString(),
+        exitPrice: parsed.values.exitPrice?.toString() ?? null,
+        volumeLots: parsed.values.volumeLots.toString(),
+        ...derived,
+        // The one entry (and exit) the form describes, replacing the old.
+        executions: { deleteMany: {}, create: simpleExecutionsCreate(parsed.values) },
+      },
+    });
+  }
 
   revalidateTradeViews(tradeId);
   return ok({ id: tradeId });
@@ -221,13 +260,14 @@ export async function deleteTrade(accountId: string, tradeId: string): Promise<T
 }
 
 // ---------------------------------------------------------------------------
-// closeTrade — the common case: just an exit price and a close time.
+// closeTrade — an exit price and a close time; optionally only part of the
+// position (a partial close keeps the trade OPEN — lib/metrics/fills.ts).
 // ---------------------------------------------------------------------------
 
 export async function closeTrade(
   accountId: string,
   tradeId: string,
-  input: { exitPrice: string | number; closedAt: string | Date },
+  input: { exitPrice: string | number; closedAt: string | Date; volumeLots?: string | number | null },
 ): Promise<TradeResult> {
   const found = await accountOrFailure(accountId);
   if ("failure" in found) return found.failure;
@@ -240,43 +280,38 @@ export async function closeTrade(
 
   const existing = await prisma.trade.findFirst({
     where: { id: tradeId, accountId },
-    include: { instrument: true },
+    include: { executions: true },
   });
   if (!existing) return fail("Trade not found.");
+  if (existing.status !== "OPEN") return fail("Only an open trade can be closed.");
   if (parsed.data.closedAt.getTime() < existing.openedAt.getTime()) {
     return failFields({ closedAt: ["Close time cannot be before the open time."] });
   }
 
-  const derived = derivedColumns({
-    instrument: instrumentSpec(existing.instrument),
-    direction: existing.direction,
-    entryPrice: existing.entryPrice.toString(),
-    exitPrice: parsed.data.exitPrice.toString(),
-    stopLoss: existing.stopLoss?.toString(),
-    takeProfit: existing.takeProfit?.toString(),
-    volumeLots: existing.volumeLots.toString(),
-    commission: existing.commission.toString(),
-    swap: existing.swap.toString(),
-    // The exit price we are about to store is the rate that realised this
-    // trade, so resolve the conversion against it rather than the entry.
-    conversionRate: resolveConversion({
-      instrument: existing.instrument,
-      accountCurrency: account.currency,
-      explicitRate: existing.conversionRate?.toString() ?? null,
-      referencePrice: parsed.data.exitPrice,
-    }).rate.toString(),
-    openedAt: existing.openedAt,
-    closedAt: parsed.data.closedAt,
-  });
+  const fills = existing.executions.map(toFill);
+  const { volumeLots: entered, exitedLots } = aggregateFills(fills);
+  const open = entered.minus(exitedLots);
+  const lots = parsed.data.volumeLots === undefined ? open : new Decimal(parsed.data.volumeLots);
+  if (lots.gt(open)) {
+    return failFields({ volumeLots: [`Only ${open.toString()} lots are still open.`] });
+  }
+  const problems = validateFills([
+    ...fills,
+    { kind: "EXIT", executedAt: parsed.data.closedAt, price: parsed.data.exitPrice, volumeLots: lots },
+  ]);
+  if (problems.length) return failFields({ closedAt: [problems[0].message] });
 
-  await prisma.trade.update({
-    where: { id: tradeId },
-    data: {
-      status: "CLOSED",
-      exitPrice: parsed.data.exitPrice.toString(),
-      closedAt: parsed.data.closedAt,
-      ...derived,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.execution.create({
+      data: {
+        tradeId,
+        kind: "EXIT",
+        executedAt: parsed.data.closedAt,
+        price: parsed.data.exitPrice.toString(),
+        volumeLots: lots.toString(),
+      },
+    });
+    await syncTradeFromFills(tx, tradeId, account.currency);
   });
 
   revalidateTradeViews(tradeId);
@@ -326,21 +361,26 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
   // just logged is one you're about to take again, not a second copy of
   // history with a fabricated close. Discipline fields (emotion, confidence,
   // followedPlan, notes) are left blank since they describe THIS occurrence.
+  const now = new Date();
   const created = await prisma.trade.create({
     data: {
       accountId,
       symbol: existing.symbol,
       direction: existing.direction,
       status: "OPEN",
-      openedAt: new Date(),
+      openedAt: now,
       entryPrice: existing.entryPrice,
       stopLoss: existing.stopLoss,
+      initialStopLoss: existing.initialStopLoss ?? existing.stopLoss,
       takeProfit: existing.takeProfit,
       volumeLots: existing.volumeLots,
       conversionRate: existing.conversionRate,
       tradeTags: existing.tradeTags.length
         ? { create: existing.tradeTags.map((tt) => ({ tagId: tt.tagId })) }
         : undefined,
+      executions: {
+        create: [{ kind: "ENTRY", executedAt: now, price: existing.entryPrice, volumeLots: existing.volumeLots }],
+      },
     },
   });
 

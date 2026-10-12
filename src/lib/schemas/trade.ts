@@ -69,6 +69,9 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
       ),
       exitPrice: optionalPositive("Exit price must be greater than 0"),
       stopLoss: optionalPositive("Stop loss must be greater than 0"),
+      // Where the stop was at entry; R is measured from it. Blank = same as
+      // the stop loss (lib/metrics/trade.ts, riskStop).
+      initialStopLoss: optionalPositive("Initial stop must be greater than 0"),
       takeProfit: optionalPositive("Take profit must be greater than 0"),
 
       volumeLots: z.preprocess(
@@ -149,6 +152,7 @@ const SCALAR_KEYS = [
   "entryPrice",
   "exitPrice",
   "stopLoss",
+  "initialStopLoss",
   "takeProfit",
   "volumeLots",
   "commission",
@@ -225,6 +229,12 @@ export const closeTradeSchema = z.object({
     .finite()
     .positive("Exit price must be greater than 0"),
   closedAt: z.coerce.date({ error: "Close date/time is required" }),
+  /** Lots to close. Omitted = everything still open; fewer = a partial close,
+   * after which the trade stays OPEN (lib/metrics/fills.ts). */
+  volumeLots: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.coerce.number().finite().positive("Volume must be greater than 0").optional(),
+  ),
 });
 
 export type CloseTradeValues = z.infer<typeof closeTradeSchema>;

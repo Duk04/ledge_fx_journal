@@ -318,3 +318,41 @@ describe("computeTrade — single entry point", () => {
     expect(result.holdingMinutes).toBe(60);
   });
 });
+
+describe("initialStopLoss", () => {
+  // Long EURUSD 1 lot, entry 1.1000, opened with a 10-pip stop at 1.0990,
+  // stop later trailed to breakeven, closed at 1.1020 (+20 pips, $200).
+  const base = {
+    instrument: {
+      symbol: "EURUSD",
+      pipSize: "0.0001",
+      contractSize: "100000",
+      digits: 5,
+      quoteCurrency: "USD",
+      assetClass: "FX" as const,
+    },
+    direction: "LONG" as const,
+    entryPrice: "1.1000",
+    exitPrice: "1.1020",
+    takeProfit: "1.1030",
+    volumeLots: "1",
+    openedAt: new Date("2026-03-04T10:00:00Z"),
+    closedAt: new Date("2026-03-04T12:00:00Z"),
+  };
+
+  it("measures risk against the stop the trade was opened with, not the moved one", () => {
+    const r = computeTrade({ ...base, stopLoss: "1.1000", initialStopLoss: "1.0990" });
+    expect(r.riskAmount!.toString()).toBe("100");
+    expect(r.rMultiple!.toString()).toBe("2");
+    expect(r.plannedRR!.toString()).toBe("3");
+  });
+
+  it("falls back to stopLoss when no initial stop is recorded", () => {
+    const r = computeTrade({ ...base, stopLoss: "1.0990" });
+    expect(r.rMultiple!.toString()).toBe("2");
+  });
+
+  it("without it, a stop moved to breakeven leaves R undefined", () => {
+    expect(computeTrade({ ...base, stopLoss: "1.1000" }).rMultiple).toBeNull();
+  });
+});

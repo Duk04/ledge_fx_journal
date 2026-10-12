@@ -69,9 +69,9 @@ export function computeNetPnl(trade: TradeInput): Decimal | null {
 }
 
 /**
- * Pure price risk implied by the stop loss, in account currency:
+ * Pure price risk implied by the INITIAL stop loss, in account currency:
  *
- *   riskPips = |entry - stopLoss| / pipSize
+ *   riskPips = |entry - (initialStopLoss ?? stopLoss)| / pipSize
  *   riskAmount = riskPips * pipValuePerLot * volumeLots
  *
  * Deliberately excludes commission/swap: risk is defined as the loss if
@@ -82,10 +82,16 @@ export function computeNetPnl(trade: TradeInput): Decimal | null {
  * loss is set.
  */
 export function computeRiskAmount(trade: TradeInput): Decimal | null {
-  if (trade.stopLoss === undefined) return null;
-  const riskPips = d(trade.entryPrice).minus(d(trade.stopLoss)).abs().div(d(trade.instrument.pipSize));
+  const stop = riskStop(trade);
+  if (stop === undefined) return null;
+  const riskPips = d(trade.entryPrice).minus(d(stop)).abs().div(d(trade.instrument.pipSize));
   const pipValue = pipValuePerLot(trade.instrument, trade.conversionRate);
   return riskPips.times(pipValue).times(d(trade.volumeLots));
+}
+
+/** The stop that defines the trade's risk: the one it was opened with. */
+function riskStop(trade: TradeInput) {
+  return trade.initialStopLoss ?? trade.stopLoss;
 }
 
 /** netPnl / riskAmount. null when either is unavailable, or riskAmount is zero (would be a division by zero). */
@@ -107,13 +113,16 @@ export function computeRMultiple(trade: TradeInput): Decimal | null {
  * geometrically broken plan has no meaningful reward:risk number.
  */
 export function computePlannedRR(trade: TradeInput): Decimal | null {
-  if (trade.stopLoss === undefined || trade.takeProfit === undefined) return null;
+  const stop = riskStop(trade);
+  if (stop === undefined || trade.takeProfit === undefined) return null;
   const entry = d(trade.entryPrice);
-  const sl = d(trade.stopLoss);
+  const sl = d(stop);
   const tp = d(trade.takeProfit);
   const riskDelta = entry.minus(sl).abs();
   if (riskDelta.isZero()) return null;
-  const problems = validateTradeGeometry(trade);
+  // The plan is judged by the stop it was made with, so a stop trailed past
+  // entry (a legitimate thing to do) does not erase the planned R:R.
+  const problems = validateTradeGeometry({ ...trade, stopLoss: stop });
   const hasGeometryProblem = problems.some((p) => p.code === "SL_WRONG_SIDE" || p.code === "TP_WRONG_SIDE");
   if (hasGeometryProblem) return null;
   const rewardDelta = tp.minus(entry).abs();

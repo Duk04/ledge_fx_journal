@@ -138,8 +138,10 @@ empty CSV field, not the literal word "null".
 
 Everything the user owns, as one JSON document: profile (minus password
 hash), every trading account with its balance events and trades (each
-trade including its tags and attachment metadata), all tags, and all
-journal entries. A top-level `notIncluded` array documents what's
+trade including its tags, attachment metadata and fills), all tags, and all
+journal entries. `schemaVersion` is 2 since fills and `initialStopLoss` were
+added; a version-1 file has neither, and each of its trades should be read as
+one entry (and one exit if closed) at the trade's own prices and times. A top-level `notIncluded` array documents what's
 deliberately left out — the password hash, other users' data, the shared
 instrument reference table, and attachment file bytes (only the stored URL
 or storage key travels with the export, never the underlying file).

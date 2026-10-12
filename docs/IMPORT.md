@@ -97,9 +97,15 @@ Each import is a `TradeImport` row; the trades and cash movements it created
 point to it. **Undo** deletes exactly those, then the row. A position the
 import only *closed* existed before it and is left alone.
 
-## Partial fills
+## Fills
 
-Not yet. MT5's Positions table is already aggregated (volume-weighted prices)
-and is what is read; the parsers emit a `fills` array with one entry and one
-exit so the executions work can fill it in from the Deals table later without
-changing the format code.
+Every imported trade is written with its fills (`Execution` rows,
+docs/TRADES.md "Executions"): one entry, and one exit if closed. MT5's
+Positions table is already aggregated — volume-weighted prices for a
+position that was scaled — so a scaled MT5 position arrives as one entry and
+one exit at those averages, which gives the same P&L. Reading individual
+fills from the Deals table needs the deal→position link, which the HTML
+report does not print; the parsers' `fills` array is where that would go.
+
+A position imported open and closed by a later statement gets an EXIT fill
+for whatever is still open, and is then re-derived from its fills.

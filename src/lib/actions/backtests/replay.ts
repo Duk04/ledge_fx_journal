@@ -1,5 +1,6 @@
 "use server";
 
+import { simpleExecutionsCreate } from "../fills-store";
 import { z } from "zod";
 import { Decimal } from "decimal.js";
 import { classifyOutcome } from "@/lib/metrics";
@@ -144,6 +145,7 @@ export async function recordReplayTrade(runId: string, trade: SimTrade): Promise
         entryPrice: journalInput.entryPrice,
         exitPrice: journalInput.exitPrice,
         stopLoss: journalInput.stopLoss,
+        initialStopLoss: journalInput.stopLoss,
         takeProfit: journalInput.takeProfit,
         volumeLots: journalInput.volumeLots,
         commission: journalInput.commission,
@@ -156,6 +158,7 @@ export async function recordReplayTrade(runId: string, trade: SimTrade): Promise
         marketSession: journalInput.marketSession,
         backtestRunId: journalInput.backtestRunId,
         notes: journalInput.notes,
+        executions: { create: simpleExecutionsCreate(journalInput) },
       },
     });
 

@@ -21,12 +21,22 @@ import { resolveConversion } from "../src/lib/conversion";
 
 const dry = process.argv.includes("--dry");
 
-function same(a: unknown, b: unknown) {
+/**
+ * `a` is freshly computed (full decimal.js precision), `b` is what the column
+ * holds (rounded to its scale by Postgres). Comparing them unrounded made
+ * every trade with a non-terminating ratio look "changed" — the dry run never
+ * reported zero, and a real run rewrote rows that were already right. So the
+ * computed value is rounded to the column's scale first (schema.prisma:
+ * money and pips are Decimal(…, 2), r_multiple is Decimal(10, 4)).
+ */
+function same(a: unknown, b: unknown, scale?: number) {
   if (a === null || a === undefined) return b === null || b === undefined;
   if (b === null || b === undefined) return false;
   if (typeof a === "number" || typeof b === "number") return Number(a) === Number(b);
   try {
-    return new Decimal(String(a)).eq(new Decimal(String(b)));
+    const computed = new Decimal(String(a));
+    const rounded = scale === undefined ? computed : computed.toDecimalPlaces(scale, Decimal.ROUND_HALF_UP);
+    return rounded.eq(new Decimal(String(b)));
   } catch {
     return String(a) === String(b);
   }
@@ -61,11 +71,11 @@ async function main() {
 
       const next = derivedColumns(tradeInput(trade, trade.instrument, account.currency));
       const moved =
-        !same(next.netPnl, trade.netPnl) ||
-        !same(next.pips, trade.pips) ||
-        !same(next.rMultiple, trade.rMultiple) ||
-        !same(next.riskAmount, trade.riskAmount) ||
-        !same(next.grossPnl, trade.grossPnl) ||
+        !same(next.netPnl, trade.netPnl, 2) ||
+        !same(next.pips, trade.pips, 2) ||
+        !same(next.rMultiple, trade.rMultiple, 4) ||
+        !same(next.riskAmount, trade.riskAmount, 2) ||
+        !same(next.grossPnl, trade.grossPnl, 2) ||
         next.holdingMinutes !== trade.holdingMinutes ||
         next.marketSession !== trade.marketSession;
 
