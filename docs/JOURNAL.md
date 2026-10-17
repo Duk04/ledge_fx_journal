@@ -31,6 +31,41 @@ Concretely (`src/lib/queries/journal.ts`):
   …), which is fixed to UTC hours in `src/lib/metrics/session.ts` regardless
   of any user setting, and it never rewrites a stored timestamp.
 
+## Stats, balance chart and the calendar's weekly column
+
+`/journal` opens with a range bar (two dates plus Today / Last week / Last
+month), a grid of figure cards, and a daily account balance chart, above the
+calendar.
+
+- **The range is calendar dates, not a rolling duration.** `?from=&to=` are
+  `YYYY-MM-DD` in the user's timezone, both inclusive;
+  `resolveJournalRange()` (`src/lib/range.ts`) turns them into instants and
+  falls back to "the same day last month through today" for anything
+  missing, malformed or reversed. The presets are computed on the server in
+  the user's zone and passed to the client, which never does timezone
+  arithmetic itself.
+- **One convention: closed trades, by close date.** `journalStats()`
+  (`src/lib/queries/analytics/journal-stats.ts`) takes trades whose
+  `closedAt` falls in the range — the same rule the calendar cells below use,
+  so a card, the chart and a day cell always agree. This is deliberately not
+  the Overview's activity window (docs/ANALYTICS.md); a trade's money
+  belongs to the day it was realised.
+- **The cards** are computed in `src/lib/metrics/journal-stats.ts`, whose
+  header lists the judgement calls: scratch days count toward neither green
+  nor red, "best day % of total profit" divides by net P&L and is blank when
+  that is not positive, and weekday cards rank only weekdays that traded.
+  "Average R" sits where a lot total would: trades are logged in R and carry
+  no size.
+- **The balance chart** plots the balance at the end of each local day that
+  had a trade close or a cash movement, opening at the balance the account
+  had at the start of the range (the full-history equity curve, not the
+  starting balance).
+- **The calendar** tints a day green or red by its closed-trade P&L and adds
+  a weekly total per row (`monthView().weeks`, summed in decimal). The
+  calendar pages by `?month` and keeps the range; without `?month` it shows
+  the month the range ends in. Cancelled trades are not counted on a day —
+  they used to be, inflating the badge.
+
 ## The autosave contract
 
 The day view (`/journal/[date]`) never makes the user click "create entry"

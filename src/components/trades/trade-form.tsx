@@ -602,7 +602,7 @@ export function TradeForm({
         </PanelBody>
       </Panel>
 
-      <PreviewStrip preview={preview} />
+      <PreviewStrip preview={preview} mode={rMode ? "R_MULTIPLE" : "PRICE"} />
 
       <Panel>
         {/* A real disclosure: the button sits inside the heading (a heading

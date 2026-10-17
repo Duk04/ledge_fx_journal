@@ -8,6 +8,7 @@ export * from "./stat";
 export * from "./value";
 export * from "./r-bar";
 export * from "./sparkline";
+export * from "./ring";
 
 export * from "./input";
 export * from "./field";

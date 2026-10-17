@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RANGE_OPTIONS, isRangeKey, resolveRange } from "./range";
+import { RANGE_OPTIONS, isRangeKey, resolveJournalRange, resolveRange } from "./range";
 
 /**
  * `resolveRange` takes `now` as a parameter, which is what makes this
@@ -148,5 +148,39 @@ describe("resolveRange", () => {
     it("is ordered shortest to longest, which is what the picker renders", () => {
       expect(RANGE_OPTIONS.map((o) => o.value)).toEqual(["7d", "30d", "90d", "ytd", "all"]);
     });
+  });
+});
+
+describe("resolveJournalRange", () => {
+  // 2026-10-17 01:00 in Ulaanbaatar is still the 16th in UTC.
+  const now = new Date("2026-10-16T17:00:00Z");
+  const TZ = "Asia/Ulaanbaatar";
+
+  it("defaults to the same day last month through today, in the user's zone", () => {
+    const r = resolveJournalRange({}, TZ, now);
+    expect([r.from, r.to, r.preset]).toEqual(["2026-09-17", "2026-10-17", "lastMonth"]);
+    expect(r.window.from.toISOString()).toBe("2026-09-16T16:00:00.000Z");
+    expect(r.window.to.toISOString()).toBe("2026-10-17T15:59:59.999Z");
+  });
+
+  it("names the preset that matches custom dates, and none otherwise", () => {
+    expect(resolveJournalRange({ from: "2026-10-10", to: "2026-10-17" }, TZ, now).preset).toBe("lastWeek");
+    expect(resolveJournalRange({ from: "2026-10-17", to: "2026-10-17" }, TZ, now).preset).toBe("today");
+    expect(resolveJournalRange({ from: "2026-10-01", to: "2026-10-05" }, TZ, now).preset).toBeNull();
+  });
+
+  it("falls back on malformed, impossible or reversed dates", () => {
+    for (const p of [
+      { from: "x", to: "2026-10-05" },
+      { from: "2026-02-30", to: "2026-03-01" },
+      { from: "2026-10-05", to: "2026-10-01" },
+    ]) {
+      expect(resolveJournalRange(p, TZ, now).preset).toBe("lastMonth");
+    }
+  });
+
+  it("returns plain Dates, not TZDates", () => {
+    const r = resolveJournalRange({}, TZ, now);
+    expect(r.window.from.constructor).toBe(Date);
   });
 });

@@ -180,12 +180,19 @@ export function buildWarnings(values: Partial<TradeFormInput>, instrument: Instr
   }
 }
 
-export function PreviewStrip({ preview }: { preview: Preview | null }) {
+export function PreviewStrip({
+  preview,
+  mode,
+}: {
+  preview: Preview | null;
+  /** Labels the strip before there is a preview to read the mode from. */
+  mode: Preview["mode"];
+}) {
   const t = useTranslations("trades.form.preview");
   return (
     <Panel className="bg-panel-sunken">
       <PanelBody className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label={preview?.mode === "R_MULTIPLE" ? t("result") : t("pips")} value={preview ? preview.pips : "—"} />
+        <Stat label={mode === "R_MULTIPLE" ? t("result") : t("pips")} value={preview ? preview.pips : "—"} />
         <Stat label={t("risk")} value={preview ? preview.riskAmount : "—"} />
         <Stat label={t("plannedRR")} value={preview ? preview.plannedRR : "—"} />
         <Stat

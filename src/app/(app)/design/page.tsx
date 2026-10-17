@@ -17,6 +17,8 @@ import {
   StatRow,
   RBar,
   Sparkline,
+  Donut,
+  Gauge,
   Input,
   NumberInput,
   Textarea,
@@ -141,6 +143,13 @@ export default function DesignSystemPage() {
           <PanelHeader title="Sparkline" />
           <PanelBody>
             <SparklineShowcase />
+          </PanelBody>
+        </Panel>
+
+        <Panel className="lg:col-span-12">
+          <PanelHeader title="Donut & Gauge" />
+          <PanelBody>
+            <RingShowcase />
           </PanelBody>
         </Panel>
 
@@ -569,6 +578,31 @@ function SparklineShowcase() {
         <div key={s.label} className="flex flex-col gap-1.5 rounded-control border border-line p-3">
           <span className="text-xs text-ink-2">{s.label}</span>
           <Sparkline values={s.values} width={160} height={32} tone={s.tone} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Donut / Gauge
+// ---------------------------------------------------------------------------
+
+const RING_CASES: { label: string; positive: number; negative: number }[] = [
+  { label: "7 wins, 5 losses", positive: 7, negative: 5 },
+  { label: "Lopsided, 98 / 2", positive: 98, negative: 2 },
+  { label: "All one side", positive: 4, negative: 0 },
+  { label: "Nothing yet (drawn empty)", positive: 0, negative: 0 },
+];
+
+function RingShowcase() {
+  return (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {RING_CASES.map((c) => (
+        <div key={c.label} className="flex flex-col items-center gap-2 rounded-control border border-line p-3">
+          <Gauge positive={c.positive} negative={c.negative} />
+          <Donut positive={c.positive} negative={c.negative} />
+          <span className="text-center text-xs text-ink-2">{c.label}</span>
         </div>
       ))}
     </div>

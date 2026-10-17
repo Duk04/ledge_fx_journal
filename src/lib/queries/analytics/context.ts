@@ -69,6 +69,7 @@ export const fetchAccountData = cache(async (userId: string, accountId: string) 
         closedAt: true,
         entryMode: true,
         entryPrice: true,
+        exitPrice: true,
         plannedRR: true,
         plannedRisk: true,
         stopLoss: true,

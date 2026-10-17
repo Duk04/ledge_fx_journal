@@ -42,6 +42,9 @@ purpose:
   null) — that value is also where the equity chart draws its reference
   line, and it is passed down as `overview().equityStartBalance`.
 
+The journal page's figures (`journalStats()`) are a third case and use only
+the chronological window, by `closedAt` — see docs/JOURNAL.md, "Stats".
+
 `recentTrades`, `openTrades`, and `todayPnl`/`weekPnl`/`monthPnl` ignore the
 range entirely — they answer "what's happening right now", so switching the
 range shouldn't hide the open-positions list or make today's P&L disappear.

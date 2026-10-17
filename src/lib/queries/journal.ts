@@ -104,9 +104,18 @@ export type CalendarDay = {
   date: string; // YYYY-MM-DD
   /** Net P&L string for the day's CLOSED trades, or null if there were none. */
   netPnl: string | null;
-  /** Every trade touching this local day (open or closed), for the trade-count badge. */
+  /** Every trade touching this local day (open or closed, never cancelled), for the trade-count badge. */
   tradeCount: number;
   hasEntry: boolean;
+};
+
+/** One Monday-first row of the calendar grid, totalled. */
+export type CalendarWeek = {
+  /** 1-based row number within the month's grid. */
+  index: number;
+  /** Net P&L of the row's in-month days; "0" when nothing closed. */
+  netPnl: string;
+  tradeCount: number;
 };
 
 export type MonthView = {
@@ -114,6 +123,8 @@ export type MonthView = {
   daysInMonth: number;
   /** One entry per calendar day of the month, in order (day 1 first). */
   days: CalendarDay[];
+  /** One per grid row, summed in decimal here rather than in the component. */
+  weeks: CalendarWeek[];
   /** This month's journal entries, newest first — the list under the calendar. */
   entries: MonthEntrySummary[];
 };
@@ -157,6 +168,9 @@ export async function monthView(
 
   const bucket = new Map<string, { netPnl: Decimal; tradeCount: number }>();
   for (const t of trades) {
+    // A cancelled order never filled: it is not a trade taken that day. It
+    // used to be counted, inflating the badge.
+    if (t.status === "CANCELLED") continue;
     const localAt = t.closedAt ?? t.openedAt;
     const key = dateKey(new TZDate(localAt, timeZone));
     const existing = bucket.get(key) ?? { netPnl: ZERO, tradeCount: 0 };
@@ -182,7 +196,24 @@ export async function monthView(
     });
   }
 
-  return { month, daysInMonth, days, entries };
+  // Rows of the Monday-first grid: the first row starts with however many
+  // days of the previous month the 1st is offset by.
+  const leading = (new Date(Date.UTC(year, monthIndex, 1)).getUTCDay() + 6) % 7;
+  const weekTotals = new Map<number, { netPnl: Decimal; tradeCount: number }>();
+  days.forEach((d, i) => {
+    const index = Math.floor((leading + i) / 7) + 1;
+    const w = weekTotals.get(index) ?? { netPnl: ZERO, tradeCount: 0 };
+    const b = bucket.get(d.date);
+    if (b) weekTotals.set(index, { netPnl: w.netPnl.plus(b.netPnl), tradeCount: w.tradeCount + b.tradeCount });
+    else weekTotals.set(index, w);
+  });
+  const weeks: CalendarWeek[] = [...weekTotals.entries()].map(([index, w]) => ({
+    index,
+    netPnl: toPlain(w.netPnl) ?? "0",
+    tradeCount: w.tradeCount,
+  }));
+
+  return { month, daysInMonth, days, weeks, entries };
 }
 
 // ---------------------------------------------------------------------------
