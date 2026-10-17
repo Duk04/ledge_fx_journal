@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, extensionForType, makeAttachmentKey, sniffImage } from "./storage";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
+  extensionForType,
+  makeAttachmentKey,
+  presignedUrl,
+  sniffImage,
+} from "./storage";
 
 /**
  * `sniffImage` is the upload validator on an app with open registration, so
@@ -10,8 +17,9 @@ import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES, extensionForType, makeAttachment
  * Everything below builds byte buffers rather than reading fixtures, so what
  * each test asserts about the format is visible in the test itself.
  *
- * Only the pure half of the module is covered. The drivers do filesystem and
- * S3 I/O and need the database-backed suite this repo does not have yet.
+ * Only the pure half of the module is covered, plus the S3 URL signing the
+ * driver builds its requests from. The drivers themselves do filesystem and
+ * S3 I/O.
  */
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -244,5 +252,39 @@ describe("makeAttachmentKey", () => {
 describe("MAX_UPLOAD_BYTES", () => {
   it("is 8MB", () => {
     expect(MAX_UPLOAD_BYTES).toBe(8 * 1024 * 1024);
+  });
+});
+
+describe("presignedUrl", () => {
+  const cfg = {
+    bucket: "attachments",
+    region: "ap-southeast-1",
+    accessKeyId: "AKID",
+    secretAccessKey: "secret",
+    endpoint: "https://abc.storage.supabase.co/storage/v1/s3",
+  };
+  const at = new Date("2026-10-17T00:00:00Z");
+
+  it("keeps an endpoint's path (Supabase) in the URL it requests", () => {
+    const url = new URL(presignedUrl(cfg, "PUT", "u1/chart.png", 300, at));
+    expect(url.origin).toBe("https://abc.storage.supabase.co");
+    expect(url.pathname).toBe("/storage/v1/s3/attachments/u1/chart.png");
+  });
+
+  it("signs that path too — the URL it requests is the URL it signed", () => {
+    // Same host, bucket and key without the prefix must sign differently;
+    // when it didn't, Supabase rejected every upload as a bad signature.
+    const withPrefix = new URL(presignedUrl(cfg, "PUT", "u1/chart.png", 300, at));
+    const without = new URL(
+      presignedUrl({ ...cfg, endpoint: "https://abc.storage.supabase.co" }, "PUT", "u1/chart.png", 300, at),
+    );
+    expect(withPrefix.searchParams.get("X-Amz-Signature")).not.toBe(without.searchParams.get("X-Amz-Signature"));
+    expect(without.pathname).toBe("/attachments/u1/chart.png");
+  });
+
+  it("ignores a trailing slash on the endpoint", () => {
+    const a = presignedUrl(cfg, "GET", "k.png", 300, at);
+    const b = presignedUrl({ ...cfg, endpoint: `${cfg.endpoint}/` }, "GET", "k.png", 300, at);
+    expect(a).toBe(b);
   });
 });

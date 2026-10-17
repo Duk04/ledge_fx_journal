@@ -211,8 +211,10 @@ instance. Before deploying it for real:
   when nothing forces you off it.
 - **Point attachment storage at S3** (or an S3-compatible bucket) rather
   than local disk — `.uploads/` on a serverless/ephemeral filesystem does
-  not survive a redeploy. Set `S3_BUCKET` + the other `S3_*` vars (see
-  `.env.example` and `src/lib/storage.ts`).
+  not survive a redeploy, and on Vercel screenshot uploads stay switched off
+  until it is set. Set `S3_BUCKET` + the other `S3_*` vars (see
+  `.env.example`, `.env.supabase.example` for Supabase Storage step by step,
+  and `src/lib/storage.ts`).
 - **Decide on Row-Level Security.** The app enforces per-user scoping in the
   query layer today; `prisma/rls.sql` is a second, independent layer that
   only activates once the app connects as a least-privilege role instead of

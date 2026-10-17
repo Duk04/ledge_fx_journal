@@ -286,7 +286,7 @@ function createLocalDriver(): StorageDriver {
 // buckets created before the 2020 path-style deprecation also still work
 // this way.
 
-interface S3Config {
+export interface S3Config {
   endpoint: string; // e.g. https://s3.us-east-1.amazonaws.com or a custom S3-compatible host
   bucket: string;
   region: string;
@@ -333,16 +333,32 @@ function signingKey(secret: string, dateStamp: string, region: string): Buffer {
   return hmac(kService, "aws4_request");
 }
 
-function presignedUrl(cfg: S3Config, method: "GET" | "PUT" | "DELETE", key: string, expiresSeconds = 300): string {
-  const now = new Date();
+/**
+ * A SigV4 presigned, path-style URL. Exported for its test only.
+ *
+ * The endpoint's own path is part of what gets signed. AWS and R2 endpoints
+ * have none, but Supabase Storage's S3 endpoint lives under
+ * `/storage/v1/s3` — signing only `/bucket/key` while requesting
+ * `/storage/v1/s3/bucket/key` made every upload fail with a signature
+ * mismatch there, which is the provider .env.supabase.example points at.
+ */
+export function presignedUrl(
+  cfg: S3Config,
+  method: "GET" | "PUT" | "DELETE",
+  key: string,
+  expiresSeconds = 300,
+  now: Date = new Date(),
+): string {
   const amzDate = now
     .toISOString()
     .replace(/[:-]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
   const dateStamp = amzDate.slice(0, 8);
   const credentialScope = `${dateStamp}/${cfg.region}/s3/aws4_request`;
-  const host = new URL(cfg.endpoint).host;
-  const canonicalUri = `/${awsEncode(cfg.bucket, false)}/${key
+  const base = new URL(cfg.endpoint);
+  const host = base.host;
+  const prefix = base.pathname.replace(/\/+$/, "");
+  const canonicalUri = `${prefix}/${awsEncode(cfg.bucket, false)}/${key
     .split("/")
     .map((s) => awsEncode(s, false))
     .join("/")}`;
@@ -366,7 +382,7 @@ function presignedUrl(cfg: S3Config, method: "GET" | "PUT" | "DELETE", key: stri
   const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256Hex(canonicalRequest)].join("\n");
   const signature = hmac(signingKey(cfg.secretAccessKey, dateStamp, cfg.region), stringToSign).toString("hex");
 
-  return `${cfg.endpoint}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`;
+  return `${base.origin}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`;
 }
 
 function createS3Driver(): StorageDriver {
