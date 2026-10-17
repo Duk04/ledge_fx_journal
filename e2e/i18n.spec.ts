@@ -37,6 +37,6 @@ test("choosing Mongolian applies at once, survives sign-in, and reaches validati
   // Schema messages travel as keys and are rendered in the reader's language.
   await fresh.goto("/trades/new");
   await fresh.getByRole("button", { name: /Арилжаа бүртгэх/ }).click();
-  await expect(fresh.getByText("Орох үнэ заавал")).toBeVisible();
+  await expect(fresh.getByText("Эрсдэлийн дүн заавал")).toBeVisible();
   await other.close();
 });

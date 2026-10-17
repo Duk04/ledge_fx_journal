@@ -10,8 +10,7 @@ test("a trade today raises the journal nudge, and Settings switches it off", asy
   await page.goto("/trades/new");
   await page.getByLabel("Symbol").click();
   await page.getByRole("option", { name: /^EURUSD/ }).click();
-  await page.getByLabel("Volume (lots)").fill("1");
-  await page.getByLabel("Entry price").fill("1.10000");
+  await page.getByLabel("Risk amount").fill("100");
   await page.getByRole("button", { name: /Log trade/ }).click();
   await expect(page).toHaveURL(/\/trades\/[^/]+$/);
 

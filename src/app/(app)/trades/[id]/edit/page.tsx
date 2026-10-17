@@ -30,6 +30,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
   ]);
 
   const defaults: Partial<TradeFormInput> = {
+    entryMode: trade.entryMode,
     symbol: trade.symbol,
     direction: trade.direction,
     status: trade.status as TradeFormInput["status"],
@@ -37,7 +38,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     // defaultFormValues — see the comment there for why not here.
     openedAt: trade.openedAt,
     closedAt: trade.closedAt ?? "",
-    entryPrice: trade.entryPrice,
+    entryPrice: trade.entryPrice ?? "",
     exitPrice: trade.exitPrice ?? "",
     stopLoss: trade.stopLoss ?? "",
     // Shown only when it differs: blank means "same as the stop loss".
@@ -45,7 +46,10 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
     takeProfit: trade.takeProfit ?? "",
     maePrice: trade.maePrice ?? "",
     mfePrice: trade.mfePrice ?? "",
-    volumeLots: trade.volumeLots,
+    volumeLots: trade.volumeLots ?? "",
+    plannedRisk: trade.plannedRisk ?? "",
+    plannedRR: trade.plannedRR ?? "",
+    resultR: trade.resultR ?? "",
     commission: trade.commission !== "0" ? trade.commission : "",
     swap: trade.swap !== "0" ? trade.swap : "",
     conversionRate: trade.conversionRate ?? "",

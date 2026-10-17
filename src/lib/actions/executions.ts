@@ -39,6 +39,8 @@ async function tradeForAccount(accountId: string, tradeId: string) {
   });
   if (!trade) return { failure: await failT("tradeNotFound") };
   if (trade.status === "CANCELLED") return { failure: fail("A cancelled trade has no fills to change.") };
+  // An R-mode trade has no prices, so no fills to add or remove.
+  if (trade.entryMode === "R_MULTIPLE") return { failure: await failT("rTradeNoFills") };
   return { account: found.account, trade };
 }
 

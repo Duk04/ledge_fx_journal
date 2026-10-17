@@ -57,13 +57,18 @@ async function main() {
 
     for (const trade of trades) {
       scanned += 1;
-      const conversion = resolveConversion({
-        instrument: trade.instrument,
-        accountCurrency: account.currency,
-        explicitRate: trade.conversionRate?.toString() ?? null,
-        referencePrice: (trade.exitPrice ?? trade.entryPrice).toString(),
-      });
-      if (conversion.needsAttention) {
+      // An R-mode trade has no price to convert at: its risk is stated in
+      // account currency already.
+      const reference = trade.exitPrice ?? trade.entryPrice;
+      const conversion = reference
+        ? resolveConversion({
+            instrument: trade.instrument,
+            accountCurrency: account.currency,
+            explicitRate: trade.conversionRate?.toString() ?? null,
+            referencePrice: reference.toString(),
+          })
+        : null;
+      if (conversion?.needsAttention) {
         flagged.push(
           `${trade.id} ${trade.symbol} — quoted in ${trade.instrument.quoteCurrency}, account in ${account.currency}, no rate available`,
         );

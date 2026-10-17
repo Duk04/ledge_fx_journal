@@ -1,9 +1,9 @@
 import "server-only";
 import { Decimal } from "decimal.js";
 import { excursionInR } from "@/lib/metrics/excursion";
-import type { AttachmentKind, Direction, MarketSession, Prisma } from "@prisma/client";
+import type { AttachmentKind, Direction, MarketSession, Prisma, TradeEntryMode } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { computeTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
+import { computeAnyTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
 import type { Summary } from "@/lib/metrics/types";
 import { toNum, toPlain } from "@/lib/decimal-bridge";
 import { instrumentSpec, toTradeRow, tradeInput } from "@/lib/trade-service";
@@ -119,10 +119,16 @@ export interface TradeListRow {
   status: string;
   openedAt: string;
   closedAt: string | null;
-  entryPrice: string;
+  /** PRICE trades carry prices; R_MULTIPLE trades carry the four below
+   * instead, and entryPrice / volumeLots may be null (docs/TRADES.md). */
+  entryMode: TradeEntryMode;
+  entryPrice: string | null;
+  plannedRR: string | null;
+  plannedRisk: string | null;
+  resultR: string | null;
   exitPrice: string | null;
   stopLoss: string | null;
-  volumeLots: string;
+  volumeLots: string | null;
   netPnl: string | null;
   pips: string | null;
   rMultiple: string | null;
@@ -159,10 +165,14 @@ function serializeListRow(trade: ListTradeRow): TradeListRow {
     status: trade.status,
     openedAt: trade.openedAt.toISOString(),
     closedAt: trade.closedAt?.toISOString() ?? null,
-    entryPrice: toPlain(trade.entryPrice)!,
+    entryMode: trade.entryMode,
+    entryPrice: toPlain(trade.entryPrice),
+    plannedRR: toPlain(trade.plannedRR),
+    plannedRisk: toPlain(trade.plannedRisk),
+    resultR: toPlain(trade.resultR),
     exitPrice: toPlain(trade.exitPrice),
     stopLoss: toPlain(trade.stopLoss),
-    volumeLots: toPlain(trade.volumeLots)!,
+    volumeLots: toPlain(trade.volumeLots),
     netPnl: toPlain(trade.netPnl),
     pips: toPlain(trade.pips),
     rMultiple: toPlain(trade.rMultiple),
@@ -259,11 +269,17 @@ export interface TradeDetail {
   status: string;
   openedAt: string;
   closedAt: string | null;
-  entryPrice: string;
+  /** PRICE trades carry prices; R_MULTIPLE trades carry the four below
+   * instead, and entryPrice / volumeLots may be null (docs/TRADES.md). */
+  entryMode: TradeEntryMode;
+  entryPrice: string | null;
+  plannedRR: string | null;
+  plannedRisk: string | null;
+  resultR: string | null;
   exitPrice: string | null;
   stopLoss: string | null;
   takeProfit: string | null;
-  volumeLots: string;
+  volumeLots: string | null;
   commission: string;
   swap: string;
   conversionRate: string | null;
@@ -325,7 +341,7 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
   // quote conversion the stored ones did — otherwise every JPY trade would
   // report a false disagreement.
   const input = tradeInput(trade, trade.instrument, trade.account.currency);
-  const fresh = computeTrade(input);
+  const fresh = computeAnyTrade(input);
 
   const netPnl = toPlain(trade.netPnl);
   const pips = toPlain(trade.pips);
@@ -345,6 +361,8 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
     maePrice: toPlain(trade.maePrice),
     mfePrice: toPlain(trade.mfePrice),
     ...(() => {
+      // R-mode trades have no prices to measure excursion against.
+      if (trade.entryPrice === null) return { maeR: null, mfeR: null };
       const { maeR, mfeR } = excursionInR({
         direction: trade.direction,
         entryPrice: trade.entryPrice.toString(),
@@ -386,11 +404,15 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
     status: trade.status,
     openedAt: trade.openedAt.toISOString(),
     closedAt: trade.closedAt?.toISOString() ?? null,
-    entryPrice: toPlain(trade.entryPrice)!,
+    entryMode: trade.entryMode,
+    entryPrice: toPlain(trade.entryPrice),
+    plannedRR: toPlain(trade.plannedRR),
+    plannedRisk: toPlain(trade.plannedRisk),
+    resultR: toPlain(trade.resultR),
     exitPrice: toPlain(trade.exitPrice),
     stopLoss: toPlain(trade.stopLoss),
     takeProfit: toPlain(trade.takeProfit),
-    volumeLots: toPlain(trade.volumeLots)!,
+    volumeLots: toPlain(trade.volumeLots),
     commission: toPlain(trade.commission)!,
     swap: toPlain(trade.swap)!,
     conversionRate: toPlain(trade.conversionRate),

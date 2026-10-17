@@ -38,6 +38,7 @@ async function closedTrade(accountId: string, exitPrice: string, openedAt: strin
     accountId,
     buildFormData(
       defaultFormValues({
+        entryMode: "PRICE",
         symbol: "EURUSD",
         direction: "LONG",
         status: "CLOSED",

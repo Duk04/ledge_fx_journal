@@ -5,6 +5,7 @@ import { requireAccountAccess, requireUser } from "@/lib/session";
 import { toNum } from "@/lib/decimal-bridge";
 import { getAccountEquity, listTradesOpenedBetween } from "@/lib/queries/accounts";
 import { computeRiskGuard, type RiskTradeInput } from "@/lib/risk";
+import { hasDefinedRisk } from "@/lib/trade-service";
 
 /**
  * A same-day observation strip, not a scold. It renders nothing at all when
@@ -38,7 +39,7 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
     id: t.id,
     netPnl: toNum(t.netPnl),
     riskAmount: toNum(t.riskAmount),
-    hasStop: t.stopLoss !== null,
+    hasStop: hasDefinedRisk(t),
   }));
 
   const startingBalance = toNum(account.startingBalance) ?? 0;

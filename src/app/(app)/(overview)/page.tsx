@@ -140,7 +140,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
           <Panel>
             <PanelHeader title={t("openPositions")} caption={String(data.openTrades.length)} />
             <PanelBody padded={false}>
-              <OpenPositionsPanel trades={data.openTrades} />
+              <OpenPositionsPanel trades={data.openTrades} currency={data.currency} />
             </PanelBody>
           </Panel>
 

@@ -93,3 +93,42 @@ export async function insertCandles(
     await client.end();
   }
 }
+
+/**
+ * Inserts an OPEN price-mode trade with its one entry fill for the user with
+ * this email, straight into this run's scratch schema, and returns its id.
+ * The trade form logs trades in R now (docs/TRADES.md, "R-mode trades"), so a
+ * trade with prices and fills — what an imported statement produces — has to
+ * come from somewhere else for the specs that exercise fills.
+ */
+export async function insertOpenPriceTrade(
+  email: string,
+  t: { symbol: string; direction: "LONG" | "SHORT"; lots: string; entry: string; stop: string; openedAt: string },
+) {
+  const client = new pg.Client({ connectionString: e2eBaseUrl() });
+  await client.connect();
+  try {
+    await client.query(`SET search_path TO "${e2eSchema()}"`);
+    const account = await client.query(
+      `SELECT a.id FROM accounts a JOIN users u ON u.id = a.user_id WHERE u.email = $1 ORDER BY a.created_at LIMIT 1`,
+      [email],
+    );
+    // TIMESTAMP(3) has no zone, and node-pg writes a JS Date in the process's
+    // local zone — so pass the UTC wall time as text instead.
+    const openedAt = new Date(t.openedAt).toISOString().replace("Z", "");
+    const { rows } = await client.query(
+      `INSERT INTO trades (id, account_id, symbol, direction, status, opened_at, entry_price, volume_lots,
+                           stop_loss, initial_stop_loss, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, 'OPEN', $4, $5, $6, $7, $7, now()) RETURNING id`,
+      [account.rows[0].id, t.symbol, t.direction, openedAt, t.entry, t.lots, t.stop],
+    );
+    await client.query(
+      `INSERT INTO executions (id, trade_id, kind, executed_at, price, volume_lots)
+       VALUES (gen_random_uuid(), $1, 'ENTRY', $2, $3, $4)`,
+      [rows[0].id, openedAt, t.entry, t.lots],
+    );
+    return rows[0].id as string;
+  } finally {
+    await client.end();
+  }
+}

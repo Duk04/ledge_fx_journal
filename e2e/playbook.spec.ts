@@ -17,11 +17,10 @@ test("write a playbook, take a trade as it, check its rules, see it on a chart",
   await page.getByRole("option", { name: /^EURUSD/ }).click();
   await page.getByLabel("Playbook").click();
   await page.getByRole("option", { name: "London breakout" }).click();
+  await page.getByLabel("Risk amount").fill("100");
+  await page.getByLabel("Planned R:R").fill("2");
   await page.getByRole("radio", { name: "Closed" }).click();
-  await page.getByLabel("Volume (lots)").fill("1");
-  await page.getByLabel("Entry price").fill("1.10000");
-  await page.getByLabel("Stop loss").fill("1.09900");
-  await page.getByLabel("Exit price").fill("1.10200");
+  await page.getByRole("radio", { name: "Win" }).click();
   await page.getByLabel("Opened at").fill("2026-03-04T17:00");
   await page.getByLabel("Closed at").fill("2026-03-04T19:00");
   await page.getByRole("button", { name: /Log trade/ }).click();

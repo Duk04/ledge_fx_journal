@@ -1,16 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Instrument, MarketSession } from "@prisma/client";
+import { Prisma, type Instrument, type MarketSession } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { failFields, ok, type ActionResult } from "./result";
 import { getInstrument, listActiveSymbols } from "@/lib/queries/instruments";
 import { requireUser } from "@/lib/session";
 import { accountOrFailure } from "./guard";
-import { closeTradeSchema, parseTradeForm, type TradeFormValues } from "@/lib/schemas/trade";
-import { derivedColumns, instrumentSpec } from "@/lib/trade-service";
+import {
+  closeRTradeSchema,
+  closeTradeSchema,
+  formEntryMode,
+  parseRTradeForm,
+  parseTradeForm,
+  type RTradeFormValues,
+  type TradeFormValues,
+} from "@/lib/schemas/trade";
+import { derivedColumns, instrumentSpec, rTradeInput } from "@/lib/trade-service";
 import { resolveConversion } from "@/lib/conversion";
-import type { TradeInput } from "@/lib/metrics/types";
+import type { RTradeInput, TradeInput } from "@/lib/metrics/types";
 import { hasMultipleFills, simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
 import { aggregateFills, validateFills } from "@/lib/metrics/fills";
 import { Decimal } from "decimal.js";
@@ -95,6 +103,46 @@ function formTradeInput(
   };
 }
 
+/** The R-mode counterpart: no instrument maths and no conversion, because
+ * the risk is already stated in account currency. */
+function formRTradeInput(values: RTradeFormValues): RTradeInput {
+  return {
+    mode: "R_MULTIPLE",
+    plannedRR: values.plannedRR,
+    plannedRisk: values.plannedRisk,
+    // An open trade has no result yet, whatever the field holds.
+    resultR: values.status === "CLOSED" ? values.resultR : undefined,
+    commission: values.commission ?? 0,
+    swap: values.swap ?? 0,
+    openedAt: values.openedAt,
+    closedAt: values.status === "CLOSED" ? values.closedAt : undefined,
+  };
+}
+
+/** The columns an R-mode form owns, for create and update alike. */
+function rModeColumns(values: RTradeFormValues) {
+  const closed = values.status === "CLOSED";
+  return {
+    entryMode: "R_MULTIPLE" as const,
+    symbol: values.symbol,
+    direction: values.direction,
+    status: values.status,
+    openedAt: values.openedAt,
+    closedAt: closed ? (values.closedAt ?? null) : null,
+    plannedRisk: values.plannedRisk.toString(),
+    plannedRR: values.plannedRR?.toString() ?? null,
+    resultR: closed ? (values.resultR?.toString() ?? null) : null,
+    volumeLots: values.volumeLots?.toString() ?? null,
+    commission: (values.commission ?? 0).toString(),
+    swap: (values.swap ?? 0).toString(),
+    followedPlan: values.followedPlan ?? null,
+    emotion: values.emotion ?? null,
+    confidence: values.confidence ?? null,
+    notes: values.notes ?? null,
+    ...(derivedColumns(formRTradeInput(values)) as unknown as PlainDerivedNumbers),
+  };
+}
+
 /** Confirms every id in `tagIds` is a real tag owned by `userId`. Returns
  * null (rather than throwing) if any id doesn't check out, so the caller can
  * turn it into a field error instead of a 500. */
@@ -130,6 +178,31 @@ export async function createTrade(accountId: string, formData: FormData): Promis
   const account = found.account;
 
   const symbols = await listActiveSymbols();
+
+  if (formEntryMode(formData) === "R_MULTIPLE") {
+    const parsedR = parseRTradeForm(formData, { validSymbols: symbols });
+    if (!parsedR.ok) return failFields(parsedR.fieldErrors);
+    const instrument = await getInstrument(parsedR.values.symbol);
+    if (!instrument) return failFields({ symbol: [await tr("unknownSymbolShort")] });
+    const tagIds = await assertTagsOwned(user.id, parsedR.values.tagIds);
+    if (tagIds === null) return failFields({ tagIds: [await tr("tagsNotFound")] });
+    const playbookId = await ownedPlaybook(user.id, parsedR.values.playbookId);
+    if (playbookId === null) return failFields({ playbookId: [await tr("playbookNotFound")] });
+
+    // No executions: an R-mode trade has no fill prices, and Execution.price
+    // is NOT NULL for good reason. See docs/TRADES.md.
+    const trade = await prisma.trade.create({
+      data: {
+        accountId: account.id,
+        ...rModeColumns({ ...parsedR.values, symbol: instrument.symbol }),
+        tradeTags: tagIds.length ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined,
+        playbookId: playbookId ?? null,
+      },
+    });
+    revalidateTradeViews(trade.id);
+    return ok({ id: trade.id });
+  }
+
   const parsed = parseTradeForm(formData, { validSymbols: symbols });
   if (!parsed.ok) return failFields(parsed.fieldErrors);
 
@@ -194,6 +267,32 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
   if (!existing) return failT("tradeNotFound");
 
   const symbols = await listActiveSymbols();
+
+  // The stored mode decides which form this is, not the POST: a trade does
+  // not change how it was recorded by being edited.
+  if (existing.entryMode === "R_MULTIPLE") {
+    const parsedR = parseRTradeForm(formData, { validSymbols: symbols });
+    if (!parsedR.ok) return failFields(parsedR.fieldErrors);
+    const instrument = await getInstrument(parsedR.values.symbol);
+    if (!instrument) return failFields({ symbol: [await tr("unknownSymbolShort")] });
+    const tagIds = await assertTagsOwned(user.id, parsedR.values.tagIds);
+    if (tagIds === null) return failFields({ tagIds: [await tr("tagsNotFound")] });
+    const playbookId = await ownedPlaybook(user.id, parsedR.values.playbookId);
+    if (playbookId === null) return failFields({ playbookId: [await tr("playbookNotFound")] });
+
+    await prisma.trade.update({
+      where: { id: tradeId },
+      data: {
+        ...rModeColumns({ ...parsedR.values, symbol: instrument.symbol }),
+        tradeTags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
+        playbookId: playbookId ?? null,
+        ...(existing.playbookId !== (playbookId ?? null) ? { ruleChecks: { deleteMany: {} } } : {}),
+      },
+    });
+    revalidateTradeViews(tradeId);
+    return ok({ id: tradeId });
+  }
+
   const parsed = parseTradeForm(formData, { validSymbols: symbols });
   if (!parsed.ok) return failFields(parsed.fieldErrors);
 
@@ -304,6 +403,7 @@ export async function closeTrade(
     include: { executions: true },
   });
   if (!existing) return failT("tradeNotFound");
+  if (existing.entryMode === "R_MULTIPLE") return failT("rTradeNoFills");
   if (existing.status !== "OPEN") return failT("onlyOpenCanClose");
   if (parsed.data.closedAt.getTime() < existing.openedAt.getTime()) {
     return failFields({ closedAt: [await tr("closeBeforeOpen")] });
@@ -333,6 +433,46 @@ export async function closeTrade(
       },
     });
     await syncTradeFromFills(tx, tradeId, account.currency);
+  });
+
+  revalidateTradeViews(tradeId);
+  return ok({ id: tradeId });
+}
+
+// ---------------------------------------------------------------------------
+// closeRTrade — closing an R-mode trade: the result in R and when.
+// ---------------------------------------------------------------------------
+
+export async function closeRTrade(
+  accountId: string,
+  tradeId: string,
+  input: { resultR: string | number; closedAt: string | Date },
+): Promise<TradeResult> {
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
+
+  const parsed = closeRTradeSchema.safeParse(input);
+  if (!parsed.success) {
+    return failZod(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  }
+
+  const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId: found.account.id } });
+  if (!existing) return failT("tradeNotFound");
+  if (existing.entryMode !== "R_MULTIPLE" || existing.plannedRisk === null) return failT("notAnRTrade");
+  if (existing.status !== "OPEN") return failT("onlyOpenCanClose");
+  if (parsed.data.closedAt.getTime() < existing.openedAt.getTime()) {
+    return failFields({ closedAt: [await tr("closeBeforeOpen")] });
+  }
+
+  const closed = { ...existing, status: "CLOSED" as const, closedAt: parsed.data.closedAt };
+  await prisma.trade.update({
+    where: { id: tradeId },
+    data: {
+      status: "CLOSED",
+      closedAt: parsed.data.closedAt,
+      resultR: parsed.data.resultR.toString(),
+      ...derivedColumns(rTradeInput({ ...closed, resultR: new Prisma.Decimal(parsed.data.resultR) })),
+    },
   });
 
   revalidateTradeViews(tradeId);
@@ -383,6 +523,40 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
   // history with a fabricated close. Discipline fields (emotion, confidence,
   // followedPlan, notes) are left blank since they describe THIS occurrence.
   const now = new Date();
+  if (existing.entryMode === "R_MULTIPLE") {
+    const created = await prisma.trade.create({
+      data: {
+        accountId,
+        entryMode: "R_MULTIPLE",
+        symbol: existing.symbol,
+        direction: existing.direction,
+        status: "OPEN",
+        openedAt: now,
+        plannedRisk: existing.plannedRisk,
+        plannedRR: existing.plannedRR,
+        volumeLots: existing.volumeLots,
+        ...(derivedColumns(
+          rTradeInput({
+            plannedRR: existing.plannedRR,
+            plannedRisk: existing.plannedRisk,
+            resultR: null,
+            commission: new Prisma.Decimal(0),
+            swap: new Prisma.Decimal(0),
+            openedAt: now,
+            closedAt: null,
+          }),
+        ) as unknown as PlainDerivedNumbers),
+        tradeTags: existing.tradeTags.length
+          ? { create: existing.tradeTags.map((tt) => ({ tagId: tt.tagId })) }
+          : undefined,
+      },
+    });
+    revalidateTradeViews(created.id);
+    return ok({ id: created.id });
+  }
+  // The CHECK constraint guarantees these on a PRICE row.
+  const entryPrice = existing.entryPrice!;
+  const volumeLots = existing.volumeLots!;
   const created = await prisma.trade.create({
     data: {
       accountId,
@@ -390,17 +564,17 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
       direction: existing.direction,
       status: "OPEN",
       openedAt: now,
-      entryPrice: existing.entryPrice,
+      entryPrice,
       stopLoss: existing.stopLoss,
       initialStopLoss: existing.initialStopLoss ?? existing.stopLoss,
       takeProfit: existing.takeProfit,
-      volumeLots: existing.volumeLots,
+      volumeLots,
       conversionRate: existing.conversionRate,
       tradeTags: existing.tradeTags.length
         ? { create: existing.tradeTags.map((tt) => ({ tagId: tt.tagId })) }
         : undefined,
       executions: {
-        create: [{ kind: "ENTRY", executedAt: now, price: existing.entryPrice, volumeLots: existing.volumeLots }],
+        create: [{ kind: "ENTRY", executedAt: now, price: entryPrice, volumeLots }],
       },
     },
   });

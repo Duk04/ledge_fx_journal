@@ -104,11 +104,18 @@ export async function periods(ctx: AnalyticsCtx): Promise<PeriodsData> {
   // --- MAE / MFE over the range ------------------------------------------------
   const sample = trades
     .filter((t) => withinWindow(t.openedAt, { from: ctx.from, to: ctx.to }))
-    .filter((t) => t.status === "CLOSED" && t.maePrice !== null && t.mfePrice !== null && t.rMultiple !== null)
+    .filter(
+      (t) =>
+        t.status === "CLOSED" &&
+        t.entryPrice !== null &&
+        t.maePrice !== null &&
+        t.mfePrice !== null &&
+        t.rMultiple !== null,
+    )
     .map((t) => {
       const { maeR, mfeR } = excursionInR({
         direction: t.direction,
-        entryPrice: t.entryPrice.toString(),
+        entryPrice: t.entryPrice!.toString(),
         riskStop: (t.initialStopLoss ?? t.stopLoss)?.toString() ?? null,
         maePrice: t.maePrice!.toString(),
         mfePrice: t.mfePrice!.toString(),

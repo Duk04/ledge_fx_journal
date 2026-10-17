@@ -377,7 +377,11 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                         <div className="flex flex-col">
                           <span className="font-medium text-ink">{row.symbol}</span>
                           <span className="mono text-2xs text-ink-3">
-                            {formatPrice(Number(row.entryPrice), row.digits)}
+                            {row.entryPrice !== null
+                              ? formatPrice(Number(row.entryPrice), row.digits)
+                              : row.plannedRR !== null
+                                ? `1:${Number(row.plannedRR)}`
+                                : null}
                           </span>
                         </div>
                       </Td>
@@ -387,16 +391,25 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                       {/* Below md the table drops to what a phone needs to scan:
                           when, what, which way, money, R. */}
                       <Td numeric className="hidden md:table-cell">
-                        {formatPrice(Number(row.entryPrice), row.digits)}
-                        <span className="text-ink-3"> → </span>
-                        {row.exitPrice !== null ? (
-                          formatPrice(Number(row.exitPrice), row.digits)
+                        {row.entryPrice !== null ? (
+                          <>
+                            {formatPrice(Number(row.entryPrice), row.digits)}
+                            <span className="text-ink-3"> → </span>
+                            {row.exitPrice !== null ? (
+                              formatPrice(Number(row.exitPrice), row.digits)
+                            ) : (
+                              <span className="text-ink-3">—</span>
+                            )}
+                          </>
                         ) : (
-                          <span className="text-ink-3">—</span>
+                          // An R-mode trade has no prices; its plan is the R:R.
+                          <span className="text-ink-3">
+                            {row.plannedRR !== null ? `R:R 1:${Number(row.plannedRR)}` : "—"}
+                          </span>
                         )}
                       </Td>
                       <Td numeric className="hidden md:table-cell">
-                        {Number(row.volumeLots).toFixed(2)}
+                        {row.volumeLots !== null ? Number(row.volumeLots).toFixed(2) : "—"}
                       </Td>
                       <Td numeric className="hidden md:table-cell">
                         <Pips value={row.pips} />

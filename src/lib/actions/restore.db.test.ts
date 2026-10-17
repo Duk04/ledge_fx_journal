@@ -23,7 +23,7 @@ import { createTrade } from "./trades";
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 async function trade(accountId: string, values: Parameters<typeof defaultFormValues>[0]) {
-  const res = await createTrade(accountId, buildFormData(defaultFormValues(values)));
+  const res = await createTrade(accountId, buildFormData(defaultFormValues({ entryMode: "PRICE", ...values })));
   if (!res.ok) throw new Error(res.formError ?? JSON.stringify(res.fieldErrors));
   return res.id;
 }
@@ -104,6 +104,25 @@ async function exportedUser() {
     notes: "open",
   });
 
+  // Logged in R: no prices and no fills, so it must survive on its R inputs.
+  const rwin = await createTrade(
+    account.id,
+    buildFormData(
+      defaultFormValues({
+        symbol: "EURUSD",
+        direction: "SHORT",
+        status: "CLOSED",
+        openedAt: "2026-03-07T10:00:00.000Z",
+        closedAt: "2026-03-07T11:00:00.000Z",
+        plannedRisk: "100",
+        plannedRR: "2.5",
+        resultR: "2.5",
+        notes: "rwin",
+      }),
+    ),
+  );
+  if (!rwin.ok) throw new Error(JSON.stringify(rwin));
+
   await prisma.balanceEvent.create({
     data: { accountId: account.id, kind: "DEPOSIT", amount: "500", occurredAt: new Date("2026-03-01T00:00:00Z") },
   });
@@ -130,6 +149,10 @@ const AGGREGATE = [
   "openedAt",
   "closedAt",
   "initialStopLoss",
+  "entryMode",
+  "plannedRisk",
+  "plannedRR",
+  "resultR",
 ] as const;
 
 /** A trade's comparable columns, as strings, keyed by its notes. */
@@ -169,7 +192,7 @@ async function rowCounts(userId: string) {
 describe("restoreFromExport", () => {
   it("restores into new accounts, recomputing derived columns and mapping tags and playbooks", async () => {
     const a = await exportedUser();
-    expect(a.file.schemaVersion).toBe(2);
+    expect(a.file.schemaVersion).toBe(3);
     expect(a.file.accounts.find((x: Json) => x.id === a.account.id).drawdownMode).toBe("TRAILING");
 
     // Someone else entirely, who must not be touched.
@@ -194,7 +217,7 @@ describe("restoreFromExport", () => {
     const res = await restoreFromExport(upload(file));
     if (!res.ok) throw new Error(res.formError);
     expect(res.accounts).toBe(1);
-    expect(res.trades).toBe(3);
+    expect(res.trades).toBe(4);
     expect(res.executions).toBe(2 + 4 + 1);
     expect(res.tagsCreated).toBe(0);
     expect(res.playbooksCreated).toBe(1);
@@ -218,7 +241,7 @@ describe("restoreFromExport", () => {
     const restored = await tradesByNote(b.id);
     const bTag = await prisma.tag.findFirstOrThrow({ where: { userId: b.id, name: "Breakout" } });
     const bPlaybook = await prisma.playbook.findFirstOrThrow({ where: { userId: b.id, name: "Range" } });
-    for (const note of ["win", "scaled", "open"]) {
+    for (const note of ["win", "scaled", "open", "rwin"]) {
       const before = original.get(note)!;
       const after = restored.get(note)!;
       for (const k of [...DERIVED, ...AGGREGATE, "maePrice", "executions", "tags", "ruleChecks"] as const) {
@@ -257,9 +280,23 @@ describe("restoreFromExport", () => {
     const v1 = structuredClone(a.file);
     v1.schemaVersion = 1;
     for (const k of ["strategies", "symbolAliases", "notificationPrefs"]) delete v1[k];
-    for (const account of v1.accounts)
+    for (const account of v1.accounts) {
+      // A v1 writer could not have produced an R-mode trade.
+      account.trades = account.trades.filter((t: Json) => t.entryMode !== "R_MULTIPLE");
       for (const t of account.trades)
-        for (const k of ["executions", "initialStopLoss", "maePrice", "mfePrice", "tagRefs"]) delete t[k];
+        for (const k of [
+          "executions",
+          "initialStopLoss",
+          "maePrice",
+          "mfePrice",
+          "tagRefs",
+          "entryMode",
+          "plannedRR",
+          "plannedRisk",
+          "resultR",
+        ])
+          delete t[k];
+    }
 
     const c = await createUser();
     signInAs(c.id);

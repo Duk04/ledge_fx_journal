@@ -2,7 +2,7 @@
  * The JSON export file (`GET /api/export/data`), as a schema both sides share.
  *
  * WHY ONE SCHEMA FOR WRITER AND READER. The export route builds its payload as
- * a value typed by `z.input<typeof exportV2Schema>`, and the restore action
+ * a value typed by `z.input<typeof exportV3Schema>`, and the restore action
  * (src/lib/actions/restore.ts) parses uploads with the same schemas. A column
  * added to the writer and forgotten here is a tsc error in the route, not a
  * restore that silently drops it — which is exactly how challenge rules and
@@ -10,8 +10,9 @@
  *
  * WHAT IS STRICT AND WHAT IS NOT.
  *  - Core fields a restore cannot do without (a trade's symbol, side, status,
- *    open time, entry price, size; an account's platform and currency) are
- *    required and type-checked.
+ *    open time, and entry price + size for a PRICE trade or money at risk for
+ *    an R_MULTIPLE one; an account's platform and currency) are required and
+ *    type-checked.
  *  - Fields added to version 2 after it shipped (challenge rules, MAE/MFE,
  *    tag kinds, strategies, ...) are optional, so a v2 file written before
  *    them still restores.
@@ -29,7 +30,7 @@
 import { z } from "zod";
 import { simpleFills } from "@/lib/metrics/fills";
 
-export const EXPORT_SCHEMA_VERSION = 2;
+export const EXPORT_SCHEMA_VERSION = 3;
 
 const PLATFORMS = ["MT5", "MT4", "CTRADER", "OTHER"] as const;
 const ACCOUNT_TYPES = ["DEMO", "LIVE", "PROP", "BACKTEST"] as const;
@@ -40,6 +41,7 @@ const TAG_KINDS = ["SETUP", "MISTAKE", "SESSION", "CUSTOM"] as const;
 const ATTACHMENT_KINDS = ["BEFORE", "AFTER", "OTHER"] as const;
 const BALANCE_KINDS = ["DEPOSIT", "WITHDRAWAL", "ADJUSTMENT"] as const;
 const EXECUTION_KINDS = ["ENTRY", "EXIT"] as const;
+const ENTRY_MODES = ["PRICE", "R_MULTIPLE"] as const;
 
 // Decimals travel as strings (Prisma `Decimal.toString()`), which can be
 // exponent notation for very small values ("1.2e-7"). A bare number is
@@ -128,7 +130,7 @@ const tradeCore = {
 
 const tradeV1Schema = z.object(tradeCore);
 
-const tradeV2Schema = z.object({
+const tradeV2Shape = {
   ...tradeCore,
   // What makes a file version 2: fills, and the stop R is measured from.
   executions: z.array(executionSchema),
@@ -137,7 +139,36 @@ const tradeV2Schema = z.object({
   maePrice: opt(dec),
   mfePrice: opt(dec),
   tagRefs: z.array(tagRefSchema).optional(),
-});
+};
+
+const tradeV2Schema = z.object(tradeV2Shape);
+
+/**
+ * What makes a file version 3: R-mode trades (docs/TRADES.md), which have no
+ * entry price and may have no size. That loosens two core fields, which is a
+ * change of meaning a v2 reader must not guess at — hence the bump rather
+ * than another optional field. The per-mode requirements the database
+ * enforces with a CHECK are enforced here too, so a bad file fails on parse
+ * with a path, not halfway through a restore transaction.
+ */
+const tradeV3Schema = z
+  .object({
+    ...tradeV2Shape,
+    entryMode: z.enum(ENTRY_MODES).default("PRICE"),
+    entryPrice: opt(dec),
+    volumeLots: opt(dec),
+    plannedRR: opt(dec),
+    plannedRisk: opt(dec),
+    resultR: opt(dec),
+  })
+  .superRefine((t, ctx) => {
+    if (t.entryMode === "PRICE") {
+      if (t.entryPrice === null) ctx.addIssue({ code: "custom", path: ["entryPrice"], message: "required" });
+      if (t.volumeLots === null) ctx.addIssue({ code: "custom", path: ["volumeLots"], message: "required" });
+    } else if (t.plannedRisk === null) {
+      ctx.addIssue({ code: "custom", path: ["plannedRisk"], message: "required for an R_MULTIPLE trade" });
+    }
+  });
 
 const balanceEventSchema = z.object({
   id: z.string().optional(),
@@ -172,6 +203,7 @@ const accountCore = {
 
 const accountV1Schema = z.object({ ...accountCore, trades: z.array(tradeV1Schema).default([]) });
 const accountV2Schema = z.object({ ...accountCore, trades: z.array(tradeV2Schema).default([]) });
+const accountV3Schema = z.object({ ...accountCore, trades: z.array(tradeV3Schema).default([]) });
 
 const tagSchema = z.object({
   id: z.string().optional(),
@@ -239,17 +271,28 @@ export const exportV1Schema = z.object({
   accounts: z.array(accountV1Schema),
 });
 
-export const exportV2Schema = z.object({
-  ...fileCore,
-  schemaVersion: z.literal(2),
-  accounts: z.array(accountV2Schema),
+const fileV2Extras = {
   // Added to v2 later; see the export route for why each is user data.
   strategies: z.array(strategySchema).default([]),
   symbolAliases: z.array(symbolAliasSchema).default([]),
   notificationPrefs: notificationPrefsSchema.nullish(),
+};
+
+export const exportV2Schema = z.object({
+  ...fileCore,
+  schemaVersion: z.literal(2),
+  accounts: z.array(accountV2Schema),
+  ...fileV2Extras,
 });
 
-export const exportFileSchema = z.discriminatedUnion("schemaVersion", [exportV1Schema, exportV2Schema]);
+export const exportV3Schema = z.object({
+  ...fileCore,
+  schemaVersion: z.literal(3),
+  accounts: z.array(accountV3Schema),
+  ...fileV2Extras,
+});
+
+export const exportFileSchema = z.discriminatedUnion("schemaVersion", [exportV1Schema, exportV2Schema, exportV3Schema]);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -257,20 +300,20 @@ export const exportFileSchema = z.discriminatedUnion("schemaVersion", [exportV1S
 
 /** What the export route writes. Typed against the schema's INPUT so a field
  * the route forgets (or invents) is a compile error there. */
-export type ExportFileWrite = z.input<typeof exportV2Schema>;
-export type ExportAccountWrite = z.input<typeof accountV2Schema>;
-export type ExportTradeWrite = z.input<typeof tradeV2Schema>;
+export type ExportFileWrite = z.input<typeof exportV3Schema>;
+export type ExportAccountWrite = z.input<typeof accountV3Schema>;
+export type ExportTradeWrite = z.input<typeof tradeV3Schema>;
 
-/** A parsed file of either version, before normalising. */
+/** A parsed file of any version, before normalising. */
 export type ExportFile = z.output<typeof exportFileSchema>;
-/** Every file, once normalised: the version-2 shape with defaults applied. */
-export type NormalizedExport = z.output<typeof exportV2Schema>;
-export type NormalizedAccount = z.output<typeof accountV2Schema>;
-export type NormalizedTrade = z.output<typeof tradeV2Schema>;
+/** Every file, once normalised: the version-3 shape with defaults applied. */
+export type NormalizedExport = z.output<typeof exportV3Schema>;
+export type NormalizedAccount = z.output<typeof accountV3Schema>;
+export type NormalizedTrade = z.output<typeof tradeV3Schema>;
 export type NormalizedExecution = z.output<typeof executionSchema>;
 
 // ---------------------------------------------------------------------------
-// Version 1 -> version 2
+// Older versions -> version 3
 // ---------------------------------------------------------------------------
 
 /**
@@ -279,9 +322,14 @@ export type NormalizedExecution = z.output<typeof executionSchema>;
  * filled and gets none. Same rule as `simpleExecutionsCreate` in
  * actions/fills-store.ts (which is server-only, hence `simpleFills` here).
  */
-export function synthesizeExecutions(
-  trade: Pick<NormalizedTrade, "status" | "openedAt" | "entryPrice" | "volumeLots" | "closedAt" | "exitPrice">,
-): NormalizedExecution[] {
+export function synthesizeExecutions(trade: {
+  status: NormalizedTrade["status"];
+  openedAt: Date;
+  entryPrice: string;
+  volumeLots: string;
+  closedAt: Date | null;
+  exitPrice: string | null;
+}): NormalizedExecution[] {
   if (trade.status === "CANCELLED") return [];
   return simpleFills({ ...trade, closedAt: trade.status === "CLOSED" ? trade.closedAt : null }).map((f) => ({
     kind: f.kind,
@@ -292,12 +340,22 @@ export function synthesizeExecutions(
   }));
 }
 
-/** Lift a parsed file of any version to the version-2 shape. */
+/** Every trade in a v1/v2 file was a PRICE trade: R mode arrived in v3. */
+const PRICE_MODE = { entryMode: "PRICE" as const, plannedRR: null, plannedRisk: null, resultR: null };
+
+/** Lift a parsed file of any version to the version-3 shape. */
 export function normalizeExport(file: ExportFile): NormalizedExport {
-  if (file.schemaVersion === 2) return file;
+  if (file.schemaVersion === 3) return file;
+  if (file.schemaVersion === 2) {
+    return {
+      ...file,
+      schemaVersion: 3,
+      accounts: file.accounts.map((a) => ({ ...a, trades: a.trades.map((t) => ({ ...t, ...PRICE_MODE })) })),
+    };
+  }
   return {
     ...file,
-    schemaVersion: 2,
+    schemaVersion: 3,
     strategies: [],
     symbolAliases: [],
     notificationPrefs: null,
@@ -311,6 +369,7 @@ export function normalizeExport(file: ExportFile): NormalizedExport {
         maePrice: null,
         mfePrice: null,
         executions: synthesizeExecutions(t),
+        ...PRICE_MODE,
       })),
     })),
   };
@@ -321,7 +380,7 @@ export function normalizeExport(file: ExportFile): NormalizedExport {
 // ---------------------------------------------------------------------------
 
 export type ParseExportResult =
-  | { ok: true; data: NormalizedExport; schemaVersion: 1 | 2 }
+  | { ok: true; data: NormalizedExport; schemaVersion: 1 | 2 | 3 }
   | { ok: false; reason: "notAnExport" | "newerVersion" | "invalid"; issues: string[] };
 
 /** `["accounts", 0, "trades", 3, "entryPrice"]` -> `accounts[0].trades[3].entryPrice`. */

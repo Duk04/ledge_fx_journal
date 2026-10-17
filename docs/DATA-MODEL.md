@@ -47,8 +47,10 @@ reference at all — its `identifier` is an email, not a user id).
 
 ## Computed trade columns: stored, backfilled by one function
 
-`trades` stores both the raw, broker-reported facts (price, volume,
-commission, swap, timestamps) **and** a set of derived analytics columns:
+`trades` stores both the raw facts (price, volume, commission, swap,
+timestamps — or, on an `entry_mode = R_MULTIPLE` trade, the hand-entered
+`planned_risk`, `planned_rr` and `result_r` instead of prices) **and** a set
+of derived analytics columns:
 `net_pnl`, `gross_pnl`, `pips`, `r_multiple`, `risk_amount`,
 `holding_minutes`, `market_session`. These are deliberately **stored columns,
 not view/query-time calculations**, and deliberately **populated by exactly

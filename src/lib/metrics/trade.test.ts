@@ -7,6 +7,7 @@ import {
   computeNetPnl,
   computePips,
   computePlannedRR,
+  computeRTrade,
   computeRiskAmount,
   computeRMultiple,
   computeTrade,
@@ -354,5 +355,43 @@ describe("initialStopLoss", () => {
 
   it("without it, a stop moved to breakeven leaves R undefined", () => {
     expect(computeTrade({ ...base, stopLoss: "1.1000" }).rMultiple).toBeNull();
+  });
+});
+
+describe("computeRTrade", () => {
+  const base = {
+    mode: "R_MULTIPLE" as const,
+    plannedRisk: "100",
+    plannedRR: "2.5",
+    openedAt: new Date("2026-09-08T10:00:00Z"),
+  };
+
+  it("turns R into money through the risk", () => {
+    const r = computeRTrade({ ...base, resultR: "2.5", closedAt: new Date("2026-09-08T12:00:00Z") });
+    expect(r.netPnl?.toString()).toBe("250");
+    expect(r.rMultiple?.toString()).toBe("2.5");
+    expect(r.riskAmount?.toString()).toBe("100");
+    expect(r.plannedRR?.toString()).toBe("2.5");
+    expect(r.holdingMinutes).toBe(120);
+    expect(r.outcome).toBe("WIN");
+    expect(r.pips).toBeNull();
+  });
+
+  it("keeps R as entered while costs come out of P&L", () => {
+    const r = computeRTrade({ ...base, resultR: "-1", commission: "7", swap: "-2" });
+    expect(r.netPnl?.toString()).toBe("-105");
+    expect(r.rMultiple?.toString()).toBe("-1");
+    expect(r.outcome).toBe("LOSS");
+  });
+
+  it("is open, with no P&L, until there is a result", () => {
+    const r = computeRTrade(base);
+    expect(r.netPnl).toBeNull();
+    expect(r.rMultiple).toBeNull();
+    expect(r.outcome).toBe("OPEN");
+  });
+
+  it("calls a 0R result breakeven", () => {
+    expect(computeRTrade({ ...base, resultR: "0" }).outcome).toBe("BREAKEVEN");
   });
 });

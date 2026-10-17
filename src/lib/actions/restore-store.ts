@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type Instrument, type MarketSession, type TagKind } from "@prisma/client";
 import { MAX_STRATEGY_CODE_CHARS } from "@/lib/backtest";
 import { validateFills, type Fill } from "@/lib/metrics/fills";
-import { derivedColumns, tradeInput } from "@/lib/trade-service";
+import { derivedColumns, priceTradeInput, rTradeInput } from "@/lib/trade-service";
 import type { NormalizedExport, NormalizedTrade } from "@/lib/export-schema";
 import { columnsFromFills } from "./fills-store";
 
@@ -122,15 +122,43 @@ function strategyParams(params: unknown): Prisma.InputJsonValue {
  * describe a position.
  */
 function tradeColumns(t: NormalizedTrade, fills: Fill[], instrument: Instrument, accountCurrency: string) {
+  if (t.entryMode === "R_MULTIPLE") {
+    // No prices and no fills: the R inputs are the trade. The schema has
+    // already required plannedRisk for this mode.
+    const closed = t.status === "CLOSED";
+    const r = {
+      entryMode: "R_MULTIPLE" as const,
+      direction: t.direction,
+      status: t.status,
+      entryPrice: null,
+      exitPrice: null,
+      stopLoss: null,
+      initialStopLoss: null,
+      takeProfit: null,
+      conversionRate: null,
+      volumeLots: decOrNull(t.volumeLots),
+      plannedRR: decOrNull(t.plannedRR),
+      plannedRisk: new Prisma.Decimal(t.plannedRisk!),
+      resultR: closed ? decOrNull(t.resultR) : null,
+      commission: new Prisma.Decimal(t.commission),
+      swap: new Prisma.Decimal(t.swap),
+      openedAt: t.openedAt,
+      closedAt: closed ? t.closedAt : null,
+    };
+    if (closed && (r.resultR === null || r.closedAt === null)) return null;
+    return { ...r, ...(derivedColumns(rTradeInput(r)) as unknown as PlainDerived) };
+  }
   const base = {
+    entryMode: "PRICE" as const,
     direction: t.direction,
-    entryPrice: new Prisma.Decimal(t.entryPrice),
+    // Both required for a PRICE trade by the schema's refinement.
+    entryPrice: new Prisma.Decimal(t.entryPrice!),
     exitPrice: decOrNull(t.exitPrice),
     stopLoss: decOrNull(t.stopLoss),
     // Every write path falls back to the stop when no initial stop was given.
     initialStopLoss: decOrNull(t.initialStopLoss ?? t.stopLoss),
     takeProfit: decOrNull(t.takeProfit),
-    volumeLots: new Prisma.Decimal(t.volumeLots),
+    volumeLots: new Prisma.Decimal(t.volumeLots!),
     commission: new Prisma.Decimal(t.commission),
     swap: new Prisma.Decimal(t.swap),
     conversionRate: decOrNull(t.conversionRate),
@@ -143,7 +171,7 @@ function tradeColumns(t: NormalizedTrade, fills: Fill[], instrument: Instrument,
     return {
       ...base,
       status: "CANCELLED" as const,
-      ...(derivedColumns(tradeInput(base, instrument, accountCurrency)) as unknown as PlainDerived),
+      ...(derivedColumns(priceTradeInput(base, instrument, accountCurrency)) as unknown as PlainDerived),
     };
   }
   if (validateFills(fills).length > 0) return null;
@@ -355,7 +383,7 @@ export async function restoreInto(
         playbookId: playbook?.id ?? null,
       });
 
-      if (columns.status !== "CANCELLED") {
+      if (columns.status !== "CANCELLED" && columns.entryMode === "PRICE") {
         const dealIds = new Set<string>();
         for (const e of t.executions) {
           const dealId = e.externalDealId && !dealIds.has(e.externalDealId) ? e.externalDealId : null;

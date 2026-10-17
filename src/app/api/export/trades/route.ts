@@ -16,10 +16,14 @@ const COLUMNS = [
   "status",
   "openedAt",
   "closedAt",
+  "entryMode",
   "entryPrice",
   "exitPrice",
   "stopLoss",
   "takeProfit",
+  "plannedRR",
+  "plannedRisk",
+  "resultR",
   "volumeLots",
   "commission",
   "swap",
@@ -53,11 +57,15 @@ function toRow(t: {
   status: string;
   openedAt: Date;
   closedAt: Date | null;
-  entryPrice: { toString(): string };
+  entryMode: string;
+  entryPrice: { toString(): string } | null;
+  plannedRR: { toString(): string } | null;
+  plannedRisk: { toString(): string } | null;
+  resultR: { toString(): string } | null;
   exitPrice: { toString(): string } | null;
   stopLoss: { toString(): string } | null;
   takeProfit: { toString(): string } | null;
-  volumeLots: { toString(): string };
+  volumeLots: { toString(): string } | null;
   commission: { toString(): string };
   swap: { toString(): string };
   conversionRate: { toString(): string } | null;
@@ -82,11 +90,15 @@ function toRow(t: {
     status: t.status,
     openedAt: t.openedAt.toISOString(),
     closedAt: t.closedAt ? t.closedAt.toISOString() : "",
-    entryPrice: t.entryPrice.toString(),
+    entryMode: t.entryMode,
+    entryPrice: t.entryPrice ? t.entryPrice.toString() : "",
     exitPrice: t.exitPrice ? t.exitPrice.toString() : "",
     stopLoss: t.stopLoss ? t.stopLoss.toString() : "",
     takeProfit: t.takeProfit ? t.takeProfit.toString() : "",
-    volumeLots: t.volumeLots.toString(),
+    plannedRR: t.plannedRR ? t.plannedRR.toString() : "",
+    plannedRisk: t.plannedRisk ? t.plannedRisk.toString() : "",
+    resultR: t.resultR ? t.resultR.toString() : "",
+    volumeLots: t.volumeLots ? t.volumeLots.toString() : "",
     commission: t.commission.toString(),
     swap: t.swap.toString(),
     conversionRate: t.conversionRate ? t.conversionRate.toString() : "",

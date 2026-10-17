@@ -433,6 +433,7 @@
       "closeDialog": {
         "title": "Close trade",
         "description": "The exit price and close time — everything else stays as recorded.",
+        "descriptionR": "How it ended, in R, and when — P&L follows from the risk you set.",
         "exitPrice": "Exit price",
         "lotsToClose": "Lots to close",
         "ofOpen": "of {openLots}",
@@ -659,6 +660,17 @@
       "openedAt": "Opened at",
       "volumeLots": "Volume (lots)",
       "lotsUnit": "lots",
+      "plannedRisk": "Risk amount",
+      "plannedRiskHint": "What you lose if the stop is hit. R is measured in this.",
+      "plannedRR": "Planned R:R",
+      "plannedRRHint": "Reward for each 1 risked — 2.5 means a target at 1 : 2.5.",
+      "outcome": "Outcome",
+      "outcomeWin": "Win",
+      "outcomeLoss": "Loss",
+      "outcomeBreakeven": "Breakeven",
+      "outcomeCustom": "Custom",
+      "resultR": "Result",
+      "resultRHint": "Win = the planned R:R, loss = −1R, breakeven = 0. A partial close: type it.",
       "entryPrice": "Entry price",
       "stopLoss": "Stop loss",
       "takeProfit": "Take profit",
@@ -707,7 +719,8 @@
         "risk": "Risk",
         "plannedRR": "Planned R:R",
         "netPnl": "Net P&L",
-        "netPnlAtTarget": "Net P&L (at target)"
+        "netPnlAtTarget": "Net P&L (at target)",
+        "result": "Result"
       },
       "ladder": {
         "entry": "Entry",
@@ -1199,7 +1212,8 @@
       "emptyTitle": "No open positions",
       "emptyDescription": "Everything is closed out on this account right now.",
       "noStop": "No stop",
-      "lotsAt": "{lots} lot @ {price}"
+      "lotsAt": "{lots} lot @ {price}",
+      "riskPlan": "{risk} risk · {rr}"
     },
     "pnl": {
       "today": "Today",
@@ -1296,6 +1310,8 @@
   },
   "errors": {
     "tradeNotFound": "Trade not found.",
+    "rTradeNoFills": "This trade was logged in R — it has no fills to change.",
+    "notAnRTrade": "This trade was logged with prices — close it with an exit price.",
     "unknownSymbolShort": "Unknown symbol.",
     "tagsNotFound": "One or more tags could not be found.",
     "playbookNotFound": "That playbook was not found.",
@@ -1401,6 +1417,12 @@
     "closedRequiredToClose": "Close date/time is required to close a trade.",
     "exitRequired": "Exit price is required",
     "closedRequired": "Close date/time is required",
+    "riskRequired": "Risk amount is required",
+    "riskPositive": "Risk amount must be greater than 0",
+    "rrPositive": "R:R must be greater than 0",
+    "resultRRequired": "Result in R is required to close a trade.",
+    "resultRNumber": "R must be a number",
+    "closedBeforeOpened": "Close time cannot be before the open time.",
     "timeRequired": "Time is required",
     "priceRequired": "Price is required",
     "pricePositive": "Price must be greater than 0",

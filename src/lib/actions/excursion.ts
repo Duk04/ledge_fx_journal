@@ -21,7 +21,8 @@ export async function fillExcursionFromCandles(
 
   const trade = await prisma.trade.findFirst({ where: { id: tradeId, accountId: found.account.id } });
   if (!trade) return failT("tradeNotFound");
-  if (trade.status !== "CLOSED" || !trade.closedAt || !trade.exitPrice) {
+  // An R-mode trade has no entry or exit price to measure excursion from.
+  if (trade.status !== "CLOSED" || !trade.closedAt || !trade.exitPrice || !trade.entryPrice) {
     return failT("excursionNeedsClosed");
   }
 

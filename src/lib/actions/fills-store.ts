@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma, type Execution, type ExecutionKind, type Instrument } from "@prisma/client";
 import { aggregateFills, simpleFills, type Fill } from "@/lib/metrics/fills";
-import { derivedColumns, tradeInput } from "@/lib/trade-service";
+import { derivedColumns, priceTradeInput } from "@/lib/trade-service";
 
 /**
  * The write side of executions (lib/metrics/fills.ts is the arithmetic).
@@ -55,7 +55,7 @@ export function hasMultipleFills(executions: Pick<Execution, "kind">[]): boolean
  * `aggregateFills`; validate untrusted fills first.
  */
 export function columnsFromFills(
-  trade: Parameters<typeof tradeInput>[0],
+  trade: Parameters<typeof priceTradeInput>[0],
   fills: readonly Fill[],
   instrument: Instrument,
   accountCurrency: string,
@@ -76,7 +76,7 @@ export function columnsFromFills(
     openedAt: next.openedAt,
     closedAt: next.closedAt,
     status: agg.status,
-    ...derivedColumns(tradeInput(next, instrument, accountCurrency)),
+    ...derivedColumns(priceTradeInput(next, instrument, accountCurrency)),
   };
 }
 
@@ -89,7 +89,8 @@ export async function syncTradeFromFills(tx: Tx, tradeId: string, accountCurrenc
     where: { id: tradeId },
     include: { instrument: true, executions: true },
   });
-  if (trade.status === "CANCELLED" || trade.executions.length === 0) return trade;
+  // An R-mode trade has no fills by construction (docs/TRADES.md).
+  if (trade.entryMode === "R_MULTIPLE" || trade.status === "CANCELLED" || trade.executions.length === 0) return trade;
 
   return tx.trade.update({
     where: { id: tradeId },

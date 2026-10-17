@@ -1,7 +1,7 @@
 import type { Instrument, Prisma, Trade } from "@prisma/client";
 import { Decimal } from "decimal.js";
-import { computeTrade, marketSession, validateTradeGeometry, classifyOutcome } from "@/lib/metrics";
-import type { InstrumentSpec, TradeInput, TradeRow } from "@/lib/metrics/types";
+import { computeAnyTrade, marketSession, classifyOutcome } from "@/lib/metrics";
+import type { AnyTradeInput, InstrumentSpec, RTradeInput, TradeInput, TradeRow } from "@/lib/metrics/types";
 import { fromDec, toDec, toDecOr } from "@/lib/decimal-bridge";
 import { resolveConversion } from "@/lib/conversion";
 
@@ -28,33 +28,70 @@ export function instrumentSpec(instrument: Instrument): InstrumentSpec {
   };
 }
 
+type TradeInputRow = Pick<
+  Trade,
+  | "entryMode"
+  | "direction"
+  | "entryPrice"
+  | "exitPrice"
+  | "stopLoss"
+  | "initialStopLoss"
+  | "takeProfit"
+  | "volumeLots"
+  | "commission"
+  | "swap"
+  | "conversionRate"
+  | "openedAt"
+  | "closedAt"
+  | "plannedRR"
+  | "plannedRisk"
+  | "resultR"
+>;
+
 /**
- * Build the metrics-layer input from a persisted trade plus its instrument.
- *
- * `accountCurrency` is what makes the quote-currency conversion correct. It is
- * optional only so that callers computing a preview before an account is known
- * still work; every write path passes it, and `conversionSource` on the result
- * tells the UI whether the number is trustworthy.
+ * Build the metrics-layer input from a persisted trade plus its instrument,
+ * in whichever mode the trade was recorded. Every recompute path (settings,
+ * backfill, restore, fills) goes through here, so an R-mode trade keeps the
+ * R its trader typed rather than being re-derived from prices it never had.
  */
-export function tradeInput(
-  trade: Pick<
-    Trade,
-    | "direction"
-    | "entryPrice"
-    | "exitPrice"
-    | "stopLoss"
-    | "initialStopLoss"
-    | "takeProfit"
-    | "volumeLots"
-    | "commission"
-    | "swap"
-    | "conversionRate"
-    | "openedAt"
-    | "closedAt"
-  >,
+export function tradeInput(trade: TradeInputRow, instrument: Instrument, accountCurrency?: string): AnyTradeInput {
+  return trade.entryMode === "R_MULTIPLE" ? rTradeInput(trade) : priceTradeInput(trade, instrument, accountCurrency);
+}
+
+export function rTradeInput(
+  trade: Pick<Trade, "plannedRR" | "plannedRisk" | "resultR" | "commission" | "swap" | "openedAt" | "closedAt">,
+): RTradeInput {
+  // The database CHECK (migration trade_r_mode) guarantees plannedRisk on an
+  // R_MULTIPLE row; a null here means the row was written around it.
+  if (trade.plannedRisk === null) throw new Error("R_MULTIPLE trade without plannedRisk");
+  return {
+    mode: "R_MULTIPLE",
+    plannedRR: trade.plannedRR?.toString(),
+    plannedRisk: trade.plannedRisk.toString(),
+    resultR: trade.resultR?.toString(),
+    commission: trade.commission.toString(),
+    swap: trade.swap.toString(),
+    openedAt: trade.openedAt,
+    closedAt: trade.closedAt ?? undefined,
+  };
+}
+
+/**
+ * The price-mode input. `accountCurrency` is what makes the quote-currency
+ * conversion correct. It is optional only so that callers computing a preview
+ * before an account is known still work; every write path passes it, and
+ * `conversionSource` on the result tells the UI whether the number is
+ * trustworthy.
+ */
+export function priceTradeInput(
+  trade: Omit<TradeInputRow, "entryMode" | "plannedRR" | "plannedRisk" | "resultR">,
   instrument: Instrument,
   accountCurrency?: string,
 ): TradeInput {
+  // As above: the CHECK constraint makes these non-null on a PRICE row.
+  if (trade.entryPrice === null || trade.volumeLots === null) {
+    throw new Error("PRICE trade without entryPrice / volumeLots");
+  }
   const conversion = accountCurrency
     ? resolveConversion({
         instrument,
@@ -83,9 +120,10 @@ export function tradeInput(
   };
 }
 
-/** The conversion decision on its own, for the UI to explain. */
+/** The conversion decision on its own, for the UI to explain. Price mode
+ * only: an R-mode trade states its risk in account currency already. */
 export function tradeConversion(
-  trade: Pick<Trade, "entryPrice" | "exitPrice" | "conversionRate">,
+  trade: Pick<Trade, "exitPrice" | "conversionRate"> & { entryPrice: Prisma.Decimal },
   instrument: Instrument,
   accountCurrency: string,
 ) {
@@ -103,8 +141,8 @@ export type DerivedColumns = Pick<
   "grossPnl" | "netPnl" | "pips" | "rMultiple" | "riskAmount" | "holdingMinutes" | "marketSession"
 >;
 
-export function derivedColumns(input: TradeInput): DerivedColumns {
-  const r = computeTrade(input);
+export function derivedColumns(input: AnyTradeInput): DerivedColumns {
+  const r = computeAnyTrade(input);
   return {
     grossPnl: fromDec(r.grossPnl),
     netPnl: fromDec(r.netPnl),
@@ -113,15 +151,6 @@ export function derivedColumns(input: TradeInput): DerivedColumns {
     riskAmount: fromDec(r.riskAmount),
     holdingMinutes: r.holdingMinutes,
     marketSession: marketSession(input.openedAt),
-  };
-}
-
-/** Convenience for the write path: geometry problems + the derived columns. */
-export function prepareTradeWrite(input: TradeInput) {
-  return {
-    problems: validateTradeGeometry(input),
-    derived: derivedColumns(input),
-    result: computeTrade(input),
   };
 }
 
@@ -147,6 +176,16 @@ export function toTradeRow(
     closedAt: trade.closedAt,
     holdingMinutes: trade.holdingMinutes,
   };
+}
+
+/**
+ * Whether a trade states its risk up front. For a PRICE trade that is a stop
+ * loss; an R_MULTIPLE trade always does, because its money at risk is
+ * required. Every "no stop" count and warning asks this rather than reading
+ * `stopLoss` directly, or every R-mode trade would be flagged as naked.
+ */
+export function hasDefinedRisk(trade: Pick<Trade, "entryMode" | "stopLoss">): boolean {
+  return trade.entryMode === "R_MULTIPLE" || trade.stopLoss !== null;
 }
 
 /** Sum of realised net P&L, used for account equity. */

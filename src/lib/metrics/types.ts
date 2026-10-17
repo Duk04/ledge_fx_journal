@@ -75,6 +75,34 @@ export interface TradeInput {
   closedAt?: Date;
 }
 
+/**
+ * One trade logged in R rather than prices — the sole input to
+ * computeRTrade(). There is no instrument maths here at all: the trader
+ * states the money at risk and the result in R, and P&L follows from those.
+ */
+export interface RTradeInput {
+  mode: "R_MULTIPLE";
+  /** Planned reward:risk, e.g. 2.5 for "1 : 2.5". */
+  plannedRR?: DecimalInput;
+  /** Money at risk, in account currency. Always positive. */
+  plannedRisk: DecimalInput;
+  /** Result in R as entered (+2.5, -1, 0, +0.8 …). Undefined while open. */
+  resultR?: DecimalInput;
+  /** Same sign convention as TradeInput.commission. */
+  commission?: DecimalInput;
+  /** Same sign convention as TradeInput.swap. */
+  swap?: DecimalInput;
+  openedAt: Date;
+  closedAt?: Date;
+}
+
+/** Either way a trade can be recorded; derivedColumns() takes both. */
+export type AnyTradeInput = TradeInput | RTradeInput;
+
+export function isRTradeInput(input: AnyTradeInput): input is RTradeInput {
+  return "mode" in input && input.mode === "R_MULTIPLE";
+}
+
 /** Fully derived numbers for one trade — the output of computeTrade(). */
 export interface TradeResult {
   /** Signed price move expressed in pips (positive = favourable to the trade's direction). null while open. */

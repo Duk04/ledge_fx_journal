@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/
 import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input, NumberInput } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { closeTrade, deleteTrade, duplicateTrade } from "@/lib/actions/trades";
+import { Segmented, SegmentedItem } from "@/components/ui/segmented";
+import { closeRTrade, closeTrade, deleteTrade, duplicateTrade } from "@/lib/actions/trades";
+import { resultForOutcome, outcomeFor, type ROutcome } from "./trade-form-values";
 
 /** The trade detail header's actions: Edit/Duplicate/Delete always, plus a
  * "Close trade" shortcut for the common case (just an exit price and a
@@ -20,12 +22,17 @@ export function TradeDetailActions({
   tradeId,
   status,
   openLots,
+  entryMode = "PRICE",
+  plannedRR = null,
 }: {
   accountId: string;
   tradeId: string;
   status: string;
   /** Lots still open — the close dialog's default, and its ceiling. */
   openLots: string;
+  /** An R-mode trade closes with a result in R, not an exit price. */
+  entryMode?: "PRICE" | "R_MULTIPLE";
+  plannedRR?: string | null;
 }) {
   const t = useTranslations("trades.detail.actions");
   const router = useRouter();
@@ -92,25 +99,140 @@ export function TradeDetailActions({
         </DialogContent>
       </Dialog>
 
-      {/* Keyed on the open size so a partial close resets the default to
-          what is left, instead of offering the old size again. */}
-      <CloseTradeDialog
-        key={openLots}
-        open={closeOpen}
-        onOpenChange={setCloseOpen}
-        openLots={openLots}
-        onClose={async (input) => {
-          const res = await closeTrade(accountId, tradeId, input);
-          if (res.ok) {
-            setCloseOpen(false);
-            const partial = Number(input.volumeLots) < Number(openLots);
-            toast({ title: partial ? t("partialClosed", { lots: input.volumeLots, openLots }) : t("closed") });
-            router.refresh();
-          }
-          return res;
-        }}
-      />
+      {entryMode === "R_MULTIPLE" ? (
+        <CloseRTradeDialog
+          open={closeOpen}
+          onOpenChange={setCloseOpen}
+          plannedRR={plannedRR ?? ""}
+          onClose={async (input) => {
+            const res = await closeRTrade(accountId, tradeId, input);
+            if (res.ok) {
+              setCloseOpen(false);
+              toast({ title: t("closed") });
+              router.refresh();
+            }
+            return res;
+          }}
+        />
+      ) : (
+        /* Keyed on the open size so a partial close resets the default to
+          what is left, instead of offering the old size again. */
+        <CloseTradeDialog
+          key={openLots}
+          open={closeOpen}
+          onOpenChange={setCloseOpen}
+          openLots={openLots}
+          onClose={async (input) => {
+            const res = await closeTrade(accountId, tradeId, input);
+            if (res.ok) {
+              setCloseOpen(false);
+              const partial = Number(input.volumeLots) < Number(openLots);
+              toast({ title: partial ? t("partialClosed", { lots: input.volumeLots, openLots }) : t("closed") });
+              router.refresh();
+            }
+            return res;
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** Closing an R-mode trade: which way it went, in R, and when. */
+function CloseRTradeDialog({
+  open,
+  onOpenChange,
+  plannedRR,
+  onClose,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  plannedRR: string;
+  onClose: (input: { resultR: string; closedAt: string }) => Promise<{
+    ok: boolean;
+    fieldErrors?: Record<string, string[]>;
+    formError?: string;
+  }>;
+}) {
+  const t = useTranslations("trades.detail.closeDialog");
+  const tForm = useTranslations("trades.form");
+  const [resultR, setResultR] = React.useState("");
+  const [outcome, setOutcome] = React.useState<ROutcome | "">("");
+  const [closedAt, setClosedAt] = React.useState(() => toDatetimeLocal(new Date()));
+  const [errors, setErrors] = React.useState<Record<string, string[]>>({});
+  const [submitting, setSubmitting] = React.useState(false);
+  const rInput = React.useRef<HTMLInputElement>(null);
+
+  function pick(next: ROutcome) {
+    setOutcome(next);
+    const r = resultForOutcome(next, plannedRR);
+    if (r !== undefined) setResultR(r);
+    else rInput.current?.focus();
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrors({});
+    const closedAtIso = closedAt ? new Date(closedAt).toISOString() : "";
+    const res = await onClose({ resultR, closedAt: closedAtIso });
+    setSubmitting(false);
+    if (!res.ok && res.fieldErrors) setErrors(res.fieldErrors);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="sm">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader title={t("title")} description={t("descriptionR")} />
+          <div className="flex flex-col gap-3 p-4">
+            <Field>
+              <FieldLabel>{tForm("outcome")}</FieldLabel>
+              <Segmented value={outcome} onValueChange={(v) => v && pick(v as ROutcome)}>
+                <SegmentedItem value="WIN">{tForm("outcomeWin")}</SegmentedItem>
+                <SegmentedItem value="LOSS">{tForm("outcomeLoss")}</SegmentedItem>
+                <SegmentedItem value="BREAKEVEN">{tForm("outcomeBreakeven")}</SegmentedItem>
+                <SegmentedItem value="CUSTOM">{tForm("outcomeCustom")}</SegmentedItem>
+              </Segmented>
+            </Field>
+            <Field>
+              <FieldLabel>{tForm("resultR")}</FieldLabel>
+              <NumberInput
+                ref={rInput}
+                value={resultR}
+                onChange={(e) => {
+                  setResultR(e.target.value);
+                  setOutcome(outcomeFor(e.target.value, plannedRR) || "CUSTOM");
+                }}
+                unit="R"
+                placeholder="2.5"
+                aria-invalid={!!errors.resultR}
+              />
+              <FieldHint>{tForm("resultRHint")}</FieldHint>
+              <FieldError>{errors.resultR?.[0]}</FieldError>
+            </Field>
+            <Field>
+              <FieldLabel>{t("closedAt")}</FieldLabel>
+              <Input
+                type="datetime-local"
+                value={closedAt}
+                onChange={(e) => setClosedAt(e.target.value)}
+                aria-invalid={!!errors.closedAt}
+              />
+              <FieldError>{errors.closedAt?.[0]}</FieldError>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="default" onClick={() => onOpenChange(false)} disabled={submitting}>
+              {t("cancel")}
+            </Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? t("submitting") : t("submit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

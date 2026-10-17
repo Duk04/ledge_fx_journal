@@ -27,6 +27,7 @@ async function trade(accountId: string, exitPrice: string, playbookId?: string) 
     accountId,
     buildFormData(
       defaultFormValues({
+        entryMode: "PRICE",
         symbol: "EURUSD",
         direction: "LONG",
         status: "CLOSED",
@@ -103,7 +104,15 @@ describe("playbooks", () => {
     expect((await setRuleCheck(account.id, t, theirRule.id, true)).ok).toBe(false);
     const created = await createTrade(
       account.id,
-      buildFormData(defaultFormValues({ symbol: "EURUSD", entryPrice: "1.1", volumeLots: "1", playbookId: theirs.id })),
+      buildFormData(
+        defaultFormValues({
+          entryMode: "PRICE",
+          symbol: "EURUSD",
+          entryPrice: "1.1",
+          volumeLots: "1",
+          playbookId: theirs.id,
+        }),
+      ),
     );
     expect(created.ok).toBe(false);
   });

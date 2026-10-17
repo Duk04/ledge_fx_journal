@@ -1,7 +1,15 @@
 import { Decimal as PrismaDecimal } from "@prisma/client/runtime/library";
 import type { Instrument, Trade } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { derivedColumns, instrumentSpec, realisedPnl, toTradeRow, tradeConversion, tradeInput } from "./trade-service";
+import {
+  derivedColumns,
+  instrumentSpec,
+  priceTradeInput,
+  realisedPnl,
+  toTradeRow,
+  tradeConversion,
+  tradeInput,
+} from "./trade-service";
 
 /**
  * The Decimal-to-plain bridge for every trade write, and the one place that
@@ -25,7 +33,7 @@ function instrument(overrides: Partial<Instrument> = {}): Instrument {
   } as Instrument;
 }
 
-type TradeFields = Parameters<typeof tradeInput>[0];
+type TradeFields = Parameters<typeof priceTradeInput>[0];
 
 function trade(overrides: Partial<Record<keyof TradeFields, unknown>> = {}): TradeFields {
   return {
@@ -59,16 +67,16 @@ describe("instrumentSpec", () => {
   });
 });
 
-describe("tradeInput", () => {
+describe("priceTradeInput", () => {
   it("stringifies every numeric field", () => {
-    const input = tradeInput(trade(), instrument(), "USD");
+    const input = priceTradeInput(trade(), instrument(), "USD");
     expect(input.entryPrice).toBe("1.1");
     expect(input.volumeLots).toBe("1");
     expect(input.commission).toBe("3.5");
   });
 
   it("leaves absent optional fields undefined, not zero", () => {
-    const input = tradeInput(
+    const input = priceTradeInput(
       trade({ exitPrice: null, stopLoss: null, takeProfit: null, closedAt: null }),
       instrument(),
       "USD",
@@ -81,14 +89,14 @@ describe("tradeInput", () => {
 
   describe("conversion rate", () => {
     it("resolves to 1 when the quote currency is the account currency", () => {
-      const input = tradeInput(trade(), instrument(), "USD");
+      const input = priceTradeInput(trade(), instrument(), "USD");
       expect(input.conversionRate).toBe("1");
     });
 
     it("uses the EXIT price as the reference, not the entry", () => {
       // The exit is the rate that actually realised the P&L. Using the entry
       // would price the result at the rate when the trade opened.
-      const input = tradeInput(
+      const input = priceTradeInput(
         trade({ entryPrice: new PrismaDecimal("150.00"), exitPrice: new PrismaDecimal("160.00") }),
         instrument({ symbol: "USDJPY", baseCurrency: "USD", quoteCurrency: "JPY" }),
         "USD",
@@ -97,7 +105,7 @@ describe("tradeInput", () => {
     });
 
     it("falls back to the entry price while the trade is still open", () => {
-      const input = tradeInput(
+      const input = priceTradeInput(
         trade({ entryPrice: new PrismaDecimal("150.00"), exitPrice: null, closedAt: null }),
         instrument({ symbol: "USDJPY", baseCurrency: "USD", quoteCurrency: "JPY" }),
         "USD",
@@ -106,7 +114,7 @@ describe("tradeInput", () => {
     });
 
     it("prefers the trade's own stored rate over anything derived", () => {
-      const input = tradeInput(
+      const input = priceTradeInput(
         trade({ conversionRate: new PrismaDecimal("0.0068") }),
         instrument({ symbol: "USDJPY", baseCurrency: "USD", quoteCurrency: "JPY" }),
         "USD",
@@ -116,19 +124,19 @@ describe("tradeInput", () => {
 
     it("passes through the stored rate untouched when no account currency is known", () => {
       // The documented case: a preview computed before an account is chosen.
-      const input = tradeInput(trade({ conversionRate: new PrismaDecimal("0.0068") }), instrument());
+      const input = priceTradeInput(trade({ conversionRate: new PrismaDecimal("0.0068") }), instrument());
       expect(input.conversionRate).toBe("0.0068");
     });
 
     it("leaves the rate undefined when neither is available", () => {
-      expect(tradeInput(trade(), instrument()).conversionRate).toBeUndefined();
+      expect(priceTradeInput(trade(), instrument()).conversionRate).toBeUndefined();
     });
   });
 });
 
 describe("tradeConversion", () => {
   it("reports the decision and whether it needs attention", () => {
-    const identity = tradeConversion(trade(), instrument(), "USD");
+    const identity = tradeConversion(trade() as Parameters<typeof tradeConversion>[0], instrument(), "USD");
     expect(identity.source).toBe("IDENTITY");
     expect(identity.needsAttention).toBe(false);
   });
@@ -136,7 +144,7 @@ describe("tradeConversion", () => {
   it("flags a cross pair whose rate cannot be derived", () => {
     // EURJPY in a USD account: neither leg is the account currency.
     const flagged = tradeConversion(
-      trade(),
+      trade() as Parameters<typeof tradeConversion>[0],
       instrument({ symbol: "EURJPY", baseCurrency: "EUR", quoteCurrency: "JPY" }),
       "USD",
     );
@@ -147,7 +155,7 @@ describe("tradeConversion", () => {
 
 describe("derivedColumns", () => {
   it("returns strings for the Decimal columns and a number for the minutes", () => {
-    const derived = derivedColumns(tradeInput(trade(), instrument(), "USD"));
+    const derived = derivedColumns(priceTradeInput(trade(), instrument(), "USD"));
     expect(typeof derived.grossPnl).toBe("string");
     expect(typeof derived.netPnl).toBe("string");
     expect(typeof derived.holdingMinutes).toBe("number");
@@ -155,20 +163,20 @@ describe("derivedColumns", () => {
 
   it("computes a winning long trade", () => {
     // 50 pips on a 1-lot EURUSD is $500 gross, less $3.50 commission.
-    const derived = derivedColumns(tradeInput(trade(), instrument(), "USD"));
+    const derived = derivedColumns(priceTradeInput(trade(), instrument(), "USD"));
     expect(derived.grossPnl).toBe("500");
     expect(derived.netPnl).toBe("496.5");
     expect(derived.pips).toBe("50");
   });
 
   it("computes holding time in minutes", () => {
-    expect(derivedColumns(tradeInput(trade(), instrument(), "USD")).holdingMinutes).toBe(150);
+    expect(derivedColumns(priceTradeInput(trade(), instrument(), "USD")).holdingMinutes).toBe(150);
   });
 
   it("derives an R multiple from the stop distance", () => {
     // Risk is 50 pips ($500); reward realised is 50 pips, so R is ~1 net of
     // costs rather than exactly 1.
-    const derived = derivedColumns(tradeInput(trade(), instrument(), "USD"));
+    const derived = derivedColumns(priceTradeInput(trade(), instrument(), "USD"));
     expect(derived.riskAmount).toBe("500");
     expect(Number(derived.rMultiple)).toBeCloseTo(0.993, 3);
   });
@@ -176,13 +184,13 @@ describe("derivedColumns", () => {
   it("leaves the R multiple null when there was no stop loss", () => {
     // Same contract as summarize()'s expectancyR: no stop means no R, and
     // reporting 0 would assert something the data cannot support.
-    const derived = derivedColumns(tradeInput(trade({ stopLoss: null }), instrument(), "USD"));
+    const derived = derivedColumns(priceTradeInput(trade({ stopLoss: null }), instrument(), "USD"));
     expect(derived.rMultiple).toBeNull();
     expect(derived.riskAmount).toBeNull();
   });
 
   it("leaves P&L null for an open trade", () => {
-    const derived = derivedColumns(tradeInput(trade({ exitPrice: null, closedAt: null }), instrument(), "USD"));
+    const derived = derivedColumns(priceTradeInput(trade({ exitPrice: null, closedAt: null }), instrument(), "USD"));
     expect(derived.netPnl).toBeNull();
     expect(derived.holdingMinutes).toBeNull();
   });
@@ -191,7 +199,7 @@ describe("derivedColumns", () => {
     // The case conversion.ts's header warns about: at 1:1 this would report a
     // ~$100,000 result on a trade that made about $625.
     const derived = derivedColumns(
-      tradeInput(
+      priceTradeInput(
         trade({
           entryPrice: new PrismaDecimal("150.000"),
           exitPrice: new PrismaDecimal("151.000"),
@@ -213,7 +221,7 @@ describe("derivedColumns", () => {
   });
 
   it("records the market session from the open time", () => {
-    expect(derivedColumns(tradeInput(trade(), instrument(), "USD")).marketSession).toBeTruthy();
+    expect(derivedColumns(priceTradeInput(trade(), instrument(), "USD")).marketSession).toBeTruthy();
   });
 });
 
@@ -293,5 +301,44 @@ describe("realisedPnl", () => {
     // floating point. This is the reason the whole layer uses Decimal.
     const trades = Array.from({ length: 10 }, () => ({ netPnl: new PrismaDecimal("0.1") }));
     expect(realisedPnl(trades).toString()).toBe("1");
+  });
+});
+
+describe("R-mode trades", () => {
+  const rRow = (overrides: Record<string, unknown> = {}) =>
+    ({
+      ...trade({ entryPrice: null, exitPrice: null, stopLoss: null, takeProfit: null, volumeLots: null }),
+      entryMode: "R_MULTIPLE",
+      initialStopLoss: null,
+      plannedRR: new PrismaDecimal("2.5"),
+      plannedRisk: new PrismaDecimal("100"),
+      resultR: new PrismaDecimal("2.5"),
+      commission: new PrismaDecimal("0"),
+      ...overrides,
+    }) as Parameters<typeof tradeInput>[0];
+
+  it("dispatches on entryMode and keeps the R that was entered", () => {
+    const derived = derivedColumns(tradeInput(rRow(), instrument(), "USD"));
+    expect(derived.rMultiple).toBe("2.5");
+    expect(derived.netPnl).toBe("250");
+    expect(derived.riskAmount).toBe("100");
+    expect(derived.pips).toBeNull();
+  });
+
+  it("takes costs out of P&L but not out of R", () => {
+    const derived = derivedColumns(tradeInput(rRow({ commission: new PrismaDecimal("5") }), instrument(), "USD"));
+    expect(derived.rMultiple).toBe("2.5");
+    expect(derived.netPnl).toBe("245");
+  });
+
+  it("an open R trade has no P&L yet", () => {
+    const derived = derivedColumns(tradeInput(rRow({ resultR: null, closedAt: null }), instrument(), "USD"));
+    expect(derived.netPnl).toBeNull();
+    expect(derived.rMultiple).toBeNull();
+    expect(derived.riskAmount).toBe("100");
+  });
+
+  it("refuses an R row with no money at risk", () => {
+    expect(() => tradeInput(rRow({ plannedRisk: null }), instrument(), "USD")).toThrow();
   });
 });

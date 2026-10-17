@@ -505,6 +505,39 @@ async function main() {
   console.log("Seeded 2 open trades.");
 
   // -------------------------------------------------------------------
+  // R-mode trades: logged as risk + planned R:R + result, no prices
+  // (docs/TRADES.md, "R-mode trades"). Fixed values rather than rand():
+  // drawing from the PRNG here would shift every row seeded after it.
+  // -------------------------------------------------------------------
+  const R_TRADES = [
+    { symbol: "EURUSD", direction: "LONG", daysAgo: 4, rr: "2.5", result: "2.5" },
+    { symbol: "GBPUSD", direction: "SHORT", daysAgo: 3, rr: "2", result: "-1" },
+    { symbol: "XAUUSD", direction: "LONG", daysAgo: 2, rr: "3", result: "0" },
+    { symbol: "USDJPY", direction: "SHORT", daysAgo: 1, rr: "2", result: "1.2" },
+  ] as const;
+  for (const [i, r] of R_TRADES.entries()) {
+    const openedAt = new Date(NOW.getTime() - r.daysAgo * DAY_MS);
+    await prisma.trade.upsert({
+      where: { id: `seed-trade-r-${i + 1}` },
+      update: {},
+      create: {
+        id: `seed-trade-r-${i + 1}`,
+        accountId: ACCOUNT_LIVE_ID,
+        entryMode: "R_MULTIPLE",
+        symbol: r.symbol,
+        direction: r.direction,
+        status: "CLOSED",
+        openedAt,
+        closedAt: new Date(openedAt.getTime() + 95 * 60_000),
+        plannedRisk: "100.00",
+        plannedRR: r.rr,
+        resultR: r.result,
+      },
+    });
+  }
+  console.log(`Seeded ${R_TRADES.length} R-mode trades.`);
+
+  // -------------------------------------------------------------------
   // Balance events
   // -------------------------------------------------------------------
   const balanceEvents = [

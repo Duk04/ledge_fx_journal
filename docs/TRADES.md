@@ -38,9 +38,10 @@ every viewer, and a reload never loses the view you were looking at.
 
 `netPnl`, `grossPnl`, `pips`, `rMultiple`, `riskAmount`, `holdingMinutes` and
 `marketSession` are never computed inline in this feature. Every write path
-(`createTrade`, `updateTrade`, `closeTrade`, and — deliberately NOT —
-`duplicateTrade`, which starts a fresh OPEN trade with no derived numbers to
-carry over) calls `derivedColumns()` from `src/lib/trade-service.ts`, which
+(`createTrade`, `updateTrade`, `closeTrade`, `closeRTrade`, and — deliberately
+NOT — `duplicateTrade` of a PRICE trade, which starts a fresh OPEN trade with
+no derived numbers to carry over; an R-mode duplicate does call it, because
+its risk is known before anything happens) calls `derivedColumns()` from `src/lib/trade-service.ts`, which
 is the one shared place that turns raw trade facts into analytics. Reads
 follow the same rule: `listTrades`/`tradeStats` use the **stored** columns
 (via `toTradeRow`), and `getTrade` additionally runs a **fresh recompute**
@@ -57,6 +58,44 @@ fix landed instead: `prisma/schema.prisma` declares
 `NEW_YORK @map("NEWYORK")`, so `derivedColumns()` passes the metrics value
 straight through and Prisma maps it at the boundary. The workaround is gone.
 
+## R-mode trades
+
+The trade form logs new trades **in R, not prices** (`Trade.entryMode =
+R_MULTIPLE`). The trader enters:
+
+- **Risk amount** — money at risk in the account currency. Required: it is
+  what turns R into P&L.
+- **Planned R:R** — optional, e.g. `2.5` for a target at 1 : 2.5.
+- **No lot size.** Nothing in R mode is computed from size, so the form
+  does not ask for it. The column stays nullable rather than going away:
+  imported and backtest PRICE trades still carry their lots.
+- On close, an **Outcome**: Win (R = the planned R:R), Loss (−1R),
+  Breakeven (0R) or Custom (a partial, or a gap through the stop). The
+  buttons only fill the **Result** field; the R stored is whatever it holds.
+
+`computeRTrade()` (`src/lib/metrics/trade.ts`) derives the stored columns:
+`rMultiple = resultR` as entered, `grossPnl = resultR × plannedRisk`,
+`netPnl = grossPnl − commission − swap`, `riskAmount = plannedRisk`,
+`pips = null`. It runs through the same `derivedColumns()` as a price trade,
+so the recompute, backfill and restore paths all keep the R the trader
+typed instead of re-deriving it from prices the trade never had.
+
+What an R-mode trade does **not** have: entry/exit/stop/target prices,
+executions (fills), pips, MAE/MFE, the price ladder, or geometry warnings.
+The detail page hides those, the close dialog asks for an outcome instead of
+an exit price (`closeRTrade`), and the fills actions refuse the trade.
+
+Why prices stay at all: statement imports and backtests still produce PRICE
+trades with fills, and every trade logged before R mode is one. A trade
+never changes mode — `updateTrade` parses the form the stored mode implies,
+whatever the POST claims. The database enforces the per-mode requirements
+with a CHECK (`trades_entry_mode_fields_check`): a PRICE row needs
+`entryPrice` and `volumeLots`, an R_MULTIPLE row needs `plannedRisk`.
+
+"No stop" counts and the risk guard ask `hasDefinedRisk()`
+(`trade-service.ts`) rather than reading `stopLoss`: an R-mode trade always
+has defined risk, so it is never flagged as naked.
+
 ## Executions (fills), scaling in, partial closes
 
 A trade is built from `Execution` rows: ENTRY fills (the open, and any
@@ -72,8 +111,9 @@ exact rather than an approximation for a fully closed trade.
 
 Where fills are created and changed:
 
-- **New trade / import / backtest / duplicate**: one ENTRY (and one EXIT if
-  closed) — what a one-shot trade stands for.
+- **Import / backtest / duplicate of a PRICE trade**: one ENTRY (and one
+  EXIT if closed) — what a one-shot trade stands for. A trade logged through
+  the form is R-mode and has no fills at all (see above).
 - **Close trade** (detail page): adds an EXIT. The dialog's "Lots to close"
   defaults to everything open; fewer is a partial close.
 - **Fills panel** (detail page): add an ENTRY (scale in) or EXIT, or remove a
@@ -116,10 +156,12 @@ real trading history is full of trades that don't look like a clean plan —
 a stop moved mid-trade, a partial fill, a broker statement imported after
 the fact with an already-invalid price relationship. Refusing to save those
 would make the tool useless for exactly the trades most worth reviewing. The
-six fields that ARE hard-required (`symbol`, `direction`, `volumeLots`,
-`entryPrice`, `openedAt`, and `exitPrice`+`closedAt` together when
-`status = CLOSED`) are the minimum needed to compute anything at all; every
-other check is advisory.
+six fields that ARE hard-required on a PRICE trade (`symbol`, `direction`,
+`volumeLots`, `entryPrice`, `openedAt`, and `exitPrice`+`closedAt` together
+when `status = CLOSED`) are the minimum needed to compute anything at all;
+every other check is advisory. An R-mode trade's equivalent is `symbol`,
+`direction`, `openedAt`, `plannedRisk`, and `resultR`+`closedAt` when
+closed — and it has no geometry to warn about.
 
 ## The two empty states on `/trades`
 

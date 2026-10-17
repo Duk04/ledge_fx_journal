@@ -3,10 +3,14 @@
 /**
  * The shared create/edit trade form. Optimised for speed of entry — a
  * journal nobody fills in is worthless — with a live preview computed
- * client-side (same `computeTrade` the server uses, so what you see while
- * typing is exactly what gets stored) and geometry warnings that inform
- * without blocking: see docs/TRADES.md for why a bad stop/target isn't a
- * hard error here.
+ * client-side (the same `computeRTrade` / `computeTrade` the server uses, so
+ * what you see while typing is exactly what gets stored).
+ *
+ * Two shapes, chosen by the trade's `entryMode` (docs/TRADES.md, "R-mode
+ * trades"): a new trade is logged in R — risk, planned R:R, outcome — with no
+ * prices; an existing PRICE trade keeps its price fields and the geometry
+ * warnings that inform without blocking (see docs/TRADES.md for why a bad
+ * stop/target isn't a hard error here).
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -28,17 +32,20 @@ import { useToast } from "@/components/ui/toast";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
 import { Kbd, useModKey } from "@/components/ui/kbd";
 
-import { buildTradeFormSchema } from "@/lib/schemas/trade";
+import { buildRTradeFormSchema, buildTradeFormSchema } from "@/lib/schemas/trade";
 import { createTrade, updateTrade } from "@/lib/actions/trades";
 import type { InstrumentOption, TagOption } from "@/lib/queries/trades";
 import {
+  LAST_RISK_KEY,
   LAST_SYMBOL_KEY,
-  LAST_VOLUME_KEY,
   buildFormData,
   defaultFormValues,
+  outcomeFor,
+  resultForOutcome,
+  type ROutcome,
   type TradeFormInput,
 } from "./trade-form-values";
-import { PreviewStrip, buildPreview, buildWarnings } from "./trade-preview";
+import { PreviewStrip, buildPreview, buildRPreview, buildWarnings } from "./trade-preview";
 import { PendingScreenshots, type PendingScreenshot } from "./pending-screenshots";
 import { uploadAttachment } from "./attachment-files";
 
@@ -99,7 +106,18 @@ export function TradeForm({
 
   const validSymbols = React.useMemo(() => new Set(instruments.map((i) => i.symbol)), [instruments]);
   const symbolOptions = React.useMemo(() => instrumentOptions(instruments), [instruments]);
-  const schema = React.useMemo(() => buildTradeFormSchema(validSymbols), [validSymbols]);
+  // New trades are logged in R (risk, planned R:R, result); a trade recorded
+  // with prices keeps its price form. The mode never changes on a trade.
+  const rMode = (defaults?.entryMode ?? "R_MULTIPLE") === "R_MULTIPLE";
+  const schema = React.useMemo(
+    () => (rMode ? buildRTradeFormSchema(validSymbols) : buildTradeFormSchema(validSymbols)),
+    [rMode, validSymbols],
+  );
+  // Which outcome button is lit. Kept as state rather than derived from the
+  // R field so that "Custom" stays selected while its value happens to be -1.
+  const [outcome, setOutcome] = React.useState<ROutcome | "">(() =>
+    outcomeFor(defaults?.resultR ?? "", defaults?.plannedRR ?? ""),
+  );
 
   const form = useForm<TradeFormInput>({
     // The schema's fields go through `z.preprocess` (see schemas/trade.ts)
@@ -120,15 +138,16 @@ export function TradeForm({
   const [screenshots, setScreenshots] = React.useState<PendingScreenshot[]>([]);
   const [uploading, setUploading] = React.useState<{ done: number; total: number } | null>(null);
 
-  // Remember the last symbol/volume for next time — a journal you have to
+  // Remember the last symbol and risk for next time — a journal you have to
   // re-type into every time is a journal you stop using.
   React.useEffect(() => {
     if (mode !== "create") return;
     try {
       const lastSymbol = window.localStorage.getItem(LAST_SYMBOL_KEY);
-      const lastVolume = window.localStorage.getItem(LAST_VOLUME_KEY);
+      const lastRisk = window.localStorage.getItem(LAST_RISK_KEY);
       if (lastSymbol) form.setValue("symbol", lastSymbol);
-      if (lastVolume) form.setValue("volumeLots", lastVolume);
+      // Most traders risk the same amount every time.
+      if (lastRisk && rMode) form.setValue("plannedRisk", lastRisk);
     } catch {
       /* localStorage unavailable (private mode, blocked) — fine, just skip prefill */
     }
@@ -142,8 +161,25 @@ export function TradeForm({
   const status = watched.status;
   const instrument = instruments.find((i) => i.symbol === watched.symbol?.toUpperCase());
 
-  const preview = React.useMemo(() => buildPreview(watched, instrument, currency), [watched, instrument, currency]);
-  const geometryWarnings = React.useMemo(() => buildWarnings(watched, instrument), [watched, instrument]);
+  const preview = React.useMemo(
+    () => (rMode ? buildRPreview(watched, currency) : buildPreview(watched, instrument, currency)),
+    [rMode, watched, instrument, currency],
+  );
+  const geometryWarnings = React.useMemo(
+    () => (rMode ? [] : buildWarnings(watched, instrument)),
+    [rMode, watched, instrument],
+  );
+
+  function pickOutcome(next: ROutcome) {
+    setOutcome(next);
+    const r = resultForOutcome(next, form.getValues("plannedRR"));
+    if (r !== undefined) {
+      form.setValue("resultR", r, { shouldValidate: form.formState.isSubmitted });
+    } else {
+      // Custom, or a win with no planned R:R to read it from: type it in.
+      form.setFocus("resultR");
+    }
+  }
 
   async function onSubmit(values: TradeFormInput) {
     // The submit button is disabled offline, but ⌘⏎ calls requestSubmit()
@@ -157,13 +193,16 @@ export function TradeForm({
       });
       return;
     }
-    const fd = buildFormData(values);
+    // `values` is the resolver's OUTPUT, which carries only schema fields —
+    // and neither schema has `entryMode`. Without restating it here an R
+    // form posts as a price form.
+    const fd = buildFormData({ ...values, entryMode: rMode ? "R_MULTIPLE" : "PRICE" });
     const result = mode === "create" ? await createTrade(accountId, fd) : await updateTrade(accountId, tradeId!, fd);
 
     if (result.ok) {
       try {
         window.localStorage.setItem(LAST_SYMBOL_KEY, values.symbol);
-        window.localStorage.setItem(LAST_VOLUME_KEY, values.volumeLots);
+        if (rMode && values.plannedRisk) window.localStorage.setItem(LAST_RISK_KEY, values.plannedRisk);
       } catch {
         /* ignore */
       }
@@ -291,80 +330,126 @@ export function TradeForm({
               />
               <FieldError>{errors.openedAt?.message}</FieldError>
             </Field>
-
-            <FieldRow>
-              <Field>
-                <FieldLabel>{t("volumeLots")}</FieldLabel>
-                <NumberInput
-                  className={RESPONSIVE_HEIGHT}
-                  unit={t("lotsUnit")}
-                  placeholder="1.00"
-                  aria-invalid={!!errors.volumeLots}
-                  {...form.register("volumeLots")}
-                />
-                <FieldError>{errors.volumeLots?.message}</FieldError>
-              </Field>
-
-              <Field>
-                <FieldLabel>{t("entryPrice")}</FieldLabel>
-                <NumberInput
-                  className={RESPONSIVE_HEIGHT}
-                  placeholder="0.00000"
-                  aria-invalid={!!errors.entryPrice}
-                  {...form.register("entryPrice")}
-                />
-                <FieldError>{errors.entryPrice?.message}</FieldError>
-              </Field>
-            </FieldRow>
           </fieldset>
 
-          <FieldRow>
-            <Field>
-              <FieldLabel optional>{t("stopLoss")}</FieldLabel>
-              <NumberInput
-                className={RESPONSIVE_HEIGHT}
-                placeholder="0.00000"
-                aria-invalid={!!errors.stopLoss}
-                {...form.register("stopLoss")}
-              />
-              <FieldError>{errors.stopLoss?.message}</FieldError>
-            </Field>
+          {rMode ? (
+            <>
+              <FieldRow>
+                <Field>
+                  <FieldLabel>{t("plannedRisk")}</FieldLabel>
+                  <NumberInput
+                    className={RESPONSIVE_HEIGHT}
+                    unit={currency}
+                    placeholder="100"
+                    aria-invalid={!!errors.plannedRisk}
+                    {...form.register("plannedRisk")}
+                  />
+                  <FieldHint>{t("plannedRiskHint")}</FieldHint>
+                  <FieldError>{errors.plannedRisk?.message}</FieldError>
+                </Field>
 
-            <Field>
-              <FieldLabel optional>{t("takeProfit")}</FieldLabel>
-              <NumberInput
-                className={RESPONSIVE_HEIGHT}
-                placeholder="0.00000"
-                aria-invalid={!!errors.takeProfit}
-                {...form.register("takeProfit")}
-              />
-              <FieldError>{errors.takeProfit?.message}</FieldError>
-            </Field>
-          </FieldRow>
+                <Field>
+                  <FieldLabel optional>{t("plannedRR")}</FieldLabel>
+                  <div className="flex items-center gap-2">
+                    <span className="mono shrink-0 text-sm text-ink-3" aria-hidden>
+                      1 :
+                    </span>
+                    <NumberInput
+                      className={RESPONSIVE_HEIGHT}
+                      placeholder="2.5"
+                      aria-invalid={!!errors.plannedRR}
+                      {...form.register("plannedRR", {
+                        // A win is "hit the plan": keep it in step while the
+                        // plan is still being typed.
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                          if (outcome === "WIN") form.setValue("resultR", e.target.value);
+                        },
+                      })}
+                    />
+                  </div>
+                  <FieldHint>{t("plannedRRHint")}</FieldHint>
+                  <FieldError>{errors.plannedRR?.message}</FieldError>
+                </Field>
+              </FieldRow>
+            </>
+          ) : (
+            <>
+              <fieldset disabled={fillsLocked} className="contents">
+                <FieldRow>
+                  <Field>
+                    <FieldLabel>{t("volumeLots")}</FieldLabel>
+                    <NumberInput
+                      className={RESPONSIVE_HEIGHT}
+                      unit={t("lotsUnit")}
+                      placeholder="1.00"
+                      aria-invalid={!!errors.volumeLots}
+                      {...form.register("volumeLots")}
+                    />
+                    <FieldError>{errors.volumeLots?.message}</FieldError>
+                  </Field>
 
-          <FieldRow>
-            <Field>
-              <FieldLabel optional>{t("initialStop")}</FieldLabel>
-              <NumberInput
-                className={RESPONSIVE_HEIGHT}
-                placeholder={t("initialStopPlaceholder")}
-                aria-invalid={!!errors.initialStopLoss}
-                {...form.register("initialStopLoss")}
-              />
-              <FieldHint>{t("initialStopHint")}</FieldHint>
-              <FieldError>{errors.initialStopLoss?.message}</FieldError>
-            </Field>
-            {/* Keeps the field half-width, aligned with Stop loss above. */}
-            <div aria-hidden />
-          </FieldRow>
+                  <Field>
+                    <FieldLabel>{t("entryPrice")}</FieldLabel>
+                    <NumberInput
+                      className={RESPONSIVE_HEIGHT}
+                      placeholder="0.00000"
+                      aria-invalid={!!errors.entryPrice}
+                      {...form.register("entryPrice")}
+                    />
+                    <FieldError>{errors.entryPrice?.message}</FieldError>
+                  </Field>
+                </FieldRow>
+              </fieldset>
 
-          {geometryWarnings.length > 0 ? (
-            <div className="flex flex-col gap-1 rounded-control border border-warn/30 bg-warn-weak px-3 py-2 text-xs text-warn">
-              {geometryWarnings.map((w) => (
-                <p key={w.code}>{w.message}</p>
-              ))}
-            </div>
-          ) : null}
+              <FieldRow>
+                <Field>
+                  <FieldLabel optional>{t("stopLoss")}</FieldLabel>
+                  <NumberInput
+                    className={RESPONSIVE_HEIGHT}
+                    placeholder="0.00000"
+                    aria-invalid={!!errors.stopLoss}
+                    {...form.register("stopLoss")}
+                  />
+                  <FieldError>{errors.stopLoss?.message}</FieldError>
+                </Field>
+
+                <Field>
+                  <FieldLabel optional>{t("takeProfit")}</FieldLabel>
+                  <NumberInput
+                    className={RESPONSIVE_HEIGHT}
+                    placeholder="0.00000"
+                    aria-invalid={!!errors.takeProfit}
+                    {...form.register("takeProfit")}
+                  />
+                  <FieldError>{errors.takeProfit?.message}</FieldError>
+                </Field>
+              </FieldRow>
+
+              <FieldRow>
+                <Field>
+                  <FieldLabel optional>{t("initialStop")}</FieldLabel>
+                  <NumberInput
+                    className={RESPONSIVE_HEIGHT}
+                    placeholder={t("initialStopPlaceholder")}
+                    aria-invalid={!!errors.initialStopLoss}
+                    {...form.register("initialStopLoss")}
+                  />
+                  <FieldHint>{t("initialStopHint")}</FieldHint>
+                  <FieldError>{errors.initialStopLoss?.message}</FieldError>
+                </Field>
+                {/* Keeps the field half-width, aligned with Stop loss above. */}
+                <div aria-hidden />
+              </FieldRow>
+
+              {geometryWarnings.length > 0 ? (
+                <div className="flex flex-col gap-1 rounded-control border border-warn/30 bg-warn-weak px-3 py-2 text-xs text-warn">
+                  {geometryWarnings.map((w) => (
+                    <p key={w.code}>{w.message}</p>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
 
           <fieldset disabled={fillsLocked} className="contents">
             <Field>
@@ -386,7 +471,47 @@ export function TradeForm({
                 the plan, what became of it — and the exit only once there is one. An
                 open trade used to show two "optional" exit fields that only invited a
                 half-filled close. */}
-            {status === "CLOSED" ? (
+            {status === "CLOSED" && rMode ? (
+              <>
+                <Field>
+                  <FieldLabel>{t("outcome")}</FieldLabel>
+                  <Segmented value={outcome} onValueChange={(v) => v && pickOutcome(v as ROutcome)}>
+                    <SegmentedItem value="WIN">{t("outcomeWin")}</SegmentedItem>
+                    <SegmentedItem value="LOSS">{t("outcomeLoss")}</SegmentedItem>
+                    <SegmentedItem value="BREAKEVEN">{t("outcomeBreakeven")}</SegmentedItem>
+                    <SegmentedItem value="CUSTOM">{t("outcomeCustom")}</SegmentedItem>
+                  </Segmented>
+                </Field>
+                <FieldRow>
+                  <Field>
+                    <FieldLabel>{t("resultR")}</FieldLabel>
+                    <NumberInput
+                      className={RESPONSIVE_HEIGHT}
+                      unit="R"
+                      placeholder="2.5"
+                      aria-invalid={!!errors.resultR}
+                      {...form.register("resultR", {
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+                          setOutcome(outcomeFor(e.target.value, form.getValues("plannedRR")) || "CUSTOM"),
+                      })}
+                    />
+                    <FieldHint>{t("resultRHint")}</FieldHint>
+                    <FieldError>{errors.resultR?.message}</FieldError>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>{t("closedAt")}</FieldLabel>
+                    <Input
+                      type="datetime-local"
+                      className={RESPONSIVE_HEIGHT}
+                      aria-invalid={!!errors.closedAt}
+                      {...form.register("closedAt")}
+                    />
+                    <FieldError>{errors.closedAt?.message}</FieldError>
+                  </Field>
+                </FieldRow>
+              </>
+            ) : status === "CLOSED" ? (
               <FieldRow>
                 <Field>
                   <FieldLabel>{t("exitPrice")}</FieldLabel>
@@ -505,20 +630,23 @@ export function TradeForm({
         </PanelHeader>
         {panelOpen ? (
           <PanelBody id={advancedId} className="flex flex-col gap-4">
-            <FieldRow>
-              <Field>
-                <FieldLabel optional>{t("mae")}</FieldLabel>
-                <NumberInput placeholder="0.00000" aria-invalid={!!errors.maePrice} {...form.register("maePrice")} />
-                <FieldHint>{t("maeHint")}</FieldHint>
-                <FieldError>{errors.maePrice?.message}</FieldError>
-              </Field>
-              <Field>
-                <FieldLabel optional>{t("mfe")}</FieldLabel>
-                <NumberInput placeholder="0.00000" aria-invalid={!!errors.mfePrice} {...form.register("mfePrice")} />
-                <FieldHint>{t("mfeHint")}</FieldHint>
-                <FieldError>{errors.mfePrice?.message}</FieldError>
-              </Field>
-            </FieldRow>
+            {/* MAE / MFE are prices; an R-mode trade has none to compare. */}
+            {rMode ? null : (
+              <FieldRow>
+                <Field>
+                  <FieldLabel optional>{t("mae")}</FieldLabel>
+                  <NumberInput placeholder="0.00000" aria-invalid={!!errors.maePrice} {...form.register("maePrice")} />
+                  <FieldHint>{t("maeHint")}</FieldHint>
+                  <FieldError>{errors.maePrice?.message}</FieldError>
+                </Field>
+                <Field>
+                  <FieldLabel optional>{t("mfe")}</FieldLabel>
+                  <NumberInput placeholder="0.00000" aria-invalid={!!errors.mfePrice} {...form.register("mfePrice")} />
+                  <FieldHint>{t("mfeHint")}</FieldHint>
+                  <FieldError>{errors.mfePrice?.message}</FieldError>
+                </Field>
+              </FieldRow>
+            )}
             <FieldRow>
               <Field>
                 <FieldLabel optional>{t("commission")}</FieldLabel>

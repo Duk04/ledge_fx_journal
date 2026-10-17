@@ -1,20 +1,22 @@
 import { expect, test } from "@playwright/test";
-import { fact, register } from "./helpers";
+import { fact, insertOpenPriceTrade, register } from "./helpers";
 
 // Scaling out: log an open 2-lot trade, close 1 lot (it stays open), then the
 // rest (it closes, with the P&L of both exits).
 test("partial close keeps the trade open; closing the rest computes P&L from both exits", async ({ page }) => {
-  await register(page);
+  const { email } = await register(page);
 
-  await page.goto("/trades/new");
-  await page.getByLabel("Symbol").click();
-  await page.getByRole("option", { name: /^EURUSD/ }).click();
-  await page.getByLabel("Volume (lots)").fill("2");
-  await page.getByLabel("Entry price").fill("1.10000");
-  await page.getByLabel("Stop loss").fill("1.09900");
-  await page.getByLabel("Opened at").fill("2026-03-04T17:00");
-  await page.getByRole("button", { name: /Log trade/ }).click();
-  await expect(page).toHaveURL(/\/trades\/(?!new$)[^/]+$/);
+  // Fills belong to price-mode trades, which come from statement imports now
+  // that the form logs in R — so this one is inserted as an import would be.
+  const id = await insertOpenPriceTrade(email, {
+    symbol: "EURUSD",
+    direction: "LONG",
+    lots: "2",
+    entry: "1.10000",
+    stop: "1.09900",
+    openedAt: "2026-03-04T09:00:00Z",
+  });
+  await page.goto(`/trades/${id}`);
 
   const closeOnce = async (lots: string | null, price: string, at: string) => {
     await page.getByRole("button", { name: "Close trade" }).click();

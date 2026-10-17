@@ -8,7 +8,17 @@
  */
 import { type Decimal } from "decimal.js";
 import { d, BREAKEVEN_EPSILON } from "./decimal";
-import type { DecimalInput, InstrumentSpec, Outcome, TradeGeometryProblem, TradeInput, TradeResult } from "./types";
+import type {
+  DecimalInput,
+  InstrumentSpec,
+  Outcome,
+  AnyTradeInput,
+  RTradeInput,
+  TradeGeometryProblem,
+  TradeInput,
+  TradeResult,
+} from "./types";
+import { isRTradeInput } from "./types";
 
 /**
  * Value, in ACCOUNT currency, of a one-pip move on 1.0 lot of `instrument`.
@@ -180,7 +190,7 @@ export function validateTradeGeometry(trade: TradeInput): TradeGeometryProblem[]
 }
 
 /** Whole minutes between openedAt and closedAt, rounded to the nearest minute. null while open. */
-export function computeHoldingMinutes(trade: TradeInput): number | null {
+export function computeHoldingMinutes(trade: Pick<TradeInput, "openedAt" | "closedAt">): number | null {
   if (trade.closedAt === undefined) return null;
   const ms = trade.closedAt.getTime() - trade.openedAt.getTime();
   return Math.round(ms / 60000);
@@ -227,4 +237,46 @@ export function computeTrade(trade: TradeInput): TradeResult {
     holdingMinutes,
     outcome,
   };
+}
+
+/**
+ * The R-mode counterpart of computeTrade(), for a trade logged as "risked
+ * $100, planned 1:2.5, came out +2.5R" with no prices at all.
+ *
+ *   grossPnl   = resultR * plannedRisk
+ *   netPnl     = grossPnl - commission - swap
+ *   rMultiple  = resultR, exactly as entered
+ *
+ * rMultiple is NOT recomputed as netPnl / risk. In price mode R is defined
+ * on price risk and deliberately excludes costs (see computeRiskAmount); the
+ * R a trader types is the same quantity, so folding commission back into it
+ * here would make the two modes disagree about what "+2R" means.
+ *
+ * pips is null and pipValuePerLot is zero: without prices there is no pip
+ * move to report, and inventing one from a lot size would be a guess.
+ */
+export function computeRTrade(trade: RTradeInput): TradeResult {
+  const risk = d(trade.plannedRisk);
+  const r = trade.resultR === undefined ? null : d(trade.resultR);
+  const grossPnl = r === null ? null : r.times(risk);
+  const netPnl = grossPnl === null ? null : grossPnl.minus(d(trade.commission ?? 0)).minus(d(trade.swap ?? 0));
+  const status: "OPEN" | "CLOSED" = r === null ? "OPEN" : "CLOSED";
+  const plannedRR = trade.plannedRR === undefined ? null : d(trade.plannedRR);
+
+  return {
+    pips: null,
+    pipValuePerLot: d(0),
+    grossPnl,
+    netPnl,
+    riskAmount: risk.isZero() ? null : risk,
+    rMultiple: r,
+    plannedRR: plannedRR && plannedRR.isPositive() ? plannedRR : null,
+    holdingMinutes: computeHoldingMinutes(trade),
+    outcome: classifyOutcome(netPnl, status),
+  };
+}
+
+/** computeTrade or computeRTrade, whichever way the trade was recorded. */
+export function computeAnyTrade(trade: AnyTradeInput): TradeResult {
+  return isRTradeInput(trade) ? computeRTrade(trade) : computeTrade(trade);
 }

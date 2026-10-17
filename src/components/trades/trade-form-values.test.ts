@@ -4,7 +4,9 @@ import {
   datetimeLocalToIso,
   defaultFormValues,
   isoToDatetimeLocal,
+  outcomeFor,
   pad,
+  resultForOutcome,
   toDatetimeLocal,
   type TradeFormInput,
 } from "./trade-form-values";
@@ -27,6 +29,7 @@ import {
  */
 
 const VALUES: TradeFormInput = {
+  entryMode: "PRICE",
   symbol: "EURUSD",
   direction: "LONG",
   status: "CLOSED",
@@ -40,6 +43,9 @@ const VALUES: TradeFormInput = {
   mfePrice: "",
   takeProfit: "1.1100",
   volumeLots: "1",
+  plannedRisk: "",
+  plannedRR: "",
+  resultR: "",
   commission: "3.50",
   swap: "0",
   conversionRate: "",
@@ -263,5 +269,60 @@ describe("buildFormData", () => {
     const fd = buildFormData(defaultFormValues({ symbol: "EURUSD", entryPrice: "1.1", volumeLots: "1" }));
     expect(fd.has("exitPrice")).toBe(false);
     expect(fd.has("closedAt")).toBe(false);
+  });
+});
+
+describe("R-mode FormData", () => {
+  const R: TradeFormInput = {
+    ...VALUES,
+    entryMode: "R_MULTIPLE",
+    plannedRisk: "100",
+    plannedRR: "2.5",
+    resultR: "2.5",
+    volumeLots: "",
+  };
+
+  it("posts the R fields and no prices", () => {
+    const fd = buildFormData(R);
+    expect(fd.get("entryMode")).toBe("R_MULTIPLE");
+    expect(fd.get("plannedRisk")).toBe("100");
+    expect(fd.get("plannedRR")).toBe("2.5");
+    expect(fd.get("resultR")).toBe("2.5");
+    expect(fd.has("entryPrice")).toBe(false);
+    expect(fd.has("stopLoss")).toBe(false);
+    expect(fd.has("volumeLots")).toBe(false);
+  });
+
+  it("posts a breakeven's 0R, even as the resolver's number", () => {
+    const fd = buildFormData({ ...R, resultR: 0 as unknown as string });
+    expect(fd.get("resultR")).toBe("0");
+  });
+
+  it("leaves the result off an open trade", () => {
+    expect(buildFormData({ ...R, status: "OPEN" }).has("resultR")).toBe(false);
+  });
+
+  it("new trades default to R mode", () => {
+    expect(defaultFormValues().entryMode).toBe("R_MULTIPLE");
+  });
+});
+
+describe("outcome buttons", () => {
+  it.each([
+    ["2.5", "2.5", "WIN"],
+    ["-1", "2.5", "LOSS"],
+    ["0", "2.5", "BREAKEVEN"],
+    ["1.2", "2.5", "CUSTOM"],
+    ["", "2.5", ""],
+  ])("result %s at plan %s reads as %s", (r, rr, expected) => {
+    expect(outcomeFor(r, rr)).toBe(expected);
+  });
+
+  it("writes the planned R:R for a win, -1 for a loss and 0 for breakeven", () => {
+    expect(resultForOutcome("WIN", "2.5")).toBe("2.5");
+    expect(resultForOutcome("LOSS", "2.5")).toBe("-1");
+    expect(resultForOutcome("BREAKEVEN", "")).toBe("0");
+    expect(resultForOutcome("WIN", "")).toBeUndefined();
+    expect(resultForOutcome("CUSTOM", "2.5")).toBeUndefined();
   });
 });

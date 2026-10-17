@@ -10,9 +10,9 @@ import { formatIssuePath, parseExportFile, type ExportFileWrite } from "./export
 
 /** Shaped like `GET /api/export/data` builds it — typed by the same type the
  * route uses, so a field the route must send cannot be left out here. */
-function v2File(): ExportFileWrite {
+function v3File(): ExportFileWrite {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: "2026-10-12T08:00:00.000Z",
     notIncluded: ["password hash"],
     profile: {
@@ -59,7 +59,11 @@ function v2File(): ExportFileWrite {
             status: "CLOSED",
             openedAt: "2026-03-04T10:00:00.000Z",
             closedAt: "2026-03-04T12:00:00.000Z",
+            entryMode: "PRICE",
             entryPrice: "1.1",
+            plannedRR: null,
+            plannedRisk: null,
+            resultR: null,
             exitPrice: "1.102",
             stopLoss: "1.099",
             initialStopLoss: "1.099",
@@ -130,10 +134,39 @@ function v2File(): ExportFileWrite {
   };
 }
 
+/** The same file as a version-2 writer produced it: no R mode. */
+function v2File() {
+  const file = JSON.parse(JSON.stringify(v3File()));
+  file.schemaVersion = 2;
+  for (const a of file.accounts) {
+    for (const t of a.trades) for (const k of ["entryMode", "plannedRR", "plannedRisk", "resultR"]) delete t[k];
+  }
+  return file;
+}
+
+/** An R-mode trade, the shape v3 exists for: no prices, no fills. */
+function rTrade() {
+  return {
+    ...v3File().accounts[0].trades![0],
+    entryMode: "R_MULTIPLE" as const,
+    entryPrice: null,
+    exitPrice: null,
+    stopLoss: null,
+    initialStopLoss: null,
+    maePrice: null,
+    mfePrice: null,
+    volumeLots: null,
+    plannedRR: "2.5",
+    plannedRisk: "100",
+    resultR: "2.5",
+    executions: [],
+  };
+}
+
 /** The same file as a version-1 writer produced it: no fills, no initial
  * stop, none of the later additions. */
 function v1File() {
-  const file = JSON.parse(JSON.stringify(v2File()));
+  const file = v2File();
   file.schemaVersion = 1;
   delete file.strategies;
   delete file.symbolAliases;
@@ -150,11 +183,11 @@ function v1File() {
 }
 
 describe("parseExportFile", () => {
-  it("accepts a version-2 file shaped like the route writes it (JSON round trip)", () => {
-    const res = parseExportFile(JSON.parse(JSON.stringify(v2File())));
+  it("accepts a version-3 file shaped like the route writes it (JSON round trip)", () => {
+    const res = parseExportFile(JSON.parse(JSON.stringify(v3File())));
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.schemaVersion).toBe(2);
+    expect(res.schemaVersion).toBe(3);
     const [account] = res.data.accounts;
     expect(account.drawdownMode).toBe("TRAILING");
     expect(account.minTradingDays).toBe(4);
@@ -165,10 +198,43 @@ describe("parseExportFile", () => {
     expect(res.data.strategies).toHaveLength(1);
   });
 
+  it("reads every version-2 trade as a PRICE trade", () => {
+    const res = parseExportFile(v2File());
+    if (!res.ok) throw new Error(res.issues.join("; "));
+    expect(res.schemaVersion).toBe(2);
+    expect(res.data.schemaVersion).toBe(3);
+    expect(res.data.accounts[0].trades[0]).toMatchObject({ entryMode: "PRICE", plannedRisk: null, resultR: null });
+  });
+
+  it("accepts an R-mode trade with no prices and no fills", () => {
+    const file = v3File();
+    file.accounts[0].trades = [rTrade()];
+    const res = parseExportFile(JSON.parse(JSON.stringify(file)));
+    if (!res.ok) throw new Error(res.issues.join("; "));
+    expect(res.data.accounts[0].trades[0]).toMatchObject({
+      entryMode: "R_MULTIPLE",
+      entryPrice: null,
+      plannedRisk: "100",
+    });
+  });
+
+  it("holds each mode to its own required fields", () => {
+    const file = v3File();
+    file.accounts[0].trades = [
+      { ...rTrade(), plannedRisk: null },
+      { ...v3File().accounts[0].trades![0], entryPrice: null },
+    ];
+    const res = parseExportFile(JSON.parse(JSON.stringify(file)));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.issues.some((i) => i.startsWith("accounts[0].trades[0].plannedRisk:"))).toBe(true);
+    expect(res.issues.some((i) => i.startsWith("accounts[0].trades[1].entryPrice:"))).toBe(true);
+  });
+
   it("accepts an early version-2 file without the later additive fields", () => {
     const file = v1File();
     file.schemaVersion = 2;
-    for (const t of file.accounts[0].trades) t.executions = v2File().accounts[0].trades![0].executions;
+    for (const t of file.accounts[0].trades) t.executions = v3File().accounts[0].trades![0].executions;
     const res = parseExportFile(file);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -215,7 +281,7 @@ describe("parseExportFile", () => {
   });
 
   it("tolerates fields it does not know, at every level", () => {
-    const file = JSON.parse(JSON.stringify(v2File()));
+    const file = JSON.parse(JSON.stringify(v3File()));
     file.futureTopLevel = { anything: true };
     file.accounts[0].futureAccountField = 1;
     file.accounts[0].trades[0].futureTradeField = "x";
@@ -224,7 +290,7 @@ describe("parseExportFile", () => {
   });
 
   it("accepts decimals as numbers or in exponent notation", () => {
-    const file = JSON.parse(JSON.stringify(v2File()));
+    const file = JSON.parse(JSON.stringify(v3File()));
     file.accounts[0].startingBalance = 10000;
     file.accounts[0].trades[0].stopLoss = "1.2e-7";
     const res = parseExportFile(file);
@@ -233,7 +299,7 @@ describe("parseExportFile", () => {
   });
 
   it("names the field that is wrong", () => {
-    const file = JSON.parse(JSON.stringify(v2File()));
+    const file = JSON.parse(JSON.stringify(v3File()));
     file.accounts[0].trades[0].entryPrice = "one point one";
     delete file.accounts[0].trades[0].symbol;
     const res = parseExportFile(file);
@@ -245,7 +311,7 @@ describe("parseExportFile", () => {
   });
 
   it("requires fills on a version-2 trade", () => {
-    const file = JSON.parse(JSON.stringify(v2File()));
+    const file = v2File();
     delete file.accounts[0].trades[0].executions;
     const res = parseExportFile(file);
     expect(res.ok).toBe(false);
@@ -257,7 +323,7 @@ describe("parseExportFile", () => {
     expect(parseExportFile([1, 2])).toMatchObject({ ok: false, reason: "notAnExport" });
     expect(parseExportFile({ hello: "world" })).toMatchObject({ ok: false, reason: "notAnExport" });
     expect(parseExportFile({ schemaVersion: "2" })).toMatchObject({ ok: false, reason: "notAnExport" });
-    expect(parseExportFile({ ...v2File(), schemaVersion: 3 })).toMatchObject({ ok: false, reason: "newerVersion" });
+    expect(parseExportFile({ ...v3File(), schemaVersion: 4 })).toMatchObject({ ok: false, reason: "newerVersion" });
     expect(parseExportFile({ schemaVersion: 2 })).toMatchObject({ ok: false, reason: "invalid" });
   });
 });

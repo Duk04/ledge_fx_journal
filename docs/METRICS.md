@@ -97,6 +97,24 @@ defeats the point of R as a broker-agnostic measure of trade quality. netPnl
 correctly drags R down — it just isn't double-counted into the risk
 denominator too.
 
+### R-mode trades (no prices)
+
+```
+computeRTrade(trade)
+  rMultiple  = resultR                      (as entered; null while open)
+  grossPnl   = resultR × plannedRisk
+  netPnl     = grossPnl − commission − swap
+  riskAmount = plannedRisk
+  pips       = null
+```
+
+**Judgement call: R is stored as entered, not recomputed as netPnl / risk.**
+In price mode R includes costs only through its numerator; in R mode the
+trader states R directly, and recomputing it from a cost-reduced P&L would
+make "+2R" mean slightly less than 2R in one mode and exactly 2R in the
+other. Costs still reach P&L, equity and every money figure. See
+docs/TRADES.md, "R-mode trades", for what the mode is and is not.
+
 ### Planned reward:risk and geometry validation
 
 ```

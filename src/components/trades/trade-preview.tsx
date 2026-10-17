@@ -9,7 +9,7 @@
  * because `trade-form.tsx` was 685 lines.
  */
 import { useTranslations } from "next-intl";
-import { computeTrade, validateTradeGeometry } from "@/lib/metrics";
+import { computeRTrade, computeTrade, validateTradeGeometry } from "@/lib/metrics";
 import { formatMoney, formatPips } from "@/lib/metrics/formatters";
 import type { AssetClass } from "@/lib/metrics/types";
 import { Stat } from "@/components/ui/stat";
@@ -18,6 +18,8 @@ import type { InstrumentOption } from "@/lib/queries/trades";
 import type { TradeFormInput } from "./trade-form-values";
 
 export interface Preview {
+  /** R mode shows the result in R where price mode shows pips. */
+  mode: "PRICE" | "R_MULTIPLE";
   pips: string;
   riskAmount: string;
   plannedRR: string;
@@ -103,11 +105,46 @@ export function buildPreview(
   }
 
   return {
+    mode: "PRICE",
     pips: formatPips(atExit.pips),
     riskAmount: base.riskAmount ? formatMoney(base.riskAmount, currency) : "—",
     plannedRR: base.plannedRR ? `${base.plannedRR.toFixed(2)}:1` : "—",
     netPnl: atExit.netPnl ? formatMoney(atExit.netPnl, currency) : "—",
     netPnlIsProjection,
+  };
+}
+
+/**
+ * The R-mode preview: the same computeRTrade the server stores with. Before
+ * the trade closes, P&L is projected at the planned R:R — the number worth
+ * seeing while the plan is all there is.
+ */
+export function buildRPreview(values: Partial<TradeFormInput>, currency: string): Preview | null {
+  const risk = Number(values.plannedRisk);
+  if (!Number.isFinite(risk) || risk <= 0) return null;
+  const openedAt = values.openedAt ? new Date(values.openedAt) : new Date();
+  const rr = values.plannedRR ? Number(values.plannedRR) : undefined;
+  const plannedRR = rr !== undefined && Number.isFinite(rr) && rr > 0 ? rr : undefined;
+  const closed = values.status === "CLOSED" && !!values.resultR && Number.isFinite(Number(values.resultR));
+  const resultR = closed ? Number(values.resultR) : plannedRR;
+
+  const r = computeRTrade({
+    mode: "R_MULTIPLE",
+    plannedRisk: risk,
+    plannedRR,
+    resultR,
+    commission: values.commission ? Number(values.commission) || 0 : 0,
+    swap: values.swap ? Number(values.swap) || 0 : 0,
+    openedAt: Number.isNaN(openedAt.getTime()) ? new Date() : openedAt,
+  });
+
+  return {
+    mode: "R_MULTIPLE",
+    pips: r.rMultiple ? `${r.rMultiple.isNegative() ? "" : "+"}${r.rMultiple.toFixed(2)}R` : "—",
+    riskAmount: formatMoney(risk, currency),
+    plannedRR: plannedRR ? `1:${plannedRR}` : "—",
+    netPnl: r.netPnl ? formatMoney(r.netPnl, currency) : "—",
+    netPnlIsProjection: !closed && plannedRR !== undefined,
   };
 }
 
@@ -148,7 +185,7 @@ export function PreviewStrip({ preview }: { preview: Preview | null }) {
   return (
     <Panel className="bg-panel-sunken">
       <PanelBody className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label={t("pips")} value={preview ? preview.pips : "—"} />
+        <Stat label={preview?.mode === "R_MULTIPLE" ? t("result") : t("pips")} value={preview ? preview.pips : "—"} />
         <Stat label={t("risk")} value={preview ? preview.riskAmount : "—"} />
         <Stat label={t("plannedRR")} value={preview ? preview.plannedRR : "—"} />
         <Stat

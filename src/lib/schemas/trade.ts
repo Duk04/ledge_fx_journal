@@ -140,8 +140,93 @@ export function buildTradeFormSchema(validSymbols?: ReadonlySet<string>) {
     });
 }
 
+/**
+ * The R-mode form (docs/TRADES.md, "R-mode trades"): no prices at all. The
+ * trader states the money at risk, optionally a planned R:R and a size, and —
+ * once closed — the result in R. P&L is derived from those
+ * (lib/metrics/trade.ts, computeRTrade).
+ *
+ * The descriptive half (symbol, times, costs, discipline, tags) is the same
+ * field-for-field as the price form, so both forms post the same names for
+ * it and the server action can treat it identically.
+ */
+export function buildRTradeFormSchema(validSymbols?: ReadonlySet<string>) {
+  return z
+    .object({
+      symbol: z.preprocess(
+        (v) => (typeof v === "string" ? v.trim().toUpperCase() : v),
+        z.string().min(1, vmsg("symbolRequired")),
+      ),
+      direction: z.enum(TRADE_DIRECTIONS, { error: vmsg("directionRequired") }),
+      status: z.enum(TRADE_STATUSES, { error: vmsg("statusRequired") }),
+
+      openedAt: z.coerce.date({ error: vmsg("openedRequired") }),
+      closedAt: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+
+      plannedRisk: z.preprocess(
+        emptyToUndefined,
+        z.coerce
+          .number({ error: vmsg("riskRequired") })
+          .finite()
+          .positive(vmsg("riskPositive")),
+      ),
+      plannedRR: optionalPositive(vmsg("rrPositive")),
+      // Signed: -1 is a full loss, +2.5 a win at target. Not bounded, because
+      // a gap through the stop really can lose more than 1R.
+      resultR: optionalNumber(vmsg("resultRNumber")),
+      volumeLots: optionalPositive(vmsg("volumePositive")),
+
+      commission: optionalNumber(vmsg("commissionNumber")),
+      swap: optionalNumber(vmsg("swapNumber")),
+
+      followedPlan: z.preprocess((v) => {
+        if (v === "yes" || v === true) return true;
+        if (v === "no" || v === false) return false;
+        return undefined;
+      }, z.boolean().optional()),
+
+      emotion: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(5).optional()),
+      confidence: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(5).optional()),
+
+      notes: z.preprocess(emptyToUndefined, z.string().max(4000, vmsg("notesTooLong")).optional()),
+
+      tagIds: z.array(z.string().regex(ID_LIKE, vmsg("invalidTagId"))).default([]),
+      playbookId: z.preprocess(emptyToUndefined, z.string().regex(ID_LIKE, vmsg("invalidPlaybookId")).optional()),
+    })
+    .superRefine((val, ctx) => {
+      if (validSymbols && val.symbol && !validSymbols.has(val.symbol)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["symbol"],
+          message: vmsg("unknownSymbol", { symbol: val.symbol }),
+        });
+      }
+      // The R-mode twin of "a closed trade needs an exit price".
+      if (val.status === "CLOSED") {
+        if (val.resultR === undefined) {
+          ctx.addIssue({ code: "custom", path: ["resultR"], message: vmsg("resultRRequired") });
+        }
+        if (val.closedAt === undefined) {
+          ctx.addIssue({ code: "custom", path: ["closedAt"], message: vmsg("closedRequiredToClose") });
+        }
+      }
+      if (val.closedAt !== undefined && val.closedAt.getTime() < val.openedAt.getTime()) {
+        ctx.addIssue({ code: "custom", path: ["closedAt"], message: vmsg("closedBeforeOpened") });
+      }
+    });
+}
+
 /** The schema with no symbol-existence check — used for typing / tests. */
 export const tradeFormSchema = buildTradeFormSchema();
+export const rTradeFormSchema = buildRTradeFormSchema();
+
+export type RTradeFormValues = z.infer<typeof rTradeFormSchema>;
+
+/** Which form a POST came from. Absent = the price form, which is what every
+ * caller that predates R mode (and the statement importer) still sends. */
+export function formEntryMode(formData: FormData): "PRICE" | "R_MULTIPLE" {
+  return formData.get("entryMode") === "R_MULTIPLE" ? "R_MULTIPLE" : "PRICE";
+}
 
 export type TradeFormValues = z.infer<typeof tradeFormSchema>;
 
@@ -233,6 +318,58 @@ export function parseTradeForm(
 
   return { ok: true, values: result.data, warnings };
 }
+
+const R_SCALAR_KEYS = [
+  "symbol",
+  "direction",
+  "status",
+  "openedAt",
+  "closedAt",
+  "plannedRisk",
+  "plannedRR",
+  "resultR",
+  "volumeLots",
+  "commission",
+  "swap",
+  "followedPlan",
+  "emotion",
+  "confidence",
+  "notes",
+  "playbookId",
+] as const;
+
+export type RTradeFormParseResult =
+  { ok: true; values: RTradeFormValues } | { ok: false; fieldErrors: Record<string, string[]> };
+
+/** parseTradeForm's R-mode twin. There is no geometry to warn about. */
+export function parseRTradeForm(
+  formData: FormData,
+  opts: { validSymbols?: readonly string[] } = {},
+): RTradeFormParseResult {
+  const raw: Record<string, unknown> = {};
+  for (const key of R_SCALAR_KEYS) {
+    const value = formData.get(key);
+    if (value !== null) raw[key] = value;
+  }
+  raw.tagIds = formData.getAll("tagIds").map(String).filter(Boolean);
+
+  const validSymbols = opts.validSymbols ? new Set(opts.validSymbols.map((s) => s.toUpperCase())) : undefined;
+  const result = buildRTradeFormSchema(validSymbols).safeParse(raw);
+  if (!result.success) {
+    return { ok: false, fieldErrors: result.error.flatten().fieldErrors as Record<string, string[]> };
+  }
+  return { ok: true, values: result.data };
+}
+
+/** Closing an R-mode trade: the result in R and when. */
+export const closeRTradeSchema = z.object({
+  // Blank must not coerce to 0: that would silently record a breakeven.
+  resultR: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number({ error: vmsg("resultRRequired") }).finite(vmsg("resultRNumber")),
+  ),
+  closedAt: z.coerce.date({ error: vmsg("closedRequired") }),
+});
 
 /** The small payload for the "Close trade" action — just the two fields the
  * common case needs, validated on its own rather than dragging in every

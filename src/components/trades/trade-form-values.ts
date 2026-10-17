@@ -18,9 +18,12 @@
 
 /** localStorage keys for the new-trade prefill. */
 export const LAST_SYMBOL_KEY = "ledger.lastSymbol";
-export const LAST_VOLUME_KEY = "ledger.lastVolume";
+export const LAST_RISK_KEY = "ledger.lastRisk";
 
 export interface TradeFormInput {
+  /** Which form this is. New trades are R_MULTIPLE; an existing trade keeps
+   * the mode it was recorded in (docs/TRADES.md). */
+  entryMode: "PRICE" | "R_MULTIPLE";
   symbol: string;
   direction: "LONG" | "SHORT";
   status: "OPEN" | "CLOSED" | "CANCELLED";
@@ -34,6 +37,10 @@ export interface TradeFormInput {
   mfePrice: string;
   takeProfit: string;
   volumeLots: string;
+  /** R mode: money at risk, planned reward:risk, and the result in R. */
+  plannedRisk: string;
+  plannedRR: string;
+  resultR: string;
   commission: string;
   swap: string;
   conversionRate: string;
@@ -99,6 +106,7 @@ export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeForm
     localised.closedAt = isoToDatetimeLocal(localised.closedAt);
   }
   return {
+    entryMode: "R_MULTIPLE",
     symbol: "",
     direction: "LONG",
     status: "OPEN",
@@ -112,6 +120,9 @@ export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeForm
     mfePrice: "",
     takeProfit: "",
     volumeLots: "",
+    plannedRisk: "",
+    plannedRR: "",
+    resultR: "",
     commission: "",
     swap: "",
     conversionRate: "",
@@ -125,6 +136,10 @@ export function defaultFormValues(defaults?: Partial<TradeFormInput>): TradeForm
   };
 }
 
+function filled(v: unknown): boolean {
+  return v !== undefined && v !== null && String(v).trim() !== "";
+}
+
 export function buildFormData(values: TradeFormInput): FormData {
   const fd = new FormData();
   fd.set("symbol", values.symbol);
@@ -132,14 +147,26 @@ export function buildFormData(values: TradeFormInput): FormData {
   fd.set("status", values.status);
   fd.set("openedAt", datetimeLocalToIso(values.openedAt));
   if (values.closedAt) fd.set("closedAt", datetimeLocalToIso(values.closedAt));
-  fd.set("entryPrice", values.entryPrice);
-  if (values.exitPrice) fd.set("exitPrice", values.exitPrice);
-  if (values.stopLoss) fd.set("stopLoss", values.stopLoss);
-  if (values.initialStopLoss) fd.set("initialStopLoss", values.initialStopLoss);
-  if (values.maePrice) fd.set("maePrice", values.maePrice);
-  if (values.mfePrice) fd.set("mfePrice", values.mfePrice);
-  if (values.takeProfit) fd.set("takeProfit", values.takeProfit);
-  fd.set("volumeLots", values.volumeLots);
+  if (values.entryMode === "R_MULTIPLE") {
+    // No prices at all; the result only once the trade is closed, so an
+    // R typed and then switched back to OPEN is not half-saved.
+    // `filled`, not truthiness: on submit these arrive as the resolver's
+    // numbers, and a breakeven's 0R is falsy.
+    fd.set("entryMode", "R_MULTIPLE");
+    fd.set("plannedRisk", String(values.plannedRisk));
+    if (filled(values.plannedRR)) fd.set("plannedRR", String(values.plannedRR));
+    if (values.status === "CLOSED" && filled(values.resultR)) fd.set("resultR", String(values.resultR));
+    if (filled(values.volumeLots)) fd.set("volumeLots", String(values.volumeLots));
+  } else {
+    fd.set("entryPrice", values.entryPrice);
+    if (values.exitPrice) fd.set("exitPrice", values.exitPrice);
+    if (values.stopLoss) fd.set("stopLoss", values.stopLoss);
+    if (values.initialStopLoss) fd.set("initialStopLoss", values.initialStopLoss);
+    if (values.maePrice) fd.set("maePrice", values.maePrice);
+    if (values.mfePrice) fd.set("mfePrice", values.mfePrice);
+    if (values.takeProfit) fd.set("takeProfit", values.takeProfit);
+    fd.set("volumeLots", values.volumeLots);
+  }
   if (values.commission) fd.set("commission", values.commission);
   if (values.swap) fd.set("swap", values.swap);
   if (values.conversionRate) fd.set("conversionRate", values.conversionRate);
@@ -150,4 +177,26 @@ export function buildFormData(values: TradeFormInput): FormData {
   values.tagIds.forEach((id) => fd.append("tagIds", id));
   if (values.playbookId) fd.set("playbookId", values.playbookId);
   return fd;
+}
+
+export type ROutcome = "WIN" | "LOSS" | "BREAKEVEN" | "CUSTOM";
+
+/** Which outcome button a stored result corresponds to: a win at the planned
+ * R:R, a full -1R loss, a scratch at 0, or anything else (a partial). */
+export function outcomeFor(resultR: string, plannedRR: string): ROutcome | "" {
+  if (resultR.trim() === "") return "";
+  const r = Number(resultR);
+  if (!Number.isFinite(r)) return "CUSTOM";
+  if (r === -1) return "LOSS";
+  if (r === 0) return "BREAKEVEN";
+  if (plannedRR.trim() !== "" && r === Number(plannedRR)) return "WIN";
+  return "CUSTOM";
+}
+
+/** The R an outcome button writes; undefined = leave the field to the user. */
+export function resultForOutcome(outcome: ROutcome, plannedRR: string): string | undefined {
+  if (outcome === "LOSS") return "-1";
+  if (outcome === "BREAKEVEN") return "0";
+  if (outcome === "WIN" && plannedRR.trim() !== "" && Number(plannedRR) > 0) return plannedRR.trim();
+  return undefined;
 }

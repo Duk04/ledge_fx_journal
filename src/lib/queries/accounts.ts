@@ -219,7 +219,7 @@ export async function listTradesOpenedBetween(params: { userId: string; accountI
       openedAt: { gte: params.from, lt: params.to },
     },
     orderBy: { openedAt: "asc" },
-    select: { id: true, netPnl: true, riskAmount: true, stopLoss: true },
+    select: { id: true, netPnl: true, riskAmount: true, stopLoss: true, entryMode: true },
   });
 }
 

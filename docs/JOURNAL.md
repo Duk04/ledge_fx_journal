@@ -124,8 +124,9 @@ trade's notes; every other CSV-aware tool ignores a leading BOM harmlessly.
 Column order:
 
 ```
-id, symbol, direction, status, openedAt, closedAt, entryPrice, exitPrice,
-stopLoss, takeProfit, volumeLots, commission, swap, conversionRate,
+id, symbol, direction, status, openedAt, closedAt, entryMode, entryPrice,
+exitPrice, stopLoss, takeProfit, plannedRR, plannedRisk, resultR,
+volumeLots, commission, swap, conversionRate,
 netPnl, grossPnl, pips, rMultiple, riskAmount, holdingMinutes,
 marketSession, followedPlan, emotion, confidence, notes, externalTicket,
 tags
@@ -154,14 +155,18 @@ schema's input type, so a column added to one and not the other is a tsc
 error rather than a restore that silently drops it — challenge rules, MAE/MFE
 and strategies were all missing from the export before that existed.
 
-**Versions.** `schemaVersion` is 2 since fills and `initialStopLoss` were
-added; a version-1 file has neither, and each of its trades is read as one
+**Versions.** `schemaVersion` is 3 since R-mode trades (docs/TRADES.md),
+which carry `entryMode`, `plannedRR`, `plannedRisk` and `resultR` and may
+have no `entryPrice` or `volumeLots` — a loosening of two core fields, hence
+a bump rather than another optional field. A version-2 file restores with
+every trade as PRICE. Version 2 added fills and `initialStopLoss`; a
+version-1 file has neither, and each of its trades is read as one
 entry (and one exit if closed) at the trade's own prices and times
 (`normalizeExport`). Fields added to version 2 since it shipped — account
 challenge rules, `maePrice`/`mfePrice`, `tagRefs` (a tag is unique by kind
 *and* name, so `tags`, names only, is ambiguous), attachment dimensions,
 balance-event tickets, `strategies`, `symbolAliases`, `notificationPrefs` —
-are additive, and the reader treats every one as optional so an earlier v2
+were additive, and the reader treats every one as optional so an earlier v2
 file still restores. Unknown fields are ignored; a *higher* `schemaVersion`
 is refused, because a bump means a field changed meaning.
 

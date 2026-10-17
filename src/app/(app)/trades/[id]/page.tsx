@@ -51,6 +51,8 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
   });
 
   const outcome = outcomeOf(trade.status, trade.netPnl);
+  // An R-mode trade has no prices: no ladder, no fills, no pips, no MAE/MFE.
+  const rMode = trade.entryMode === "R_MULTIPLE";
   const openedAt = new Date(trade.openedAt);
   const closedAt = trade.closedAt ? new Date(trade.closedAt) : null;
 
@@ -71,6 +73,8 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
             tradeId={trade.id}
             status={trade.status}
             openLots={trade.openLots}
+            entryMode={trade.entryMode}
+            plannedRR={trade.plannedRR}
           />
         }
       />
@@ -115,29 +119,36 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
             </Panel>
           ) : null}
 
-          <Panel>
-            <PanelHeader title={t("panels.priceGeometry")} caption={chart ? undefined : t("panels.noCandlesHint")} />
-            <PanelBody className="flex justify-center py-6">
-              <PriceLadder
-                direction={trade.direction}
-                digits={trade.digits}
-                entryPrice={Number(trade.entryPrice)}
-                stopLoss={trade.stopLoss !== null ? Number(trade.stopLoss) : null}
-                takeProfit={trade.takeProfit !== null ? Number(trade.takeProfit) : null}
-                exitPrice={trade.exitPrice !== null ? Number(trade.exitPrice) : null}
-              />
-            </PanelBody>
-          </Panel>
+          {trade.entryPrice !== null ? (
+            <>
+              <Panel>
+                <PanelHeader
+                  title={t("panels.priceGeometry")}
+                  caption={chart ? undefined : t("panels.noCandlesHint")}
+                />
+                <PanelBody className="flex justify-center py-6">
+                  <PriceLadder
+                    direction={trade.direction}
+                    digits={trade.digits}
+                    entryPrice={Number(trade.entryPrice)}
+                    stopLoss={trade.stopLoss !== null ? Number(trade.stopLoss) : null}
+                    takeProfit={trade.takeProfit !== null ? Number(trade.takeProfit) : null}
+                    exitPrice={trade.exitPrice !== null ? Number(trade.exitPrice) : null}
+                  />
+                </PanelBody>
+              </Panel>
 
-          <ExecutionsPanel
-            accountId={trade.accountId}
-            tradeId={trade.id}
-            digits={trade.digits}
-            timezone={user.timezone}
-            executions={trade.executions}
-            openLots={trade.openLots}
-            cancelled={trade.status === "CANCELLED"}
-          />
+              <ExecutionsPanel
+                accountId={trade.accountId}
+                tradeId={trade.id}
+                digits={trade.digits}
+                timezone={user.timezone}
+                executions={trade.executions}
+                openLots={trade.openLots}
+                cancelled={trade.status === "CANCELLED"}
+              />
+            </>
+          ) : null}
 
           <Panel>
             <PanelHeader title={t("panels.screenshots")} />
@@ -166,30 +177,45 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
               />
               <FactRow label={t("facts.held")} value={formatDuration(trade.holdingMinutes)} />
               <div className="my-1 h-px bg-line" />
-              <FactRow label={t("facts.entry")} value={formatPrice(Number(trade.entryPrice), trade.digits)} />
-              <FactRow
-                label={t("facts.exit")}
-                value={trade.exitPrice !== null ? formatPrice(Number(trade.exitPrice), trade.digits) : "—"}
-              />
-              <FactRow
-                label={t("facts.stopLoss")}
-                value={trade.stopLoss !== null ? formatPrice(Number(trade.stopLoss), trade.digits) : "—"}
-              />
-              {trade.initialStopLoss !== null && trade.initialStopLoss !== trade.stopLoss ? (
-                // Shown only when the stop has moved: R is measured from this one.
-                <FactRow
-                  label={t("facts.initialStop")}
-                  value={formatPrice(Number(trade.initialStopLoss), trade.digits)}
-                />
-              ) : null}
-              <FactRow
-                label={t("facts.takeProfit")}
-                value={trade.takeProfit !== null ? formatPrice(Number(trade.takeProfit), trade.digits) : "—"}
-              />
-              <FactRow
-                label={t("facts.volume")}
-                value={t("facts.volumeValue", { lots: Number(trade.volumeLots).toFixed(2) })}
-              />
+              {rMode ? (
+                <>
+                  <FactRow
+                    label={t("facts.plannedRR")}
+                    value={trade.plannedRR !== null ? `1:${Number(trade.plannedRR)}` : "—"}
+                  />
+                  <FactRow
+                    label={t("facts.riskAmount")}
+                    value={<Money value={trade.riskAmount} currency={trade.currency} />}
+                  />
+                </>
+              ) : (
+                <>
+                  <FactRow label={t("facts.entry")} value={formatPrice(Number(trade.entryPrice), trade.digits)} />
+                  <FactRow
+                    label={t("facts.exit")}
+                    value={trade.exitPrice !== null ? formatPrice(Number(trade.exitPrice), trade.digits) : "—"}
+                  />
+                  <FactRow
+                    label={t("facts.stopLoss")}
+                    value={trade.stopLoss !== null ? formatPrice(Number(trade.stopLoss), trade.digits) : "—"}
+                  />
+                  {trade.initialStopLoss !== null && trade.initialStopLoss !== trade.stopLoss ? (
+                    // Shown only when the stop has moved: R is measured from this one.
+                    <FactRow
+                      label={t("facts.initialStop")}
+                      value={formatPrice(Number(trade.initialStopLoss), trade.digits)}
+                    />
+                  ) : null}
+                  <FactRow
+                    label={t("facts.takeProfit")}
+                    value={trade.takeProfit !== null ? formatPrice(Number(trade.takeProfit), trade.digits) : "—"}
+                  />
+                  <FactRow
+                    label={t("facts.volume")}
+                    value={t("facts.volumeValue", { lots: Number(trade.volumeLots).toFixed(2) })}
+                  />
+                </>
+              )}
               <div className="my-1 h-px bg-line" />
               <FactRow
                 label={t("facts.netPnl")}
@@ -200,45 +226,51 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
                   ) : undefined
                 }
               />
-              <FactRow
-                label={t("facts.pips")}
-                value={<Pips value={trade.pips} />}
-                recomputedValue={trade.hasDisagreement ? <Pips value={trade.recomputed.pips} /> : undefined}
-              />
+              {rMode ? null : (
+                <FactRow
+                  label={t("facts.pips")}
+                  value={<Pips value={trade.pips} />}
+                  recomputedValue={trade.hasDisagreement ? <Pips value={trade.recomputed.pips} /> : undefined}
+                />
+              )}
               <FactRow
                 label={t("facts.rMultiple")}
                 value={<RValue value={trade.rMultiple} />}
                 recomputedValue={trade.hasDisagreement ? <RValue value={trade.recomputed.rMultiple} /> : undefined}
               />
-              <FactRow
-                label={t("facts.plannedRR")}
-                value={trade.recomputed.plannedRR ? `${Number(trade.recomputed.plannedRR).toFixed(2)}:1` : "—"}
-              />
-              <FactRow
-                label={t("facts.mae")}
-                value={
-                  trade.maePrice !== null
-                    ? `${formatPrice(Number(trade.maePrice), trade.digits)}${trade.maeR !== null ? ` · ${formatR(trade.maeR)}` : ""}`
-                    : "—"
-                }
-              />
-              <FactRow
-                label={t("facts.mfe")}
-                value={
-                  trade.mfePrice !== null
-                    ? `${formatPrice(Number(trade.mfePrice), trade.digits)}${trade.mfeR !== null ? ` · ${formatR(trade.mfeR)}` : ""}`
-                    : "—"
-                }
-              />
-              {trade.status === "CLOSED" && (trade.maePrice === null || trade.mfePrice === null) ? (
-                <div className="flex justify-end">
-                  <ExcursionFromCandlesButton accountId={trade.accountId} tradeId={trade.id} />
-                </div>
-              ) : null}
-              <FactRow
-                label={t("facts.riskAmount")}
-                value={<Money value={trade.riskAmount} currency={trade.currency} />}
-              />
+              {rMode ? null : (
+                <>
+                  <FactRow
+                    label={t("facts.plannedRR")}
+                    value={trade.recomputed.plannedRR ? `${Number(trade.recomputed.plannedRR).toFixed(2)}:1` : "—"}
+                  />
+                  <FactRow
+                    label={t("facts.mae")}
+                    value={
+                      trade.maePrice !== null
+                        ? `${formatPrice(Number(trade.maePrice), trade.digits)}${trade.maeR !== null ? ` · ${formatR(trade.maeR)}` : ""}`
+                        : "—"
+                    }
+                  />
+                  <FactRow
+                    label={t("facts.mfe")}
+                    value={
+                      trade.mfePrice !== null
+                        ? `${formatPrice(Number(trade.mfePrice), trade.digits)}${trade.mfeR !== null ? ` · ${formatR(trade.mfeR)}` : ""}`
+                        : "—"
+                    }
+                  />
+                  {trade.status === "CLOSED" && (trade.maePrice === null || trade.mfePrice === null) ? (
+                    <div className="flex justify-end">
+                      <ExcursionFromCandlesButton accountId={trade.accountId} tradeId={trade.id} />
+                    </div>
+                  ) : null}
+                  <FactRow
+                    label={t("facts.riskAmount")}
+                    value={<Money value={trade.riskAmount} currency={trade.currency} />}
+                  />
+                </>
+              )}
               <div className="my-1 h-px bg-line" />
               <FactRow
                 label={t("facts.commission")}

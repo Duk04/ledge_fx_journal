@@ -5,7 +5,7 @@ import type { Direction, TagKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { TradeRow } from "@/lib/metrics/types";
 
-import { toTradeRow } from "@/lib/trade-service";
+import { hasDefinedRisk, toTradeRow } from "@/lib/trade-service";
 import { NotFoundError } from "@/lib/session";
 import { type DateWindow } from "@/lib/range";
 
@@ -67,7 +67,10 @@ export const fetchAccountData = cache(async (userId: string, accountId: string) 
         status: true,
         openedAt: true,
         closedAt: true,
+        entryMode: true,
         entryPrice: true,
+        plannedRR: true,
+        plannedRisk: true,
         stopLoss: true,
         takeProfit: true,
         volumeLots: true,
@@ -117,7 +120,7 @@ export function enrich(trade: RawTrade): EnrichedRow {
     marketSession: trade.marketSession,
     followedPlan: trade.followedPlan,
     emotion: trade.emotion,
-    hasStopLoss: trade.stopLoss !== null,
+    hasStopLoss: hasDefinedRisk(trade),
     setupTags: trade.tradeTags
       .map((tt) => tt.tag)
       .filter((tag): tag is { id: string; name: string; kind: TagKind } => tag.kind === "SETUP"),

@@ -53,6 +53,7 @@ async function traderWithTradeOnWednesday(prefs: { journalReminder?: boolean; we
     account.id,
     buildFormData(
       defaultFormValues({
+        entryMode: "PRICE",
         symbol: "EURUSD",
         direction: "LONG",
         status: "CLOSED",

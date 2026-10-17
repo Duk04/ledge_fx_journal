@@ -20,6 +20,7 @@ async function openLong() {
     account.id,
     buildFormData(
       defaultFormValues({
+        entryMode: "PRICE",
         symbol: "EURUSD",
         direction: "LONG",
         status: "OPEN",
@@ -55,7 +56,7 @@ describe("executions", () => {
     });
     expect(scaled).toMatchObject({ ok: true, status: "OPEN" });
     let t = await prisma.trade.findUniqueOrThrow({ where: { id: tradeId } });
-    expect([t.entryPrice.toString(), t.volumeLots.toString()]).toEqual(["1.101", "2"]);
+    expect([t.entryPrice?.toString(), t.volumeLots?.toString()]).toEqual(["1.101", "2"]);
 
     expect(
       await closeTrade(account.id, tradeId, {
@@ -111,6 +112,7 @@ describe("executions", () => {
       tradeId,
       buildFormData(
         defaultFormValues({
+          entryMode: "PRICE",
           symbol: "EURUSD",
           direction: "LONG",
           status: "OPEN",
@@ -123,7 +125,7 @@ describe("executions", () => {
     );
     expect(res.ok).toBe(true);
     const t = await prisma.trade.findUniqueOrThrow({ where: { id: tradeId } });
-    expect([t.entryPrice.toString(), t.volumeLots.toString(), t.notes]).toEqual(["1.101", "2", "kept"]);
+    expect([t.entryPrice?.toString(), t.volumeLots?.toString(), t.notes]).toEqual(["1.101", "2", "kept"]);
   });
 
   it("refuses another user's trade", async () => {

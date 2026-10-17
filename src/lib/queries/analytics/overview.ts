@@ -1,7 +1,7 @@
 import "server-only";
 import type { Direction } from "@prisma/client";
 import { type DateWindow } from "@/lib/range";
-import { toTradeRow } from "@/lib/trade-service";
+import { hasDefinedRisk, toTradeRow } from "@/lib/trade-service";
 import { TZDate } from "@date-fns/tz";
 import { format } from "date-fns";
 import type { Decimal } from "decimal.js";
@@ -37,10 +37,14 @@ export interface OpenTrade {
   symbol: string;
   direction: Direction;
   openedAt: string;
-  entryPrice: number;
+  /** Null on an R-mode trade, which carries risk and planned R:R instead. */
+  entryPrice: number | null;
   /** Instrument display precision — 5 for EURUSD, 3 for USDJPY, 2 for XAUUSD. */
   digits: number;
-  volumeLots: number;
+  volumeLots: number | null;
+  plannedRisk: number | null;
+  plannedRR: number | null;
+  hasDefinedRisk: boolean;
   stopLoss: number | null;
   takeProfit: number | null;
 }
@@ -190,9 +194,12 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
       symbol: t.symbol,
       direction: t.direction,
       openedAt: t.openedAt.toISOString(),
-      entryPrice: toNum(t.entryPrice) ?? 0,
+      entryPrice: toNum(t.entryPrice),
       digits: t.instrument.digits,
-      volumeLots: toNum(t.volumeLots) ?? 0,
+      volumeLots: toNum(t.volumeLots),
+      plannedRisk: toNum(t.plannedRisk),
+      plannedRR: toNum(t.plannedRR),
+      hasDefinedRisk: hasDefinedRisk(t),
       stopLoss: toNum(t.stopLoss),
       takeProfit: toNum(t.takeProfit),
     }));
@@ -247,7 +254,7 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
   const planFollowedRate = withPlanRecorded.length
     ? withPlanRecorded.filter((t) => t.followedPlan === true).length / withPlanRecorded.length
     : null;
-  const noStopCount = planRows.filter((t) => t.stopLoss === null).length;
+  const noStopCount = planRows.filter((t) => !hasDefinedRisk(t)).length;
   const noStopRate = planRows.length ? noStopCount / planRows.length : null;
   const withEmotion = planRows.filter((t) => t.emotion !== null);
   const avgEmotion = withEmotion.length

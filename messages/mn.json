@@ -433,6 +433,7 @@
       "closeDialog": {
         "title": "Арилжаа хаах",
         "description": "Гарах үнэ болон хаасан цаг — бусад нь бүртгэсэн хэвээр үлдэнэ.",
+        "descriptionR": "Хэрхэн дууссан (R-ээр) болон хэзээ — P&L таны эрсдэлийн дүнгээс тооцогдоно.",
         "exitPrice": "Гарах үнэ",
         "lotsToClose": "Хаах лот",
         "ofOpen": "/ {openLots}",
@@ -659,6 +660,17 @@
       "openedAt": "Нээсэн цаг",
       "volumeLots": "Хэмжээ (лот)",
       "lotsUnit": "лот",
+      "plannedRisk": "Эрсдэлийн дүн",
+      "plannedRiskHint": "Stop хүрвэл алдах дүн. R үүгээр хэмжигдэнэ.",
+      "plannedRR": "Төлөвлөсөн R:R",
+      "plannedRRHint": "1 эрсдэл тутмын ашиг — 2.5 гэвэл 1 : 2.5 зорилт.",
+      "outcome": "Үр дүн",
+      "outcomeWin": "Ашиг",
+      "outcomeLoss": "Алдагдал",
+      "outcomeBreakeven": "Тэнцсэн",
+      "outcomeCustom": "Гараар",
+      "resultR": "Үр дүн",
+      "resultRHint": "Ашиг = төлөвлөсөн R:R, алдагдал = −1R, тэнцсэн = 0. Хэсэгчлэн хаасан бол гараар бичнэ.",
       "entryPrice": "Орох үнэ",
       "stopLoss": "Stop loss",
       "takeProfit": "Take profit",
@@ -707,7 +719,8 @@
         "risk": "Эрсдэл",
         "plannedRR": "Төлөвлөсөн R:R",
         "netPnl": "Цэвэр ашиг/алдагдал",
-        "netPnlAtTarget": "Цэвэр ашиг/алдагдал (take profit-д)"
+        "netPnlAtTarget": "Цэвэр ашиг/алдагдал (take profit-д)",
+        "result": "Үр дүн"
       },
       "ladder": {
         "entry": "Орох",
@@ -1199,7 +1212,8 @@
       "emptyTitle": "Нээлттэй позиц алга",
       "emptyDescription": "Энэ дансны бүх позиц одоогоор хаагдсан байна.",
       "noStop": "Stop-гүй",
-      "lotsAt": "{lots} лот @ {price}"
+      "lotsAt": "{lots} лот @ {price}",
+      "riskPlan": "{risk} эрсдэл · {rr}"
     },
     "pnl": {
       "today": "Өнөөдөр",
@@ -1296,6 +1310,8 @@
   },
   "errors": {
     "tradeNotFound": "Арилжаа олдсонгүй.",
+    "rTradeNoFills": "Энэ арилжааг R-ээр бүртгэсэн — өөрчлөх гүйцэтгэл байхгүй.",
+    "notAnRTrade": "Энэ арилжааг үнээр бүртгэсэн — гарах үнээр хаана уу.",
     "unknownSymbolShort": "Танигдаагүй симбол.",
     "tagsNotFound": "Нэг буюу хэд хэдэн таг олдсонгүй.",
     "playbookNotFound": "Тэр playbook олдсонгүй.",
@@ -1401,6 +1417,12 @@
     "closedRequiredToClose": "Арилжааг хаахад хаасан огноо/цаг заавал.",
     "exitRequired": "Гарах үнэ заавал",
     "closedRequired": "Хаасан огноо/цаг заавал",
+    "riskRequired": "Эрсдэлийн дүн заавал",
+    "riskPositive": "Эрсдэлийн дүн 0-ээс их байх ёстой",
+    "rrPositive": "R:R 0-ээс их байх ёстой",
+    "resultRRequired": "Арилжааг хаахад үр дүн (R) заавал.",
+    "resultRNumber": "R тоо байх ёстой",
+    "closedBeforeOpened": "Хаасан цаг нээсэн цагаас өмнө байж болохгүй.",
     "timeRequired": "Цаг заавал",
     "priceRequired": "Үнэ заавал",
     "pricePositive": "Үнэ 0-ээс их байх ёстой",

@@ -68,6 +68,11 @@ enum Direction {
   SHORT
 }
 
+enum TradeEntryMode {
+  PRICE
+  R_MULTIPLE
+}
+
 enum TradeStatus {
   OPEN
   CLOSED
@@ -357,7 +362,14 @@ model Trade {
   openedAt DateTime  @map("opened_at")
   closedAt DateTime? @map("closed_at")
 
-  entryPrice      Decimal  @map("entry_price") @db.Decimal(18, 8)
+  /// How the trade was recorded. PRICE trades carry entry/exit/stop prices
+  /// and fills, and everything is derived from them. R_MULTIPLE trades are
+  /// logged as a planned R:R, money at risk and a result in R, with no
+  /// prices at all (docs/TRADES.md, "R-mode trades").
+  entryMode TradeEntryMode @default(PRICE) @map("entry_mode")
+
+  /// Null only on an R_MULTIPLE trade.
+  entryPrice      Decimal? @map("entry_price") @db.Decimal(18, 8)
   exitPrice       Decimal? @map("exit_price") @db.Decimal(18, 8)
   stopLoss        Decimal? @map("stop_loss") @db.Decimal(18, 8)
   /// Where the stop was at entry. Risk and R are measured against this, so a
@@ -370,14 +382,26 @@ model Trade {
   mfePrice        Decimal? @map("mfe_price") @db.Decimal(18, 8)
   takeProfit      Decimal? @map("take_profit") @db.Decimal(18, 8)
 
-  volumeLots     Decimal  @map("volume_lots") @db.Decimal(12, 4)
+  /// Null only on an R_MULTIPLE trade, where size is optional.
+  volumeLots     Decimal? @map("volume_lots") @db.Decimal(12, 4)
   commission     Decimal  @default(0) @db.Decimal(18, 2)
   swap           Decimal  @default(0) @db.Decimal(18, 2)
   conversionRate Decimal? @map("conversion_rate") @db.Decimal(18, 8) // quote ccy -> account ccy, at close
 
+  // --- R-mode inputs (entryMode = R_MULTIPLE) --------------------------
+  /// Planned reward:risk, e.g. 2.5 for "1 : 2.5". Optional.
+  plannedRR   Decimal? @map("planned_rr") @db.Decimal(10, 4)
+  /// Money at risk, in account currency. Required on an R_MULTIPLE trade —
+  /// it is what turns R into P&L.
+  plannedRisk Decimal? @map("planned_risk") @db.Decimal(18, 2)
+  /// The result in R, as the trader entered it. Null while open.
+  resultR     Decimal? @map("result_r") @db.Decimal(10, 4)
+
   // --- Computed-and-stored columns -----------------------------------
-  // Populated by a backfill step (lib/metrics), never hand-entered.
-  // See docs/DATA-MODEL.md for the rationale.
+  // Written only by derivedColumns() in lib/trade-service.ts, never straight
+  // from a form. On an R_MULTIPLE trade they are derived from the R-mode
+  // inputs above (rMultiple = resultR, netPnl = resultR × plannedRisk −
+  // costs) rather than from prices. See docs/DATA-MODEL.md for the rationale.
   netPnl         Decimal?       @map("net_pnl") @db.Decimal(18, 2)
   grossPnl       Decimal?       @map("gross_pnl") @db.Decimal(18, 2)
   pips           Decimal?       @db.Decimal(12, 2)

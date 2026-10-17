@@ -16,8 +16,7 @@ test("screenshots picked while logging a trade upload with it, and more can be a
   await page.goto("/trades/new");
   await page.getByLabel("Symbol").click();
   await page.getByRole("option", { name: /^EURUSD/ }).click();
-  await page.getByLabel("Volume (lots)").fill("1");
-  await page.getByLabel("Entry price").fill("1.10000");
+  await page.getByLabel("Risk amount").fill("100");
 
   await page.getByTestId("trade-screenshots-input").setInputFiles([
     { name: "setup.png", mimeType: "image/png", buffer: PNG },

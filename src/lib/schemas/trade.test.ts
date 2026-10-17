@@ -1,6 +1,6 @@
 import { english } from "@/i18n/english";
 import { describe, expect, it } from "vitest";
-import { closeTradeSchema, parseTradeForm } from "./trade";
+import { closeRTradeSchema, closeTradeSchema, formEntryMode, parseRTradeForm, parseTradeForm } from "./trade";
 
 /**
  * `parseTradeForm` is the gate every trade write passes through — both
@@ -344,5 +344,65 @@ describe("closeTradeSchema", () => {
 
   it("rejects an unparseable date", () => {
     expect(closeTradeSchema.safeParse({ exitPrice: "1.1", closedAt: "not a date" }).success).toBe(false);
+  });
+});
+
+describe("parseRTradeForm", () => {
+  const R_OPEN = {
+    entryMode: "R_MULTIPLE",
+    symbol: "eurusd",
+    direction: "SHORT",
+    status: "OPEN",
+    openedAt: "2026-09-08T10:00",
+    plannedRisk: "100",
+    plannedRR: "2.5",
+  };
+
+  it("needs no price and no size", () => {
+    const res = parseRTradeForm(form(R_OPEN));
+    if (!res.ok) throw new Error(JSON.stringify(res.fieldErrors));
+    expect(res.values).toMatchObject({ symbol: "EURUSD", plannedRisk: 100, plannedRR: 2.5 });
+    expect(res.values.volumeLots).toBeUndefined();
+  });
+
+  it("requires money at risk", () => {
+    const res = parseRTradeForm(form({ ...R_OPEN, plannedRisk: "" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.fieldErrors.plannedRisk).toBeDefined();
+  });
+
+  it("requires a result and a close time to close", () => {
+    const res = parseRTradeForm(form({ ...R_OPEN, status: "CLOSED" }));
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.fieldErrors.resultR).toBeDefined();
+      expect(res.fieldErrors.closedAt).toBeDefined();
+    }
+  });
+
+  it("accepts a loss bigger than 1R — a gap through the stop", () => {
+    const res = parseRTradeForm(form({ ...R_OPEN, status: "CLOSED", closedAt: "2026-09-08T12:00", resultR: "-1.3" }));
+    if (!res.ok) throw new Error(JSON.stringify(res.fieldErrors));
+    expect(res.values.resultR).toBe(-1.3);
+  });
+
+  it("rejects a close before the open", () => {
+    const res = parseRTradeForm(form({ ...R_OPEN, status: "CLOSED", closedAt: "2026-09-08T09:00", resultR: "1" }));
+    expect(res.ok).toBe(false);
+  });
+
+  it("checks the symbol against the active list", () => {
+    expect(parseRTradeForm(form(R_OPEN), { validSymbols: ["GBPUSD"] }).ok).toBe(false);
+  });
+
+  it("is chosen only by an explicit entryMode", () => {
+    expect(formEntryMode(form(R_OPEN))).toBe("R_MULTIPLE");
+    expect(formEntryMode(form(OPEN_TRADE))).toBe("PRICE");
+  });
+
+  it("closes with a signed R, and never reads a blank as 0R", () => {
+    expect(closeRTradeSchema.safeParse({ resultR: "-1", closedAt: "2026-09-08T12:00:00Z" }).success).toBe(true);
+    expect(closeRTradeSchema.safeParse({ resultR: "", closedAt: "2026-09-08T12:00:00Z" }).success).toBe(false);
+    expect(closeRTradeSchema.safeParse({ resultR: "abc", closedAt: "2026-09-08T12:00:00Z" }).success).toBe(false);
   });
 });
