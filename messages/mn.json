@@ -1847,6 +1847,10 @@
     "clearSearch": "Хайлт цэвэрлэх",
     "somethingWrong": "Алдаа гарлаа",
     "noStopR": "Stop loss бүртгэгдээгүй — R тооцох боломжгүй",
+    "combobox": {
+      "search": "Хайх…",
+      "empty": "Олдсонгүй"
+    },
     "session": {
       "SYDNEY": "Сидней",
       "TOKYO": "Токио",

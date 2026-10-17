@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { FileText, UploadCloud } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
+  Combobox,
+  instrumentOptions,
   Badge,
   Button,
   DataTable,
@@ -21,11 +23,6 @@ import {
   PanelHeader,
   Segmented,
   SegmentedItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Td,
   Th,
   useToast,
@@ -253,6 +250,7 @@ function Preview({
   const t = useTranslations("trades.import");
   const tCommon = useTranslations("trades.common");
   const mismatches = report.rows.filter((r) => r.mismatch).length;
+  const symbolOptions = instrumentOptions(instruments);
   return (
     <Panel flush>
       <PanelHeader
@@ -286,18 +284,13 @@ function Preview({
             {report.unmappedSymbols.map((broker) => (
               <Field key={broker} className="flex-row items-center gap-3">
                 <FieldLabel className="mono w-32">{broker}</FieldLabel>
-                <Select value={aliases[broker] ?? ""} onValueChange={(v) => onAlias(broker, v)}>
-                  <SelectTrigger className="w-56">
-                    <SelectValue placeholder={t("skipThese")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {instruments.map((i) => (
-                      <SelectItem key={i.symbol} value={i.symbol}>
-                        {i.symbol} — {i.displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={symbolOptions}
+                  value={aliases[broker] || undefined}
+                  onValueChange={(v) => onAlias(broker, v)}
+                  className="w-56"
+                  placeholder={t("skipThese")}
+                />
               </Field>
             ))}
             <FieldHint>{t("unmappedHint")}</FieldHint>

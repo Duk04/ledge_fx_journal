@@ -12,6 +12,7 @@ export * from "./sparkline";
 export * from "./input";
 export * from "./field";
 export * from "./select";
+export * from "./combobox";
 export * from "./dropdown";
 export * from "./dialog";
 export * from "./tooltip";

@@ -21,6 +21,7 @@ import { Input, NumberInput, Textarea } from "@/components/ui/input";
 import { Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldRow } from "@/components/ui/field";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox, instrumentOptions } from "@/components/ui/combobox";
 
 import { TagChip } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
@@ -97,6 +98,7 @@ export function TradeForm({
   const modKey = useModKey();
 
   const validSymbols = React.useMemo(() => new Set(instruments.map((i) => i.symbol)), [instruments]);
+  const symbolOptions = React.useMemo(() => instrumentOptions(instruments), [instruments]);
   const schema = React.useMemo(() => buildTradeFormSchema(validSymbols), [validSymbols]);
 
   const form = useForm<TradeFormInput>({
@@ -247,18 +249,14 @@ export function TradeForm({
                   control={form.control}
                   name="symbol"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger aria-invalid={!!errors.symbol} className={RESPONSIVE_HEIGHT}>
-                        <SelectValue placeholder={t("chooseSymbol")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {instruments.map((i) => (
-                          <SelectItem key={i.symbol} value={i.symbol}>
-                            {i.symbol} — {i.displayName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={symbolOptions}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      aria-invalid={!!errors.symbol}
+                      className={RESPONSIVE_HEIGHT}
+                      placeholder={t("chooseSymbol")}
+                    />
                   )}
                 />
                 <FieldError>{errors.symbol?.message}</FieldError>

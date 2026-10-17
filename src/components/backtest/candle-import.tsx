@@ -4,6 +4,8 @@ import * as React from "react";
 import { UploadCloud, FileText } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
+  Combobox,
+  instrumentOptions,
   Panel,
   PanelHeader,
   PanelBody,
@@ -150,18 +152,12 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("form.symbol")}</FieldLabel>
-            <Select value={symbol} onValueChange={setSymbol}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("form.chooseSymbol")} />
-              </SelectTrigger>
-              <SelectContent>
-                {instruments.map((i) => (
-                  <SelectItem key={i.symbol} value={i.symbol}>
-                    {i.symbol} — {i.displayName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={instrumentOptions(instruments)}
+              value={symbol}
+              onValueChange={setSymbol}
+              placeholder={t("form.chooseSymbol")}
+            />
           </Field>
           <Field>
             <FieldLabel>{t("form.timeframe")}</FieldLabel>

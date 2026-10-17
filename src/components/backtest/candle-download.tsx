@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CloudDownload } from "lucide-react";
 import {
+  Combobox,
+  instrumentOptions,
   Button,
   Field,
   FieldLabel,
@@ -103,18 +105,7 @@ export function CandleDownloadPanel({
         <FieldRow>
           <Field>
             <FieldLabel>{t("symbol")}</FieldLabel>
-            <Select value={symbol} onValueChange={setSymbol}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {instruments.map((i) => (
-                  <SelectItem key={i.symbol} value={i.symbol}>
-                    {i.symbol} — {i.displayName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox options={instrumentOptions(instruments)} value={symbol} onValueChange={setSymbol} />
           </Field>
           <Field>
             <FieldLabel>{t("timeframe")}</FieldLabel>

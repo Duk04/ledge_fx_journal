@@ -13,6 +13,7 @@ import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { SearchInput } from "@/components/ui/input";
+import { filterOptions } from "@/components/ui/combobox";
 import { Segmented, SegmentedItem } from "@/components/ui/segmented";
 import { Button } from "@/components/ui/button";
 import {
@@ -259,8 +260,13 @@ function MultiSelectMenu({
   onToggle: (value: string) => void;
 }) {
   const t = useTranslations("trades.filters");
+  const tUi = useTranslations("ui.combobox");
+  const [query, setQuery] = React.useState("");
+  // A search box only earns its place once the list stops fitting on screen.
+  const searchable = options.length > 8;
+  const visible = searchable ? filterOptions(options, query) : options;
   return (
-    <Dropdown>
+    <Dropdown onOpenChange={(open) => !open && setQuery("")}>
       <DropdownTrigger asChild>
         <Button variant="default" size="md" className={cn(selected.length > 0 && "border-brand-line text-brand")}>
           {label}
@@ -270,10 +276,29 @@ function MultiSelectMenu({
       <DropdownContent align="start" className="max-h-72 overflow-y-auto">
         <DropdownLabel>{label}</DropdownLabel>
         <DropdownSeparator />
-        {options.length === 0 ? (
-          <div className="px-2 py-3 text-xs text-ink-3">{t("nothingToFilter")}</div>
+        {searchable ? (
+          <div className="p-1">
+            <SearchInput
+              autoFocus
+              value={query}
+              aria-label={tUi("search")}
+              placeholder={tUi("search")}
+              onChange={(e) => setQuery(e.target.value)}
+              onClear={() => setQuery("")}
+              // The menu's typeahead would otherwise eat every keystroke and
+              // jump the highlight instead of typing into the box.
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowDown" && e.key !== "Escape") e.stopPropagation();
+              }}
+            />
+          </div>
+        ) : null}
+        {visible.length === 0 ? (
+          <div className="px-2 py-3 text-xs text-ink-3">
+            {searchable && query ? tUi("empty") : t("nothingToFilter")}
+          </div>
         ) : (
-          options.map((opt) => (
+          visible.map((opt) => (
             <DropdownCheckboxItem
               key={opt.value}
               checked={selected.includes(opt.value)}

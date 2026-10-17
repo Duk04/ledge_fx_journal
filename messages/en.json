@@ -1847,6 +1847,10 @@
     "clearSearch": "Clear search",
     "somethingWrong": "Something went wrong",
     "noStopR": "No stop loss recorded — R cannot be computed",
+    "combobox": {
+      "search": "Search…",
+      "empty": "No matches"
+    },
     "session": {
       "SYDNEY": "Sydney",
       "TOKYO": "Tokyo",

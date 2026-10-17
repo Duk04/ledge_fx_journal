@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Play } from "lucide-react";
 import {
+  Combobox,
+  instrumentOptions,
   Panel,
   PanelHeader,
   PanelBody,
@@ -121,18 +123,12 @@ export function ReplaySetupForm({ coverage, downloadable = [] }: { coverage: Cov
       <PanelBody className="flex flex-col gap-3">
         <Field>
           <FieldLabel>{t("form.symbol")}</FieldLabel>
-          <Select value={symbol} onValueChange={setSymbol}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("form.chooseSymbol")} />
-            </SelectTrigger>
-            <SelectContent>
-              {symbolOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={instrumentOptions(symbolOptions)}
+            value={symbol}
+            onValueChange={setSymbol}
+            placeholder={t("form.chooseSymbol")}
+          />
         </Field>
         <Field>
           <FieldLabel>{t("form.timeframe")}</FieldLabel>

@@ -27,6 +27,7 @@ import {
   FieldError,
   FieldRow,
   Select,
+  Combobox,
   SelectTrigger,
   SelectValue,
   SelectContent,
@@ -741,9 +742,33 @@ function OverlayShowcase() {
 // Select & tabs
 // ---------------------------------------------------------------------------
 
+const COMBOBOX_DEMO = [
+  { value: "EURUSD", label: "EURUSD", hint: "Euro / US Dollar" },
+  { value: "GBPUSD", label: "GBPUSD", hint: "British Pound / US Dollar" },
+  { value: "USDJPY", label: "USDJPY", hint: "US Dollar / Japanese Yen" },
+  { value: "EURJPY", label: "EURJPY", hint: "Euro / Japanese Yen" },
+  { value: "XAUUSD", label: "XAUUSD", hint: "Gold / US Dollar" },
+  { value: "US30", label: "US30", hint: "Dow Jones 30" },
+];
+
 function SelectAndTabsShowcase() {
+  const [pair, setPair] = React.useState<string | undefined>("EURUSD");
   return (
     <div className="flex flex-col gap-5">
+      <Field>
+        <FieldLabel>Instrument (searchable)</FieldLabel>
+        <Combobox options={COMBOBOX_DEMO} value={pair} onValueChange={setPair} placeholder="Choose a pair" />
+      </Field>
+      <Field>
+        <FieldLabel>Combobox — invalid, empty</FieldLabel>
+        <Combobox
+          options={COMBOBOX_DEMO}
+          value={undefined}
+          onValueChange={() => {}}
+          placeholder="Choose a pair"
+          aria-invalid
+        />
+      </Field>
       <Field>
         <FieldLabel>Instrument</FieldLabel>
         <Select defaultValue="eurusd">

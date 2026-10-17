@@ -4,6 +4,8 @@ import * as React from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
+  Combobox,
+  instrumentOptions,
   Field,
   FieldHint,
   FieldLabel,
@@ -12,11 +14,6 @@ import {
   Panel,
   PanelBody,
   PanelHeader,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@/components/ui";
 import { resolveConversion } from "@/lib/conversion";
 import { formatMoney } from "@/lib/metrics/formatters";
@@ -93,18 +90,7 @@ export function PositionCalculator({
           <FieldRow>
             <Field>
               <FieldLabel>{t("instrument")}</FieldLabel>
-              <Select value={symbol} onValueChange={setSymbol}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {instruments.map((i) => (
-                    <SelectItem key={i.symbol} value={i.symbol}>
-                      {i.symbol} — {i.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox options={instrumentOptions(instruments)} value={symbol} onValueChange={setSymbol} />
             </Field>
             <Field>
               <FieldLabel>{t("risk")}</FieldLabel>
