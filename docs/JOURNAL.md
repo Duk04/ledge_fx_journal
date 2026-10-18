@@ -50,7 +50,10 @@ the 1H trend", "wait for a 1m FVG") and ticks it off per day.
   is deleted outright.
 - **Ticking is optimistic**, because it is the everyday action and must not
   wait on a round trip; a failed save puts the box back and says so. Editing
-  the list (add, rename, reorder, remove) waits for the server.
+  the list (add, rename, reorder, remove) waits for the server. Like the
+  plan and review fields, the add and rename fields save when you leave
+  them (blur) as well as on Enter; one guard keeps a click on Add — which
+  blurs the field first — from adding the item twice.
 - **Scoping.** `DailyCheck` has no `userId`; every action looks the item up
   with `userId` in the WHERE clause first, and another user's id reads as
   "not found" (`src/lib/actions/checklist.ts`). A list holds at most 30

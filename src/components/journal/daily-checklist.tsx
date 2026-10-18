@@ -84,20 +84,27 @@ export function DailyChecklist({
     });
   }
 
-  function add(e: React.FormEvent) {
-    e.preventDefault();
+  // The text being saved right now. Leaving the field saves it (blur), and
+  // so does Enter or the Add button — and clicking Add blurs the field
+  // first, so without this one click would add the item twice.
+  const saving = React.useRef<string | null>(null);
+
+  function add() {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || saving.current === text) return;
+    saving.current = text;
     // Adding the first item ends the empty state; stay in edit mode so the
     // next one can be typed straight after, until "Done".
     setEditing(true);
     startTransition(async () => {
       const res = await addChecklistItem({ text });
+      saving.current = null;
       if (!res.ok) {
         setDraftError(res.fieldErrors?.text?.[0] ?? res.formError ?? null);
         return;
       }
-      setDraft("");
+      // Only clear what was saved: the user may have typed on meanwhile.
+      setDraft((current) => (current.trim() === text ? "" : current));
       setDraftError(null);
       router.refresh();
     });
@@ -179,7 +186,13 @@ export function DailyChecklist({
         </ul>
 
         {showEditor ? (
-          <form onSubmit={add} className="mt-1 flex flex-col gap-1">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
+            className="mt-1 flex flex-col gap-1"
+          >
             <div className="flex items-center gap-2">
               <Input
                 value={draft}
@@ -187,6 +200,7 @@ export function DailyChecklist({
                   setDraft(e.target.value);
                   setDraftError(null);
                 }}
+                onBlur={add}
                 placeholder={t("addPlaceholder")}
                 aria-label={t("addPlaceholder")}
                 aria-invalid={draftError ? true : undefined}

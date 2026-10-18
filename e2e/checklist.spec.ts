@@ -11,9 +11,13 @@ test("build a daily checklist, tick it, and see it on the calendar", async ({ pa
   await add.fill("Check the 1H trend");
   await page.getByRole("button", { name: "Add" }).click();
   await expect(page.getByRole("textbox", { name: "Rename Check the 1H trend" })).toBeVisible();
+  // Clicking Add blurs the field first; that must still add it once.
+  await expect(page.getByRole("textbox", { name: "Rename Check the 1H trend" })).toHaveCount(1);
+  // Leaving the field saves what was typed, with no button at all.
   await add.fill("Wait for a 1m FVG");
-  await page.getByRole("button", { name: "Add" }).click();
+  await add.blur();
   await expect(page.getByRole("textbox", { name: "Rename Wait for a 1m FVG" })).toBeVisible();
+  await expect(add).toHaveValue("");
   await page.getByRole("button", { name: "Done" }).click();
 
   await page.getByRole("checkbox", { name: "Check the 1H trend" }).click();
