@@ -192,6 +192,7 @@ model User {
   accounts          TradingAccount[]
   tags              Tag[]
   journalEntries    JournalEntry[]
+  checklistItems    ChecklistItem[]
   authAccounts      Account[]
   candleImports     CandleImport[]
   strategies        Strategy[]
@@ -509,6 +510,43 @@ model JournalEntry {
 
   @@unique([userId, entryDate])
   @@map("journal_entries")
+}
+
+/// One line of the user's own daily checklist — what they look at before
+/// trading ("check the 1H trend", "wait for a 1m FVG"). The list is the
+/// user's, not a day's: the same items come back every day, and each day
+/// records which were ticked (DailyCheck). docs/JOURNAL.md, "Daily checklist".
+model ChecklistItem {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  text       String
+  sortOrder  Int       @default(0) @map("sort_order")
+  /// Set instead of deleting once the item has been ticked on some day, so
+  /// that day's record keeps it. Archived items drop off new days.
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checks DailyCheck[]
+
+  @@index([userId, sortOrder])
+  @@map("checklist_items")
+}
+
+/// One checklist item ticked on one calendar day. Absent = not ticked.
+/// `date` is a plain calendar date, like JournalEntry.entryDate — there is
+/// no instant to convert. Owned through its item; never queried without
+/// `item: { userId }`.
+model DailyCheck {
+  itemId    String   @map("item_id")
+  date      DateTime @db.Date
+  checkedAt DateTime @default(now()) @map("checked_at")
+
+  item ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, date])
+  @@index([date])
+  @@map("daily_checks")
 }
 
 model BalanceEvent {

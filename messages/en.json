@@ -941,7 +941,8 @@
       "hasEntry": "Has a journal entry",
       "tradeCount": "{count, plural, one {# trade} other {# trades}}",
       "entryNoTrades": "Entry, no trades",
-      "week": "Week {n}"
+      "week": "Week {n}",
+      "checks": "{count, plural, one {# checklist item ticked} other {# checklist items ticked}}"
     },
     "editor": {
       "couldNotSave": "Could not save.",
@@ -1038,6 +1039,25 @@
       "balance": "Daily account balance",
       "balanceHelp": "Balance at the end of each day with a trade or cash movement.",
       "balanceLabel": "Balance from {start} to {end} over {count, plural, one {# day} other {# days}}"
+    },
+    "checklist": {
+      "title": "Daily checklist",
+      "titleToday": "Today's checklist",
+      "progress": "{done} of {total} done",
+      "allDone": "All {total} done",
+      "edit": "Edit list",
+      "done": "Done",
+      "emptyTitle": "Your own checklist for the day",
+      "emptyBody": "Write down what you look at before you trade, then tick it off each day. For example: “Check the 1H trend”, “Wait for a 1m FVG”.",
+      "addPlaceholder": "Add something to check, e.g. Check the 1H trend",
+      "add": "Add",
+      "rename": "Rename {text}",
+      "remove": "Remove {text}",
+      "moveUp": "Move {text} up",
+      "moveDown": "Move {text} down",
+      "archivedNote": "removed from your list since",
+      "saveFailed": "Couldn't save the checklist",
+      "openDay": "Open the day"
     }
   },
   "analytics": {
@@ -1450,7 +1470,9 @@
     "downloadRange": "The start date must be before the end date, and not in the future.",
     "downloadTooLarge": "That range is more than {max} bars — download it in smaller pieces, or pick a longer timeframe.",
     "downloadEmpty": "OANDA has no bars for that range (a weekend or holiday, or before its history starts).",
-    "oandaFailed": "OANDA refused the download: {message}"
+    "oandaFailed": "OANDA refused the download: {message}",
+    "checklistItemNotFound": "That checklist item was not found.",
+    "checklistFull": "A checklist holds {max} items at most."
   },
   "validation": {
     "mustBeNumber": "Must be a number",
@@ -1530,7 +1552,9 @@
     "enterContractSize": "Enter a contract size.",
     "enterDigits": "Enter a digit count.",
     "httpsUrl": "Must be an https:// URL.",
-    "hourRange": "Pick an hour from 0 to 23."
+    "hourRange": "Pick an hour from 0 to 23.",
+    "checklistTextRequired": "Write what to check.",
+    "checklistTextTooLong": "Keep it under {max} characters."
   },
   "backtest": {
     "index": {

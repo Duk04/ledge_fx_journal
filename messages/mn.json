@@ -941,7 +941,8 @@
       "hasEntry": "Тэмдэглэлтэй өдөр",
       "tradeCount": "{count} арилжаа",
       "entryNoTrades": "Тэмдэглэлтэй, арилжаагүй",
-      "week": "{n}-р долоо хоног"
+      "week": "{n}-р долоо хоног",
+      "checks": "Checklist-ээс {count} зүйл тэмдэглэсэн"
     },
     "editor": {
       "couldNotSave": "Хадгалж чадсангүй.",
@@ -1038,6 +1039,25 @@
       "balance": "Дансны өдрийн үлдэгдэл",
       "balanceHelp": "Арилжаа эсвэл мөнгөн гүйлгээ хийсэн өдөр бүрийн эцсийн үлдэгдэл.",
       "balanceLabel": "{count} өдрийн хугацаанд үлдэгдэл {start}-ээс {end} болсон"
+    },
+    "checklist": {
+      "title": "Өдрийн checklist",
+      "titleToday": "Өнөөдрийн checklist",
+      "progress": "{total}-аас {done} хийсэн",
+      "allDone": "{total}-уулаа хийгдсэн",
+      "edit": "Жагсаалт засах",
+      "done": "Болсон",
+      "emptyTitle": "Өдөр бүрийн өөрийн checklist",
+      "emptyBody": "Арилжаа хийхээсээ өмнө юу харах ёстойгоо бичээд өдөр бүр тэмдэглээрэй. Жишээ нь: “1 цагийн trend харах”, “1 минутын FVG хүлээх”.",
+      "addPlaceholder": "Шалгах зүйл нэмэх, жишээ нь 1 цагийн trend харах",
+      "add": "Нэмэх",
+      "rename": "{text}-г засах",
+      "remove": "{text}-г хасах",
+      "moveUp": "{text}-г дээш зөөх",
+      "moveDown": "{text}-г доош зөөх",
+      "archivedNote": "жагсаалтаас хасагдсан",
+      "saveFailed": "Checklist хадгалж чадсангүй",
+      "openDay": "Өдрийг нээх"
     }
   },
   "analytics": {
@@ -1450,7 +1470,9 @@
     "downloadRange": "Эхлэх огноо дуусах огнооноос өмнө, ирээдүйд биш байх ёстой.",
     "downloadTooLarge": "Энэ хугацаа {max}-аас олон бар — жижиг хэсгүүдээр татах эсвэл илүү урт таймфрейм сонгоно уу.",
     "downloadEmpty": "OANDA-д энэ хугацааны бар алга (амралтын өдөр, баяр, эсвэл түүх эхлэхээс өмнө).",
-    "oandaFailed": "OANDA татахаас татгалзлаа: {message}"
+    "oandaFailed": "OANDA татахаас татгалзлаа: {message}",
+    "checklistItemNotFound": "Шалгах зүйл олдсонгүй.",
+    "checklistFull": "Жагсаалтад хамгийн ихдээ {max} зүйл байна."
   },
   "validation": {
     "mustBeNumber": "Тоо байх ёстой",
@@ -1530,7 +1552,9 @@
     "enterContractSize": "Гэрээний хэмжээ оруулна уу.",
     "enterDigits": "Оронгийн тоо оруулна уу.",
     "httpsUrl": "https:// URL байх ёстой.",
-    "hourRange": "0-ээс 23 хүртэлх цаг сонгоно уу."
+    "hourRange": "0-ээс 23 хүртэлх цаг сонгоно уу.",
+    "checklistTextRequired": "Юу шалгахаа бичнэ үү.",
+    "checklistTextTooLong": "{max} тэмдэгтээс богино бичнэ үү."
   },
   "backtest": {
     "index": {

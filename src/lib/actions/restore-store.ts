@@ -73,6 +73,7 @@ export interface RestoreSummary {
   executions: number;
   balanceEvents: number;
   journalEntries: number;
+  checklistItems: number;
   tagsCreated: number;
   playbooksCreated: number;
   strategies: number;
@@ -294,6 +295,7 @@ export async function restoreInto(
     executions: 0,
     balanceEvents: 0,
     journalEntries: 0,
+    checklistItems: 0,
     tagsCreated: createdTags.count,
     playbooksCreated: newPlaybooks.length,
     strategies: 0,
@@ -485,6 +487,34 @@ export async function restoreInto(
   });
   summary.journalEntries = journalCreated;
   skipped.journalDays += entries.size - journalCreated;
+
+  // --- Daily checklist: reuse an item of the same text, then add its days ----
+  // Ticks are a set per (item, day), so restoring onto days already ticked
+  // changes nothing.
+  if (file.checklist.length) {
+    const existing = await tx.checklistItem.findMany({
+      where: { userId },
+      select: { id: true, text: true, sortOrder: true },
+    });
+    const byText = new Map(existing.map((i) => [i.text, i.id]));
+    let nextOrder = existing.reduce((m, i) => Math.max(m, i.sortOrder), -1) + 1;
+    const checkRows: Prisma.DailyCheckCreateManyInput[] = [];
+    for (const item of file.checklist) {
+      const text = item.text.slice(0, 200);
+      let id = byText.get(text);
+      if (!id) {
+        const created = await tx.checklistItem.create({
+          data: { userId, text, sortOrder: nextOrder++, archivedAt: item.archived ? new Date() : null },
+          select: { id: true },
+        });
+        id = created.id;
+        byText.set(text, id);
+        summary.checklistItems++;
+      }
+      for (const date of item.checkedDates) checkRows.push({ itemId: id, date: new Date(`${date}T00:00:00.000Z`) });
+    }
+    await insertChunked(checkRows, (data) => tx.dailyCheck.createMany({ data, skipDuplicates: true }));
+  }
 
   // --- Strategies: by name, never overwriting --------------------------------
   const strategies = file.strategies.filter((s) => s.code.trim() !== "" && s.code.length <= MAX_STRATEGY_CODE_CHARS);

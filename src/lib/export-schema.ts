@@ -237,6 +237,14 @@ const strategySchema = z.object({
   params: z.unknown().optional(),
 });
 
+/** A daily-checklist item and the calendar days it was ticked on. */
+const checklistItemSchema = z.object({
+  text: z.string().trim().min(1),
+  sortOrder: z.number().int().default(0),
+  archived: z.boolean().default(false),
+  checkedDates: z.array(z.iso.date()).default([]),
+});
+
 const symbolAliasSchema = z.object({ brokerSymbol: z.string().min(1), symbol: z.string().min(1) });
 
 const profileSchema = z.object({
@@ -290,6 +298,7 @@ export const exportV3Schema = z.object({
   schemaVersion: z.literal(3),
   accounts: z.array(accountV3Schema),
   ...fileV2Extras,
+  checklist: z.array(checklistItemSchema).default([]),
 });
 
 export const exportFileSchema = z.discriminatedUnion("schemaVersion", [exportV1Schema, exportV2Schema, exportV3Schema]);
@@ -350,12 +359,14 @@ export function normalizeExport(file: ExportFile): NormalizedExport {
     return {
       ...file,
       schemaVersion: 3,
+      checklist: [],
       accounts: file.accounts.map((a) => ({ ...a, trades: a.trades.map((t) => ({ ...t, ...PRICE_MODE })) })),
     };
   }
   return {
     ...file,
     schemaVersion: 3,
+    checklist: [],
     strategies: [],
     symbolAliases: [],
     notificationPrefs: null,

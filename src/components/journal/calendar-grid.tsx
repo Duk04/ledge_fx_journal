@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { CheckSquare } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Money } from "@/components/ui";
 import { formatMoneyCompact } from "@/lib/metrics/formatters";
@@ -146,9 +147,25 @@ async function DayCell({ day, currency, isToday }: { day: CalendarDay; currency:
         >
           {dayNum}
         </span>
-        {day.hasEntry ? (
-          <span aria-label={t("hasEntry")} title={t("hasEntry")} className="size-1.5 shrink-0 rounded-full bg-brand" />
-        ) : null}
+        <span className="flex items-center gap-1.5">
+          {day.checks > 0 ? (
+            <span
+              className="mono flex items-center gap-0.5 text-2xs text-ink-3"
+              title={t("checks", { count: day.checks })}
+              aria-label={t("checks", { count: day.checks })}
+            >
+              <CheckSquare className="size-3" aria-hidden />
+              {day.checks}
+            </span>
+          ) : null}
+          {day.hasEntry ? (
+            <span
+              aria-label={t("hasEntry")}
+              title={t("hasEntry")}
+              className="size-1.5 shrink-0 rounded-full bg-brand"
+            />
+          ) : null}
+        </span>
       </div>
 
       {hasTrades ? (

@@ -2,6 +2,7 @@ import "server-only";
 import { Decimal } from "decimal.js";
 import { TZDate } from "@date-fns/tz";
 import { prisma } from "@/lib/db";
+import { checksPerDay } from "./checklist";
 import { toDec, toPlain } from "@/lib/decimal-bridge";
 
 /**
@@ -107,6 +108,8 @@ export type CalendarDay = {
   /** Every trade touching this local day (open or closed, never cancelled), for the trade-count badge. */
   tradeCount: number;
   hasEntry: boolean;
+  /** Daily-checklist items ticked that day (queries/checklist.ts). */
+  checks: number;
 };
 
 /** One Monday-first row of the calendar grid, totalled. */
@@ -149,7 +152,7 @@ export async function monthView(
   const rangeStart = new Date(Date.UTC(year, monthIndex, 1) - 24 * 60 * 60 * 1000);
   const rangeEnd = new Date(Date.UTC(year, monthIndex, daysInMonth) + 2 * 24 * 60 * 60 * 1000);
 
-  const [trades, entries] = await Promise.all([
+  const [trades, entries, checks] = await Promise.all([
     accountId
       ? prisma.trade.findMany({
           where: {
@@ -164,6 +167,7 @@ export async function monthView(
         })
       : Promise.resolve([]),
     listEntries(userId, month),
+    checksPerDay(userId, `${month}-01`, `${month}-${String(daysInMonth).padStart(2, "0")}`),
   ]);
 
   const bucket = new Map<string, { netPnl: Decimal; tradeCount: number }>();
@@ -193,6 +197,7 @@ export async function monthView(
       netPnl: b ? toPlain(b.netPnl) : null,
       tradeCount: b?.tradeCount ?? 0,
       hasEntry: entryDates.has(key),
+      checks: checks.get(key) ?? 0,
     });
   }
 

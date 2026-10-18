@@ -79,6 +79,36 @@ CREATE POLICY journal_entries_owner ON journal_entries
   WITH CHECK (user_id::uuid = current_setting('app.current_user_id', true)::uuid);
 
 -- ---------------------------------------------------------------------------
+-- checklist_items / daily_checks — the daily checklist. daily_checks has no
+-- user_id; it is scoped through its item.
+-- ---------------------------------------------------------------------------
+ALTER TABLE checklist_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checklist_items FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY checklist_items_owner ON checklist_items
+  USING (user_id::uuid = current_setting('app.current_user_id', true)::uuid)
+  WITH CHECK (user_id::uuid = current_setting('app.current_user_id', true)::uuid);
+
+ALTER TABLE daily_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_checks FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY daily_checks_via_item ON daily_checks
+  USING (
+    EXISTS (
+      SELECT 1 FROM checklist_items i
+      WHERE i.id = daily_checks.item_id
+        AND i.user_id::uuid = current_setting('app.current_user_id', true)::uuid
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM checklist_items i
+      WHERE i.id = daily_checks.item_id
+        AND i.user_id::uuid = current_setting('app.current_user_id', true)::uuid
+    )
+  );
+
+-- ---------------------------------------------------------------------------
 -- trades — scoped via a subquery back to the owning account, since Trade
 -- has no direct user_id column (it hangs off accounts.user_id instead).
 -- ---------------------------------------------------------------------------

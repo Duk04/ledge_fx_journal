@@ -31,6 +31,31 @@ Concretely (`src/lib/queries/journal.ts`):
   …), which is fixed to UTC hours in `src/lib/metrics/session.ts` regardless
   of any user setting, and it never rewrites a stored timestamp.
 
+## Daily checklist
+
+Each user keeps their own list of what to look at before trading ("check
+the 1H trend", "wait for a 1m FVG") and ticks it off per day.
+
+- **The list is the user's; the ticks are the day's.** `ChecklistItem` rows
+  come back every day; `DailyCheck` records one item ticked on one calendar
+  date. `date` is a plain calendar date like `JournalEntry.entryDate` — no
+  timezone conversion, for the same reason.
+- **Where it shows.** First on the day page (`/journal/[date]`), before the
+  plan, since it is what you go through first; as "Today's checklist" at
+  the top of `/journal`; and as a ✓ count on each calendar day that had
+  ticks.
+- **Removing an item never rewrites history.** An item ticked on any day is
+  archived (`archivedAt`), not deleted: it drops off new days but still
+  shows, ticked and read-only, on the days it was part of. One never ticked
+  is deleted outright.
+- **Ticking is optimistic**, because it is the everyday action and must not
+  wait on a round trip; a failed save puts the box back and says so. Editing
+  the list (add, rename, reorder, remove) waits for the server.
+- **Scoping.** `DailyCheck` has no `userId`; every action looks the item up
+  with `userId` in the WHERE clause first, and another user's id reads as
+  "not found" (`src/lib/actions/checklist.ts`). A list holds at most 30
+  items of up to 200 characters.
+
 ## Stats, balance chart and the calendar's weekly column
 
 `/journal` opens with a range bar (two dates plus Today / Last week / Last
@@ -178,7 +203,8 @@ Everything the user owns, as one JSON document: profile (minus password
 hash), every trading account with its challenge rules, balance events and
 trades (each trade including its tags, playbook, checklist answers,
 MAE/MFE, attachment metadata and fills), all tags, playbooks with their
-rules, journal entries, coded strategies, symbol aliases and notification
+rules, journal entries, the daily checklist with the days each item was
+ticked, coded strategies, symbol aliases and notification
 preferences. A top-level `notIncluded` array documents what's deliberately
 left out — the password hash, other users' data, the shared instrument
 reference table, and attachment file bytes (only the stored URL or storage

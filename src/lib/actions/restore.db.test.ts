@@ -19,6 +19,8 @@ import { createPlaybook, setRuleCheck } from "./playbooks";
 import { restoreFromExport } from "./restore";
 import { createTag } from "./tags";
 import { createTrade } from "./trades";
+import { addChecklistItem, setDailyCheck } from "./checklist";
+import { dailyChecklist } from "@/lib/queries/checklist";
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -128,6 +130,9 @@ async function exportedUser() {
   });
   await saveJournalEntry({ date: "2026-03-04", field: "review", value: "A's review" });
   await saveJournalEntry({ date: "2026-03-05", field: "preMarket", value: "A's plan" });
+  const item = await addChecklistItem({ text: "Check the 1H trend" });
+  if (!item.ok) throw new Error(item.formError);
+  await setDailyCheck({ itemId: item.id, date: "2026-03-04", checked: true });
 
   const res = await exportData();
   const file = (await res.json()) as Json;
@@ -254,6 +259,11 @@ describe("restoreFromExport", () => {
     expect(await prisma.tradeTag.findMany({ where: { tagId: bTag.id } })).toHaveLength(1);
     expect(await prisma.attachment.findMany({ where: { trade: { accountId: restoredAccount.id } } })).toMatchObject([
       { externalUrl: "https://example.com/chart.png", storageKey: null, kind: "BEFORE", caption: "entry" },
+    ]);
+
+    expect(res.checklistItems).toBe(1);
+    expect((await dailyChecklist(b.id, "2026-03-04")).items).toMatchObject([
+      { text: "Check the 1H trend", checked: true },
     ]);
 
     const journal = await prisma.journalEntry.findMany({ where: { userId: b.id }, orderBy: { entryDate: "asc" } });

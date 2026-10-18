@@ -10,6 +10,8 @@ import { dayLabel, isValidDate, monthOf, shiftDay } from "@/components/journal/d
 import { requireUser } from "@/lib/session";
 import { dayView, resolveActiveTradingAccountId } from "@/lib/queries/journal";
 import { getAccountCurrency } from "@/lib/queries/accounts";
+import { dailyChecklist } from "@/lib/queries/checklist";
+import { DailyChecklist } from "@/components/journal/daily-checklist";
 
 export default async function JournalDayPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = await params;
@@ -19,7 +21,10 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
   const accountId = await resolveActiveTradingAccountId(user.id);
   const currency = accountId ? ((await getAccountCurrency(accountId)) ?? "USD") : "USD";
 
-  const view = await dayView(user.id, accountId, date, user.timezone);
+  const [view, checklist] = await Promise.all([
+    dayView(user.id, accountId, date, user.timezone),
+    dailyChecklist(user.id, date),
+  ]);
   const t = await getTranslations("journal.day");
 
   return (
@@ -46,6 +51,9 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
           </ButtonGroup>
         }
       />
+
+      {/* First on the page: it is what you go through before the plan. */}
+      <DailyChecklist checklist={checklist} />
 
       <Panel>
         <PanelHeader title={t("planTitle")} caption={t("planCaption")} />

@@ -14,6 +14,8 @@ import { monthView, resolveActiveTradingAccountId } from "@/lib/queries/journal"
 import { getAccountCurrency } from "@/lib/queries/accounts";
 import { journalStats } from "@/lib/queries/analytics";
 import { journalPresetDates, resolveJournalRange } from "@/lib/range";
+import { dailyChecklist } from "@/lib/queries/checklist";
+import { DailyChecklist } from "@/components/journal/daily-checklist";
 
 /**
  * The journal: a range of figures and the account's daily balance on top,
@@ -37,7 +39,7 @@ export default async function JournalPage({
   const accountId = await resolveActiveTradingAccountId(user.id);
   const currency = accountId ? ((await getAccountCurrency(accountId)) ?? "USD") : "USD";
 
-  const [view, stats] = await Promise.all([
+  const [view, stats, checklist] = await Promise.all([
     monthView(user.id, accountId, month, user.timezone),
     accountId
       ? journalStats({
@@ -48,6 +50,7 @@ export default async function JournalPage({
           fromDate: range.from,
         })
       : Promise.resolve(null),
+    dailyChecklist(user.id, today),
   ]);
   const t = await getTranslations("journal.month");
   const tStats = await getTranslations("journal.stats");
@@ -56,6 +59,8 @@ export default async function JournalPage({
   return (
     <Page>
       <SectionHead title={t("title")} hint={accountId ? t("hint") : t("hintNoAccount")} />
+
+      <DailyChecklist checklist={checklist} today />
 
       <RangeBar
         from={range.from}

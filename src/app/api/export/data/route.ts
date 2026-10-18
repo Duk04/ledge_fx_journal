@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const user = await requireUser();
 
-  const [profile, accounts, tags, journalEntries, playbooks, strategies, symbolAliases, notificationPrefs] =
+  const [profile, accounts, tags, journalEntries, playbooks, strategies, symbolAliases, notificationPrefs, checklist] =
     await Promise.all([
       prisma.user.findUnique({
         where: { id: user.id },
@@ -54,6 +54,11 @@ export async function GET() {
       prisma.strategy.findMany({ where: { userId: user.id }, orderBy: { name: "asc" } }),
       prisma.symbolAlias.findMany({ where: { userId: user.id }, orderBy: { brokerSymbol: "asc" } }),
       prisma.notificationPrefs.findUnique({ where: { userId: user.id } }),
+      prisma.checklistItem.findMany({
+        where: { userId: user.id },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        include: { checks: { orderBy: { date: "asc" }, select: { date: true } } },
+      }),
     ]);
 
   const payload: ExportFileWrite = {
@@ -186,6 +191,12 @@ export async function GET() {
       params: s.params,
     })),
     symbolAliases: symbolAliases.map((a) => ({ brokerSymbol: a.brokerSymbol, symbol: a.symbol })),
+    checklist: checklist.map((i) => ({
+      text: i.text,
+      sortOrder: i.sortOrder,
+      archived: i.archivedAt !== null,
+      checkedDates: i.checks.map((c) => c.date.toISOString().slice(0, 10)),
+    })),
     notificationPrefs: notificationPrefs
       ? {
           journalReminder: notificationPrefs.journalReminder,
