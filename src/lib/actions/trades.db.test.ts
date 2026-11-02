@@ -259,3 +259,23 @@ describe("updateTrade back to OPEN", () => {
     expect(row.executions.map((e) => e.kind)).toEqual(["ENTRY"]);
   });
 });
+
+describe("duplicateTrade (price mode)", () => {
+  it("opens a copy with its risk and session already computed", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const account = await createAccount(user.id);
+    signInAs(user.id);
+
+    const created = await createTrade(account.id, closedEurusdLong());
+    if (!created.ok) throw new Error(JSON.stringify(created));
+    const dup = await duplicateTrade(account.id, created.id);
+    if (!dup.ok) throw new Error(JSON.stringify(dup));
+
+    const row = await prisma.trade.findUniqueOrThrow({ where: { id: dup.id } });
+    expect(row).toMatchObject({ status: "OPEN", exitPrice: null, closedAt: null, netPnl: null });
+    // 10-pip stop on 1 lot of EURUSD.
+    expect(row.riskAmount?.toString()).toBe("100");
+    expect(row.marketSession).not.toBeNull();
+  });
+});

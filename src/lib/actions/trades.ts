@@ -16,7 +16,7 @@ import {
   type RTradeFormValues,
   type TradeFormValues,
 } from "@/lib/schemas/trade";
-import { derivedColumns, instrumentSpec, rTradeInput } from "@/lib/trade-service";
+import { derivedColumns, instrumentSpec, priceTradeInput, rTradeInput } from "@/lib/trade-service";
 import { resolveConversion } from "@/lib/conversion";
 import type { RTradeInput, TradeInput } from "@/lib/metrics/types";
 import { simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
@@ -510,9 +510,10 @@ export async function setTradeTags(accountId: string, tradeId: string, tagIds: s
 export async function duplicateTrade(accountId: string, tradeId: string): Promise<TradeResult> {
   const found = await accountOrFailure(accountId);
   if ("failure" in found) return found.failure;
+  const account = found.account;
 
   const existing = await prisma.trade.findFirst({
-    where: { id: tradeId, accountId },
+    where: { id: tradeId, accountId: account.id },
     include: { tradeTags: true },
   });
   if (!existing) return failT("tradeNotFound");
@@ -526,7 +527,7 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
   if (existing.entryMode === "R_MULTIPLE") {
     const created = await prisma.trade.create({
       data: {
-        accountId,
+        accountId: account.id,
         entryMode: "R_MULTIPLE",
         symbol: existing.symbol,
         direction: existing.direction,
@@ -554,27 +555,37 @@ export async function duplicateTrade(accountId: string, tradeId: string): Promis
     revalidateTradeViews(created.id);
     return ok({ id: created.id });
   }
-  // The CHECK constraint guarantees these on a PRICE row.
-  const entryPrice = existing.entryPrice!;
-  const volumeLots = existing.volumeLots!;
+  const instrument = await getInstrument(existing.symbol);
+  if (!instrument) return failT("unknownSymbolShort");
+  const copy = {
+    direction: existing.direction,
+    // The CHECK constraint guarantees these on a PRICE row.
+    entryPrice: existing.entryPrice!,
+    exitPrice: null,
+    stopLoss: existing.stopLoss,
+    initialStopLoss: existing.initialStopLoss ?? existing.stopLoss,
+    takeProfit: existing.takeProfit,
+    volumeLots: existing.volumeLots!,
+    commission: new Prisma.Decimal(0),
+    swap: new Prisma.Decimal(0),
+    conversionRate: existing.conversionRate,
+    openedAt: now,
+    closedAt: null,
+  };
   const created = await prisma.trade.create({
     data: {
-      accountId,
+      accountId: account.id,
       symbol: existing.symbol,
-      direction: existing.direction,
       status: "OPEN",
-      openedAt: now,
-      entryPrice,
-      stopLoss: existing.stopLoss,
-      initialStopLoss: existing.initialStopLoss ?? existing.stopLoss,
-      takeProfit: existing.takeProfit,
-      volumeLots,
-      conversionRate: existing.conversionRate,
+      ...copy,
+      // Risk and session are known the moment it opens; without them the
+      // risk guard skips the trade and session breakdowns file it as UNKNOWN.
+      ...(derivedColumns(priceTradeInput(copy, instrument, account.currency)) as unknown as PlainDerivedNumbers),
       tradeTags: existing.tradeTags.length
         ? { create: existing.tradeTags.map((tt) => ({ tagId: tt.tagId })) }
         : undefined,
       executions: {
-        create: [{ kind: "ENTRY", executedAt: now, price: entryPrice, volumeLots }],
+        create: [{ kind: "ENTRY", executedAt: now, price: copy.entryPrice, volumeLots: copy.volumeLots }],
       },
     },
   });
