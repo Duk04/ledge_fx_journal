@@ -1,7 +1,8 @@
 import "server-only";
 import type { AuthAttemptKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { POLICIES, type PolicyName, type ThrottleDecision, decide, describeWait } from "@/lib/auth/throttle-policy";
+import { POLICIES, type PolicyName, type ThrottleDecision, decide, waitParts } from "@/lib/auth/throttle-policy";
+import { tr } from "@/i18n/server-t";
 
 /**
  * Storage for the rate limiter. The arithmetic is in `throttle-policy.ts`,
@@ -88,6 +89,13 @@ async function bucketFor(key: ThrottleKey, windowMs: number, now: Date) {
   return { failures, lastFailureAt: latest?.createdAt ?? null };
 }
 
+/** "Too many attempts. Try again in about 12 minutes." in the reader's
+ * language. Exported for the login page, which re-states it from a URL. */
+export async function tooManyAttempts(retryAfterMs: number): Promise<string> {
+  const { unit, count } = waitParts(retryAfterMs);
+  return tr(unit === "minute" ? "tooManyAttemptsMinutes" : "tooManyAttemptsHours", { count });
+}
+
 /**
  * Checks every key and returns the first refusal.
  *
@@ -111,7 +119,7 @@ export async function checkThrottle(keys: ThrottleKey[]): Promise<ThrottleResult
         allowed: false,
         retryAfterMs: decision.retryAfterMs,
         // Identical whether or not the address exists — see recordAttempt.
-        message: `Too many attempts. Try again in ${describeWait(decision.retryAfterMs)}.`,
+        message: await tooManyAttempts(decision.retryAfterMs),
       };
     }
   }

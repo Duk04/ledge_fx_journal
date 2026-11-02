@@ -1498,7 +1498,9 @@
     "attachmentNoFile": "This attachment has no file.",
     "storedFileMissing": "The stored file is missing.",
     "statementImportFailed": "Importing failed, and nothing was imported. Try again, or import a shorter statement.",
-    "cancelledNoFills": "A cancelled trade has no fills to change."
+    "cancelledNoFills": "A cancelled trade has no fills to change.",
+    "tooManyAttemptsMinutes": "Too many attempts. Try again in about {count, plural, one {a minute} other {# minutes}}.",
+    "tooManyAttemptsHours": "Too many attempts. Try again in about {count, plural, one {an hour} other {# hours}}."
   },
   "validation": {
     "mustBeNumber": "Must be a number",

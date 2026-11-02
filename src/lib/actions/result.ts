@@ -30,6 +30,15 @@ export interface ActionFailure {
   fieldErrors?: Record<string, string[]>;
   /** A single form-level message, for anything not attributable to one field. */
   formError?: string;
+  /**
+   * Which failure this was, for a caller that must carry it somewhere a
+   * sentence cannot safely go — the login page puts it in a URL and
+   * re-states it from this code, since text taken from a URL would let
+   * anyone put words on this domain. Set only where a caller needs it.
+   */
+  code?: string;
+  /** With `code: "throttled"`: how long until the next attempt is allowed. */
+  retryAfterMs?: number;
 }
 
 export type ActionResult<T = Record<never, never>> = ({ ok: true } & T) | ActionFailure;

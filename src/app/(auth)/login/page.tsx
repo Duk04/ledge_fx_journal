@@ -7,13 +7,41 @@ import { signInWithPassword } from "@/lib/actions/auth";
 import { authFeatures } from "@/lib/auth-features";
 import { safeNext } from "@/lib/auth/safe-next";
 import { redirectIfAuthenticated } from "@/lib/session";
+import { tooManyAttempts } from "@/lib/auth/throttle";
+import { tr } from "@/i18n/server-t";
 
-// Deliberately minimal markup — another agent owns the design system.
-// Styling here is limited to the shared token classes the rest of the app
-// uses for bare inputs (bg-panel / border-line / etc).
+// Deliberately minimal markup: bare inputs styled with the shared token
+// classes (bg-panel / border-line / etc).
+
+/** The failures `?error=` may name. Anything else — an Auth.js code such as
+ * OAuthAccountNotLinked, or a hand-made link — reads as the generic message. */
+const SIGN_IN_ERRORS = ["invalidCredentials", "passwordLoginDisabled", "checkEmailPassword"] as const;
+
+/**
+ * The sentence for `?error=<code>`. A code, never text: the page used to
+ * print whatever the query string said inside its alert box, so anyone could
+ * send a link that put their own words on this domain ("your account is
+ * locked, call …"). Only a throttle's wait travels as a number, clamped.
+ */
+async function signInError(code: string | undefined, retrySeconds: string | undefined): Promise<string | null> {
+  if (!code) return null;
+  if (code === "throttled") {
+    const s = Number(retrySeconds);
+    return tooManyAttempts(Number.isFinite(s) && s > 0 ? Math.min(s, 24 * 3600) * 1000 : 60_000);
+  }
+  if ((SIGN_IN_ERRORS as readonly string[]).includes(code)) return tr(code as (typeof SIGN_IN_ERRORS)[number]);
+  return (await getTranslations("auth"))("somethingWentWrong");
+}
 
 interface LoginPageProps {
-  searchParams: Promise<{ next?: string; error?: string; registered?: string; reset?: string; deleted?: string }>;
+  searchParams: Promise<{
+    next?: string;
+    error?: string;
+    retry?: string;
+    registered?: string;
+    reset?: string;
+    deleted?: string;
+  }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -25,7 +53,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const t = await getTranslations("auth");
   const params = await searchParams;
   const next = safeNext(params.next);
-  const error = params.error;
+  const error = await signInError(params.error, params.retry);
   const justRegistered = params.registered === "1";
   // Arrivals from the reset and account-deletion flows; both land here
   // signed out, and both deserve a sentence saying what just happened.
@@ -35,19 +63,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const registrationEnabled = authFeatures.registration;
 
   // Thin server-action wrappers: the real actions in src/lib/actions/auth.ts
-  // return `{ error }` on failure (rather than throwing) so they stay easy
-  // to call from anywhere, including tests. This page has no client-side
-  // state to hold that return value, so it adapts it into a redirect back
-  // to this same page with the message in the query string — plain
-  // server-rendered error display, no client JS required.
+  // return a failure result (rather than throwing) so they stay easy to call
+  // from anywhere, including tests. This page has no client-side state to
+  // hold that result, so it redirects back to itself with the failure's CODE
+  // in the query string — server-rendered, no client JS required — and
+  // signInError() above turns the code back into a sentence.
   async function handleSignIn(formData: FormData) {
     "use server";
     const result = await signInWithPassword(formData);
     if (result && !result.ok) {
-      // Fetched here, not captured from the page: a Server Action's closed-over
-      // values are serialised into the form, and a function cannot be.
-      const ta = await getTranslations("auth");
-      const qs = new URLSearchParams({ next, error: result.formError ?? ta("somethingWentWrong") });
+      const qs = new URLSearchParams({ next, error: result.code ?? "unknown" });
+      if (result.retryAfterMs) qs.set("retry", String(Math.ceil(result.retryAfterMs / 1000)));
       redirect(`/login?${qs.toString()}`);
     }
   }

@@ -126,10 +126,18 @@ export function decide(bucket: AttemptBucket, policy: ThrottlePolicy, now: Date)
  * shaped.
  */
 export function describeWait(retryAfterMs: number): string {
+  const { unit, count } = waitParts(retryAfterMs);
+  if (unit === "minute") return count === 1 ? "about a minute" : `about ${count} minutes`;
+  return count === 1 ? "about an hour" : `about ${count} hours`;
+}
+
+/** The same coarse wait as a number and a unit, for a message translated
+ * into the reader's language (auth/throttle.ts); `describeWait` is its
+ * English form, for logs. */
+export function waitParts(retryAfterMs: number): { unit: "minute" | "hour"; count: number } {
   const seconds = Math.ceil(retryAfterMs / 1000);
-  if (seconds <= 60) return "about a minute";
+  if (seconds <= 60) return { unit: "minute", count: 1 };
   const minutes = Math.ceil(seconds / 60);
-  if (minutes < 60) return `about ${minutes} minutes`;
-  const hours = Math.ceil(minutes / 60);
-  return hours === 1 ? "about an hour" : `about ${hours} hours`;
+  if (minutes < 60) return { unit: "minute", count: minutes };
+  return { unit: "hour", count: Math.ceil(minutes / 60) };
 }

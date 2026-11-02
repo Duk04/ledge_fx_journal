@@ -43,7 +43,7 @@ const signInSchema = z.object({
 });
 
 /**
- * Sign in with email and password. Returns `{ error }` instead of throwing so
+ * Sign in with email and password. Returns a failure result instead of throwing so
  * the login form can render the failure inline — the one exception is a
  * successful sign-in, which redirects (via `redirect()`, which itself works by
  * throwing a special Next.js control-flow error that must be allowed to
@@ -59,7 +59,7 @@ const signInSchema = z.object({
  */
 export async function signInWithPassword(formData: FormData): Promise<AuthResult | undefined> {
   if (!authFeatures.passwordLogin) {
-    return failT("passwordLoginDisabled");
+    return { ...(await failT("passwordLoginDisabled")), code: "passwordLoginDisabled" };
   }
 
   const parsed = signInSchema.safeParse({
@@ -70,6 +70,7 @@ export async function signInWithPassword(formData: FormData): Promise<AuthResult
   if (!parsed.success) {
     return {
       ok: false,
+      code: "checkEmailPassword",
       formError: await tr("checkEmailPassword"),
       fieldErrors: await localizedFieldErrors(fieldErrorsFrom(parsed.error)),
     };
@@ -84,7 +85,7 @@ export async function signInWithPassword(formData: FormData): Promise<AuthResult
     { policy: "PASSWORD_LOGIN_IP", kind: "PASSWORD_LOGIN", ip },
   ]);
   if (!gate.allowed) {
-    return fail(gate.message);
+    return { ...fail(gate.message), code: "throttled", retryAfterMs: gate.retryAfterMs };
   }
 
   try {
@@ -97,7 +98,7 @@ export async function signInWithPassword(formData: FormData): Promise<AuthResult
     if (err instanceof AuthError) {
       // Deliberately generic: don't reveal whether the email exists. The
       // provider has already recorded the failed attempt.
-      return failT("invalidCredentials");
+      return { ...(await failT("invalidCredentials")), code: "invalidCredentials" };
     }
     throw err;
   }
