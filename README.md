@@ -120,9 +120,13 @@ path (Supabase/Neon) and a Vercel deploy guide.
 stored analytics columns (`net_pnl`, `r_multiple`, `market_session`, …) from
 the current formulas in `src/lib/metrics`. These are **stored, not
 view-time-computed** columns (see `docs/DATA-MODEL.md` for why) — which
-means editing a formula, or an instrument's pip size/contract size, does
-nothing to existing rows until you run this. Always re-run it after such a
-change, in dev and in any migration plan for production data.
+means editing a formula does nothing to existing rows until you run this.
+Always re-run it after such a change, in dev and in any migration plan for
+production data. An instrument spec edited in Settings, or an account's
+currency, recomputes the trades it affects by itself
+(`src/lib/actions/recompute.ts`); a spec changed by hand in the database or
+in `src/lib/instruments.ts` does not, so run this then too. BACKTEST trades
+are left as their run wrote them.
 
 ## npm scripts
 

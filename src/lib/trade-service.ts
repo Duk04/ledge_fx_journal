@@ -154,6 +154,37 @@ export function derivedColumns(input: AnyTradeInput): DerivedColumns {
   };
 }
 
+/** Each money/pip column's scale, and R's (schema.prisma). */
+const DERIVED_SCALES = { grossPnl: 2, netPnl: 2, pips: 2, rMultiple: 4, riskAmount: 2 } as const;
+
+/**
+ * Whether freshly computed derived columns differ from the stored ones.
+ *
+ * `next` has full decimal.js precision; the column holds the value Postgres
+ * rounded to its scale. Compared unrounded, every trade with a
+ * non-terminating ratio looks "changed" and a recompute rewrites rows that
+ * were already right — so the fresh value is rounded to the column's scale
+ * first. Shared by the backfill script and every in-app recompute, so both
+ * agree on what "stale" means.
+ */
+export function derivedColumnsDiffer(
+  next: DerivedColumns,
+  stored: Pick<Trade, keyof typeof DERIVED_SCALES | "holdingMinutes" | "marketSession">,
+): boolean {
+  for (const [key, scale] of Object.entries(DERIVED_SCALES) as [keyof typeof DERIVED_SCALES, number][]) {
+    const a = next[key];
+    const b = stored[key];
+    if (a === null || a === undefined) {
+      if (b !== null) return true;
+      continue;
+    }
+    if (b === null) return true;
+    const rounded = new Decimal(String(a)).toDecimalPlaces(scale, Decimal.ROUND_HALF_UP);
+    if (!rounded.eq(new Decimal(b.toString()))) return true;
+  }
+  return next.holdingMinutes !== stored.holdingMinutes || next.marketSession !== stored.marketSession;
+}
+
 /**
  * DB row -> the minimal shape the aggregate functions consume. Uses the STORED
  * derived columns (not a recompute) so a report can never disagree with the

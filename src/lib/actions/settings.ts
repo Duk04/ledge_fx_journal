@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { ownerOrFailure } from "./guard";
-import { derivedColumns, tradeInput } from "@/lib/trade-service";
+import { recomputeDerived } from "./recompute";
 import { seedInstruments } from "@/lib/instruments";
 import { IANA_TIMEZONES } from "@/lib/timezones";
 import { failT, failZod, tr } from "@/i18n/server-t";
@@ -112,7 +112,13 @@ export async function updateInstrument(symbol: string, input: z.input<typeof ins
     },
   });
 
+  // The instrument is shared, so every user's trades on it carry numbers
+  // derived from the old spec. The owner is the one who changed it; their
+  // request pays for bringing the stored P&L, pips and R back in line.
+  await recomputeDerived({ symbol });
+
   revalidatePath("/settings");
+  revalidatePath("/", "layout");
   return ok();
 }
 
@@ -140,8 +146,10 @@ export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
       // the whole reset for every other instrument.
       .catch(() => null);
   }
+  await recomputeDerived({ symbol: { in: seedInstruments.map((i) => i.symbol) } });
 
   revalidatePath("/settings");
+  revalidatePath("/", "layout");
   return ok();
 }
 
@@ -150,37 +158,20 @@ export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
 // ---------------------------------------------------------------------------
 
 /**
- * Recomputes and stores netPnl/grossPnl/pips/rMultiple/riskAmount/
- * holdingMinutes/marketSession for every trade across the user's accounts,
- * using the exact same `derivedColumns()` logic a backfill script would.
- * See docs/JOURNAL.md for why this exists as a button rather than only a
- * one-off script.
+ * Recomputes the stored netPnl/grossPnl/pips/rMultiple/riskAmount/
+ * holdingMinutes/marketSession of every trade across the user's accounts,
+ * with the same `derivedColumns()` the backfill script uses — in chunks, and
+ * never on BACKTEST trades (actions/recompute.ts says why). See
+ * docs/JOURNAL.md for why this exists as a button rather than only a script.
  */
 export async function recomputeDerivedColumns(): Promise<ActionResult<{ updated: number }>> {
   const user = await requireUser();
 
-  const accounts = await prisma.tradingAccount.findMany({
-    where: { userId: user.id },
-    select: { id: true },
-  });
-  const accountIds = accounts.map((a) => a.id);
-  if (accountIds.length === 0) return { ok: true, updated: 0 };
-
-  const trades = await prisma.trade.findMany({
-    where: { accountId: { in: accountIds } },
-    include: { instrument: true, account: { select: { currency: true } } },
-  });
-
-  let updated = 0;
-  for (const trade of trades) {
-    const input = tradeInput(trade, trade.instrument, trade.account.currency);
-    await prisma.trade.update({ where: { id: trade.id }, data: derivedColumns(input) });
-    updated++;
-  }
+  const { scanned } = await recomputeDerived({ account: { userId: user.id } });
 
   revalidatePath("/settings");
   revalidatePath("/journal");
   revalidatePath("/accounts");
   revalidatePath("/", "layout");
-  return { ok: true, updated };
+  return { ok: true, updated: scanned };
 }

@@ -4,8 +4,10 @@
  * The derived columns (netPnl, pips, rMultiple, riskAmount, holdingMinutes,
  * marketSession) are stored, not computed on read — see the note at the top of
  * src/lib/trade-service.ts for why. The price of that decision is exactly this
- * script: whenever a formula, an instrument's pip size, or an account's
- * currency changes, the stored numbers are stale until this runs.
+ * script: whenever a FORMULA changes, the stored numbers are stale until this
+ * runs. (An instrument spec edited in Settings or an account's currency
+ * recomputes the affected trades itself — lib/actions/recompute.ts — but a
+ * spec changed in the database or in src/lib/instruments.ts by hand does not.)
  *
  *   npm run backfill          # recompute everything
  *   npm run backfill -- --dry # report what would change, write nothing
@@ -14,36 +16,20 @@
  * is the number you want after changing a formula: if it says 0, the change had
  * no effect on real data and you should be suspicious of your test.
  */
-import { Decimal } from "decimal.js";
 import { prisma } from "../src/lib/db";
-import { derivedColumns, tradeInput } from "../src/lib/trade-service";
+import { derivedColumns, derivedColumnsDiffer, tradeInput } from "../src/lib/trade-service";
 import { resolveConversion } from "../src/lib/conversion";
 
 const dry = process.argv.includes("--dry");
 
-/**
- * `a` is freshly computed (full decimal.js precision), `b` is what the column
- * holds (rounded to its scale by Postgres). Comparing them unrounded made
- * every trade with a non-terminating ratio look "changed" — the dry run never
- * reported zero, and a real run rewrote rows that were already right. So the
- * computed value is rounded to the column's scale first (schema.prisma:
- * money and pips are Decimal(…, 2), r_multiple is Decimal(10, 4)).
- */
-function same(a: unknown, b: unknown, scale?: number) {
-  if (a === null || a === undefined) return b === null || b === undefined;
-  if (b === null || b === undefined) return false;
-  if (typeof a === "number" || typeof b === "number") return Number(a) === Number(b);
-  try {
-    const computed = new Decimal(String(a));
-    const rounded = scale === undefined ? computed : computed.toDecimalPlaces(scale, Decimal.ROUND_HALF_UP);
-    return rounded.eq(new Decimal(String(b)));
-  } catch {
-    return String(a) === String(b);
-  }
-}
-
 async function main() {
-  const accounts = await prisma.tradingAccount.findMany({ select: { id: true, label: true, currency: true } });
+  // BACKTEST trades are left as their run wrote them: a run converts its P&L
+  // at one rate for the whole run and stores its stats beside them, and a
+  // per-trade recompute would make the two disagree (lib/actions/recompute.ts).
+  const accounts = await prisma.tradingAccount.findMany({
+    where: { accountType: { not: "BACKTEST" } },
+    select: { id: true, label: true, currency: true },
+  });
   let scanned = 0;
   let changed = 0;
   const flagged: string[] = [];
@@ -75,16 +61,9 @@ async function main() {
       }
 
       const next = derivedColumns(tradeInput(trade, trade.instrument, account.currency));
-      const moved =
-        !same(next.netPnl, trade.netPnl, 2) ||
-        !same(next.pips, trade.pips, 2) ||
-        !same(next.rMultiple, trade.rMultiple, 4) ||
-        !same(next.riskAmount, trade.riskAmount, 2) ||
-        !same(next.grossPnl, trade.grossPnl, 2) ||
-        next.holdingMinutes !== trade.holdingMinutes ||
-        next.marketSession !== trade.marketSession;
-
-      if (!moved) continue;
+      // Rounded to each column's scale before comparing, or every
+      // non-terminating ratio reads as changed (trade-service.ts).
+      if (!derivedColumnsDiffer(next, trade)) continue;
       changed += 1;
       if (!dry) {
         await prisma.trade.update({ where: { id: trade.id }, data: next });

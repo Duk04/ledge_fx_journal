@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { accountOrFailure } from "./guard";
+import { recomputeDerived } from "./recompute";
 import { prisma } from "@/lib/db";
 import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { ACCOUNT_COOKIE } from "@/lib/active-account";
@@ -107,9 +108,10 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
 
   const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
+  const account = found.account;
 
   await prisma.tradingAccount.update({
-    where: { id: accountId },
+    where: { id: account.id },
     data: {
       label: parsed.data.label,
       broker: parsed.data.broker ?? null,
@@ -121,6 +123,13 @@ export async function updateAccount(accountId: string, input: AccountInput): Pro
       ...ruleColumns(parsed.data),
     },
   });
+
+  // Every price trade's P&L was converted into the old currency
+  // (lib/conversion.ts). Left alone, equity would become new-currency start +
+  // old-currency P&L.
+  if (parsed.data.currency !== account.currency) {
+    await recomputeDerived({ accountId: account.id });
+  }
 
   revalidateAccounts();
   return ok();
