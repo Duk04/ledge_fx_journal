@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
-import { SectionHead } from "@/components/ui/panel";
+import { SectionHead, Panel, PanelBody, PanelHeader } from "@/components/ui";
 import { requireUser } from "@/lib/session";
 import { getTrade, listInstruments, listTagsForUser } from "@/lib/queries/trades";
 import { TradeForm } from "@/components/trades/trade-form";
 import { AttachmentUploader } from "@/components/trades/attachment-uploader";
 import { uploadsAvailable } from "@/lib/storage";
-import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { listPlaybookOptions } from "@/lib/queries/playbooks";
 // From the pure module, not the client component: a server page reaching
 // into a "use client" file for a date helper pulls that whole module into

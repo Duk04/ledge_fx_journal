@@ -19,18 +19,36 @@ import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
-import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
-import { Input, NumberInput, Textarea } from "@/components/ui/input";
-import { Field, FieldError, FieldGroup, FieldHint, FieldLabel, FieldRow } from "@/components/ui/field";
-import { Segmented, SegmentedItem } from "@/components/ui/segmented";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Combobox, instrumentOptions } from "@/components/ui/combobox";
+import {
+  Button,
+  Panel,
+  PanelBody,
+  PanelHeader,
+  Input,
+  NumberInput,
+  Textarea,
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldHint,
+  FieldLabel,
+  FieldRow,
+  Segmented,
+  SegmentedItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Combobox,
+  instrumentOptions,
+  TagChip,
+  useToast,
+  Kbd,
+  useModKey,
+} from "@/components/ui";
 
-import { TagChip } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/toast";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
-import { Kbd, useModKey } from "@/components/ui/kbd";
 
 import { buildRTradeFormSchema, buildTradeFormSchema } from "@/lib/schemas/trade";
 import { createTrade, updateTrade } from "@/lib/actions/trades";

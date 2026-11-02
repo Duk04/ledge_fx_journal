@@ -141,7 +141,7 @@ export function Combobox({
           sideOffset={4}
           className={cn(
             "z-50 w-[var(--radix-popover-trigger-width)] min-w-56 overflow-hidden",
-            "rounded-[var(--radius-overlay)] border border-line bg-panel-raised text-ink shadow-overlay",
+            "rounded-overlay border border-line bg-panel-raised text-ink shadow-overlay",
           )}
         >
           <div className="flex items-center gap-2 border-b border-line px-2.5">

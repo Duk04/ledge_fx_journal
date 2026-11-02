@@ -3,8 +3,7 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Page } from "@/components/shell/page";
-import { Panel, PanelBody } from "@/components/ui/panel";
-import { ErrorState } from "@/components/ui/empty";
+import { Panel, PanelBody, ErrorState } from "@/components/ui";
 import { reportClientError } from "@/lib/report-client-error";
 
 /**

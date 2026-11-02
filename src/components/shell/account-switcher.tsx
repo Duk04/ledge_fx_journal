@@ -14,9 +14,9 @@ import {
   DropdownLabel,
   DropdownSeparator,
   DropdownTrigger,
-} from "@/components/ui/dropdown";
-import { Sparkline } from "@/components/ui/sparkline";
-import { Badge } from "@/components/ui/badge";
+  Sparkline,
+  Badge,
+} from "@/components/ui";
 import { formatMoney } from "@/lib/metrics/formatters";
 
 export type AccountOption = {

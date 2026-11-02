@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui";
 import { signIn } from "@/lib/auth";
 import { signInWithPassword } from "@/lib/actions/auth";
 import { authFeatures } from "@/lib/auth-features";

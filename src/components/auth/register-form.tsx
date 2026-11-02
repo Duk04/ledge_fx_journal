@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui";
 import { registerUser } from "@/lib/actions/auth";
 
 type FieldName = "name" | "email" | "password" | "confirm";

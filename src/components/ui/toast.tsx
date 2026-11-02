@@ -105,7 +105,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       className={cn(
-        "pointer-events-auto relative w-full max-w-sm overflow-hidden rounded-[var(--radius-overlay)] border border-line bg-panel-raised pl-3.5 shadow-overlay",
+        "pointer-events-auto relative w-full max-w-sm overflow-hidden rounded-overlay border border-line bg-panel-raised pl-3.5 shadow-overlay",
         "before:absolute before:inset-y-0 before:left-0 before:w-[2px]",
         toneEdge[item.tone ?? "neutral"],
       )}

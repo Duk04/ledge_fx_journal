@@ -1,8 +1,16 @@
 import { getTranslations } from "next-intl/server";
-import { DataTable, Th, Td, TableEmpty } from "@/components/ui/table";
-import { DirectionBadge, SessionBadge } from "@/components/ui/badge";
-import { Money, Pips, RValue } from "@/components/ui/value";
-import { RBar } from "@/components/ui/r-bar";
+import {
+  DataTable,
+  Th,
+  Td,
+  TableEmpty,
+  DirectionBadge,
+  SessionBadge,
+  Money,
+  Pips,
+  RValue,
+  RBar,
+} from "@/components/ui";
 import { formatPrice } from "@/lib/metrics/formatters";
 import type { RunTradeRow } from "@/lib/queries/backtests";
 

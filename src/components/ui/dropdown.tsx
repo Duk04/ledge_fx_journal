@@ -22,7 +22,7 @@ export function DropdownContent({
       <DropdownPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-40 overflow-hidden rounded-[var(--radius-overlay)] border border-line bg-panel-raised p-1 text-ink shadow-overlay",
+          "z-50 min-w-40 overflow-hidden rounded-overlay border border-line bg-panel-raised p-1 text-ink shadow-overlay",
           className,
         )}
         {...props}

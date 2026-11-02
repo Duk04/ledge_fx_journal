@@ -7,19 +7,21 @@ import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, User } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
-import { Tip } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Kbd } from "@/components/ui/kbd";
-import { CommandPalette, ShortcutsDialog } from "./command-palette";
 import {
+  Button,
+  Tip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Kbd,
   Dropdown,
   DropdownContent,
   DropdownItem,
   DropdownLabel,
   DropdownSeparator,
   DropdownTrigger,
-} from "@/components/ui/dropdown";
+} from "@/components/ui";
+import { CommandPalette, ShortcutsDialog } from "./command-palette";
 import { MOBILE_NAV, NAV_GROUPS, isActive } from "./nav-items";
 import { AccountSwitcher, type AccountOption } from "./account-switcher";
 import { ThemeToggle } from "./theme-toggle";

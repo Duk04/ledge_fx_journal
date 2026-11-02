@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeScript } from "@/components/theme-script";
-import { ToastProvider } from "@/components/ui/toast";
+import { ToastProvider } from "@/components/ui";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
 

@@ -4,9 +4,19 @@ import { AlertTriangle } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { useTranslations } from "next-intl";
 import { Page, Grid } from "@/components/shell/page";
-import { Panel, PanelBody, PanelHeader, SectionHead } from "@/components/ui/panel";
-import { DirectionBadge, Badge, SessionBadge, TagChip } from "@/components/ui/badge";
-import { Money, Pips, RValue } from "@/components/ui/value";
+import {
+  Panel,
+  PanelBody,
+  PanelHeader,
+  SectionHead,
+  DirectionBadge,
+  Badge,
+  SessionBadge,
+  TagChip,
+  Money,
+  Pips,
+  RValue,
+} from "@/components/ui";
 import { formatDuration, formatInZone, formatPrice, formatR } from "@/lib/metrics/formatters";
 import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
@@ -80,7 +90,7 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
       />
 
       {trade.hasDisagreement ? (
-        <div className="flex items-start gap-2 rounded-[var(--radius-panel)] border border-warn/30 bg-warn-weak px-3 py-2.5 text-xs text-warn">
+        <div className="flex items-start gap-2 rounded-panel border border-warn/30 bg-warn-weak px-3 py-2.5 text-xs text-warn">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <div>
             <p className="font-medium">{t("disagreement.title")}</p>

@@ -4,13 +4,19 @@ import * as React from "react";
 import { AlertTriangle, ImagePlus, Link2, Loader2, RefreshCw, Trash2, UploadCloud, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogFooter } from "@/components/ui/dialog";
-import { Segmented, SegmentedItem } from "@/components/ui/segmented";
-import { EmptyState } from "@/components/ui/empty";
-import { useToast } from "@/components/ui/toast";
+import {
+  Button,
+  Input,
+  Badge,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  Segmented,
+  SegmentedItem,
+  EmptyState,
+  useToast,
+} from "@/components/ui";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
 import { addExternalLink, deleteAttachment, setAttachmentKind, setCaption } from "@/lib/actions/attachments";
 import type { AttachmentTarget } from "@/lib/attachment-target";

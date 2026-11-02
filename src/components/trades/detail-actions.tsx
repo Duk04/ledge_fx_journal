@@ -5,12 +5,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Copy, Pencil, Trash2, X as CloseIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
-import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
-import { Input, NumberInput } from "@/components/ui/input";
-import { useToast } from "@/components/ui/toast";
-import { Segmented, SegmentedItem } from "@/components/ui/segmented";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  Field,
+  FieldError,
+  FieldHint,
+  FieldLabel,
+  Input,
+  NumberInput,
+  useToast,
+  Segmented,
+  SegmentedItem,
+} from "@/components/ui";
 import { closeRTrade, closeTrade, deleteTrade, duplicateTrade } from "@/lib/actions/trades";
 import { resultForOutcome, outcomeFor, type ROutcome } from "./trade-form-values";
 

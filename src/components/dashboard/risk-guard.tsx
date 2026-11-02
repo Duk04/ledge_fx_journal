@@ -57,10 +57,7 @@ export async function RiskGuard({ accountId }: { accountId: string }) {
   const t = await getTranslations("dashboard.risk");
 
   return (
-    <div
-      role="status"
-      className="flex flex-col gap-1.5 rounded-[var(--radius-panel)] border border-warn/30 bg-warn-weak px-3.5 py-2.5"
-    >
+    <div role="status" className="flex flex-col gap-1.5 rounded-panel border border-warn/30 bg-warn-weak px-3.5 py-2.5">
       {result.breaches.map((breach) => (
         <div key={breach.type} className="flex items-start gap-2 text-xs text-warn">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />

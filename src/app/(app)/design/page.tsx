@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Page, Grid } from "@/components/shell/page";
 import {
+  Tip,
   Panel,
   PanelHeader,
   PanelBody,
@@ -76,7 +77,6 @@ import {
   Empty,
   useToast,
 } from "@/components/ui";
-import { Tip } from "@/components/ui/tooltip";
 import { Inbox } from "lucide-react";
 
 /**

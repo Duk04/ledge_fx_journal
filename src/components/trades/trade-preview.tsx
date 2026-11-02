@@ -12,8 +12,7 @@ import { useTranslations } from "next-intl";
 import { computeRTrade, computeTrade, validateTradeGeometry } from "@/lib/metrics";
 import { formatMoney, formatPips } from "@/lib/metrics/formatters";
 import type { AssetClass } from "@/lib/metrics/types";
-import { Stat } from "@/components/ui/stat";
-import { Panel, PanelBody } from "@/components/ui/panel";
+import { Stat, Panel, PanelBody } from "@/components/ui";
 import type { InstrumentOption } from "@/lib/queries/trades";
 import type { TradeFormInput } from "./trade-form-values";
 

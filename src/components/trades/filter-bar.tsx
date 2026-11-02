@@ -12,18 +12,19 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
-import { SearchInput } from "@/components/ui/input";
-import { filterOptions } from "@/components/ui/combobox";
-import { Segmented, SegmentedItem } from "@/components/ui/segmented";
-import { Button } from "@/components/ui/button";
 import {
+  SearchInput,
+  filterOptions,
+  Segmented,
+  SegmentedItem,
+  Button,
   Dropdown,
   DropdownCheckboxItem,
   DropdownContent,
   DropdownLabel,
   DropdownSeparator,
   DropdownTrigger,
-} from "@/components/ui/dropdown";
+} from "@/components/ui";
 import type { TagOption } from "@/lib/queries/trades";
 import { RANGE_OPTIONS } from "@/lib/range";
 

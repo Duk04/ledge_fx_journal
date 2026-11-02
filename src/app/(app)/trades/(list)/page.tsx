@@ -2,15 +2,31 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Plus, Upload } from "lucide-react";
 import { Page } from "@/components/shell/page";
-import { Panel, PanelBody, PanelFooter, SectionHead } from "@/components/ui/panel";
-import { Button } from "@/components/ui/button";
-import { Stat, StatRow } from "@/components/ui/stat";
-import { Money, Percent, Pips, RValue } from "@/components/ui/value";
-import { DataTable, Td, Th, TableEmpty, TrLink } from "@/components/ui/table";
-import { DirectionBadge, Badge, TagChip, SessionBadge } from "@/components/ui/badge";
-import { RBar } from "@/components/ui/r-bar";
-import { EmptyState } from "@/components/ui/empty";
-import { Tip } from "@/components/ui/tooltip";
+import {
+  Panel,
+  PanelBody,
+  PanelFooter,
+  SectionHead,
+  Button,
+  Stat,
+  StatRow,
+  Money,
+  Percent,
+  Pips,
+  RValue,
+  DataTable,
+  Td,
+  Th,
+  TableEmpty,
+  TrLink,
+  DirectionBadge,
+  Badge,
+  TagChip,
+  SessionBadge,
+  RBar,
+  EmptyState,
+  Tip,
+} from "@/components/ui";
 import { formatInZone, formatPrice } from "@/lib/metrics/formatters";
 import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";

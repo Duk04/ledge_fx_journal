@@ -51,7 +51,7 @@ export function ButtonGroup({ className, ...props }: React.ComponentProps<"div">
     <div
       className={cn(
         "inline-flex items-center [&>button]:rounded-none",
-        "[&>button:first-child]:rounded-l-[var(--radius-control)] [&>button:last-child]:rounded-r-[var(--radius-control)]",
+        "[&>button:first-child]:rounded-l-control [&>button:last-child]:rounded-r-control",
         "[&>button+button]:-ml-px",
         className,
       )}

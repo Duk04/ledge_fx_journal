@@ -4,8 +4,7 @@ import * as React from "react";
 import { UploadCloud, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
-import { Segmented, SegmentedItem } from "@/components/ui/segmented";
-import { useToast } from "@/components/ui/toast";
+import { Segmented, SegmentedItem, useToast } from "@/components/ui";
 import {
   ACCEPTED_IMAGE_TYPES,
   ATTACHMENT_KINDS,

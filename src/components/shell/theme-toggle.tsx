@@ -2,8 +2,7 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { THEME_STORAGE_KEY } from "@/components/theme-script";
-import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/components/ui/dropdown";
-import { Button } from "@/components/ui/button";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger, Button } from "@/components/ui";
 import { useStoredState } from "@/lib/use-stored-state";
 
 type Choice = "light" | "dark" | "system";

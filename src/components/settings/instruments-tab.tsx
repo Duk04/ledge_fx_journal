@@ -36,7 +36,7 @@ export function InstrumentsTab({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col items-start justify-between gap-3 rounded-[var(--radius-panel)] border border-warn/30 bg-warn-weak px-3 py-2.5 text-xs text-ink-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col items-start justify-between gap-3 rounded-panel border border-warn/30 bg-warn-weak px-3 py-2.5 text-xs text-ink-2 sm:flex-row sm:items-center">
         <p>{canEdit ? t("ownerNote") : t("memberNote")}</p>
         {canEdit ? (
           <Button variant="default" size="sm" className="shrink-0" onClick={handleReset} disabled={resetting}>

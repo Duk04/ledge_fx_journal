@@ -1,7 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { DataTable, Th, Td, TrLink, TableEmpty } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Money, RValue, Empty } from "@/components/ui/value";
+import { DataTable, Th, Td, TrLink, TableEmpty, Badge, Money, RValue, Empty } from "@/components/ui";
 import { RunRowMenu } from "./run-row-menu";
 import type { RunListRow } from "@/lib/queries/backtests";
 

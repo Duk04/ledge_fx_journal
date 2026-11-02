@@ -5,10 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
-import { Dropdown, DropdownContent, DropdownItem, DropdownSeparator, DropdownTrigger } from "@/components/ui/dropdown";
-import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/toast";
+import {
+  Button,
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownSeparator,
+  DropdownTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  useToast,
+} from "@/components/ui";
 import { deleteTrade, duplicateTrade } from "@/lib/actions/trades";
 
 /**

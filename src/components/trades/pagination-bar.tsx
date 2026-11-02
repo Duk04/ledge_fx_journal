@@ -4,7 +4,7 @@
  * component takes plain callbacks, not hrefs, so this is where "page" and
  * "pageSize" become query params (see docs/TRADES.md for the full contract). */
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Pagination } from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui";
 
 export function TradePaginationBar({ page, pageSize, total }: { page: number; pageSize: number; total: number }) {
   const router = useRouter();

@@ -6,6 +6,9 @@ import { useTranslations } from "next-intl";
 import { Play, Pause, StepForward, StepBack, ArrowUpCircle, ArrowDownCircle, X } from "lucide-react";
 import type { Timeframe } from "@prisma/client";
 import {
+  Money,
+  RValue,
+  Pips,
   Panel,
   PanelHeader,
   PanelBody,
@@ -23,7 +26,6 @@ import {
   TableEmpty,
   useToast,
 } from "@/components/ui";
-import { Money, RValue, Pips } from "@/components/ui/value";
 import { formatMoney, formatPrice } from "@/lib/metrics/formatters";
 import { aggregateBars } from "@/lib/candles/aggregate";
 import { defaultPositionTool, positionToolStats } from "@/lib/backtest/replay-tools";

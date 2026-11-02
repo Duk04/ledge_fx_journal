@@ -65,6 +65,16 @@ const eslintConfig = defineConfig([
               message: "Import { prisma } from '@/lib/db' — one singleton, one name.",
             },
           ],
+          // AGENTS.md, "UI": import primitives from the barrel. Written down
+          // for a long time and enforced by nothing — 86 imports in 29 files
+          // had drifted to individual files by the time this rule landed.
+          // The kit's own files import each other directly (overridden below).
+          patterns: [
+            {
+              group: ["@/components/ui/*"],
+              message: "Import UI primitives from '@/components/ui' (the barrel), not from individual files.",
+            },
+          ],
         },
       ],
 
@@ -99,6 +109,26 @@ const eslintConfig = defineConfig([
    *   client is the thing that is actually wrong, and that is what this
    *   catches.
    */
+  {
+    // The kit itself: its files import one another, and the barrel is built
+    // from them. Only the PrismaClient rule applies here.
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@prisma/client",
+              importNames: ["PrismaClient"],
+              message: "Import { prisma } from '@/lib/db' — one singleton, one name.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   {
     files: ["src/components/**/*.tsx", "src/app/**/*.tsx"],
     plugins: { import: importPlugin },

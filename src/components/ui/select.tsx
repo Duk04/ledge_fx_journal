@@ -51,7 +51,7 @@ export function SelectContent({
         sideOffset={sideOffset}
         className={cn(
           "z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden overflow-y-auto",
-          "rounded-[var(--radius-overlay)] border border-line bg-panel-raised p-1 text-ink shadow-overlay",
+          "rounded-overlay border border-line bg-panel-raised p-1 text-ink shadow-overlay",
           className,
         )}
         {...props}

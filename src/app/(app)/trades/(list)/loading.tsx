@@ -1,8 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
-import { Panel, PanelFooter } from "@/components/ui/panel";
-import { DataTable, Th } from "@/components/ui/table";
-import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
+import { Panel, PanelFooter, DataTable, Th, Skeleton, SkeletonRows } from "@/components/ui";
 
 /** Mirrors the real page's shape (stat row + table) at the row height the
  * table actually uses, so real rows don't cause a layout jump when they

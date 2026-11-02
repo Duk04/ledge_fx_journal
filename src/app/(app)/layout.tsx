@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/shell/app-shell";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui";
 import { requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import { listAccounts } from "@/lib/queries/accounts";

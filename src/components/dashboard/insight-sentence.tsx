@@ -67,7 +67,7 @@ export function InsightSentence({ breakdowns, currency }: { breakdowns: Breakdow
   const t = useTranslations("dashboard.insight");
   const text = buildInsight(breakdowns, currency, t);
   return (
-    <div className="flex items-start gap-2 rounded-[var(--radius-panel)] border border-line bg-panel-sunken px-3 py-2.5 text-sm text-ink">
+    <div className="flex items-start gap-2 rounded-panel border border-line bg-panel-sunken px-3 py-2.5 text-sm text-ink">
       <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-ink-3" aria-hidden />
       <p>{text}</p>
     </div>

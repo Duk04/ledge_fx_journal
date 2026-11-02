@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Page } from "@/components/shell/page";
-import { SectionHead, Panel, PanelHeader, PanelBody, Stat, StatRow, Badge } from "@/components/ui";
-import { Percent } from "@/components/ui/value";
+import { Percent, SectionHead, Panel, PanelHeader, PanelBody, Stat, StatRow, Badge } from "@/components/ui";
 import { formatMoney, formatR } from "@/lib/metrics/formatters";
 import { requireUser } from "@/lib/session";
 import { getRun } from "@/lib/queries/backtests";

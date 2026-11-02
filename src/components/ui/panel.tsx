@@ -10,7 +10,7 @@ export function Panel({ className, flush, ...props }: React.ComponentProps<"sect
   return (
     <section
       className={cn(
-        "flex min-w-0 flex-col rounded-[var(--radius-panel)] border border-line bg-panel",
+        "flex min-w-0 flex-col rounded-panel border border-line bg-panel",
         !flush && "overflow-hidden",
         className,
       )}

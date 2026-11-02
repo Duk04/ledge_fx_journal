@@ -61,14 +61,14 @@ export function DialogContent({
               )
             : variant === "sheet"
               ? cn(
-                  "inset-x-0 bottom-0 max-h-[85vh] w-full rounded-t-[var(--radius-overlay)]",
+                  "inset-x-0 bottom-0 max-h-[85vh] w-full rounded-t-overlay",
                   "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
                   "data-[state=open]:animate-[sheet-in_var(--dur)_var(--ease-out)]",
-                  "sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-full sm:max-h-[70vh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[var(--radius-overlay)] sm:pb-0",
+                  "sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-full sm:max-h-[70vh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-overlay sm:pb-0",
                   sizes[size],
                 )
               : cn(
-                  "top-1/2 left-1/2 max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-overlay)]",
+                  "top-1/2 left-1/2 max-h-[85vh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-overlay",
                   "data-[state=open]:animate-[dialog-in_var(--dur)_var(--ease-out)]",
                   sizes[size],
                 ),
