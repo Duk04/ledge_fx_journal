@@ -39,11 +39,21 @@ missing `where userId` in application code fails closed instead of leaking
 rows — defense in depth under the query-layer scoping, not a replacement for
 it. See the header comment in `prisma/rls.sql` for the exact setup steps.
 
-`instruments`, plus the Auth.js tables (`auth_accounts`, `sessions`,
-`verification_tokens`), are intentionally left without RLS: instruments are
-shared reference data with no owner, and the Auth.js tables are only ever
-touched by the adapter itself (and `verification_tokens` has no user
-reference at all — its `identifier` is an email, not a user id).
+Every user-owned table has a policy — directly on `user_id`, or through the
+account, trade, playbook, checklist item or journal entry it hangs off.
+`instruments` and `candles` (shared reference data, writes gated in the app
+by `requireOwner()`), `auth_accounts`, `verification_tokens` and
+`auth_attempts` are intentionally left without RLS: the Auth.js tables are
+only touched by the adapter, and `verification_tokens` and `auth_attempts`
+are written before there is a user to scope to.
+
+Two things the policies alone do not solve, both spelled out at the top of
+`rls.sql`: code that reads across users or before a session — Auth.js's
+by-email lookup, registration and password reset, the notification cron,
+the backfill — sees no rows under the restricted role and needs its own
+BYPASSRLS connection; and a pooled connection reports the setting as `''`
+after a `SET LOCAL`, which `app_current_user_id()` turns into NULL (matching
+nothing) rather than a cast error.
 
 ## Computed trade columns: stored, backfilled by one function
 
