@@ -79,7 +79,8 @@ export function TradeForm({
 }: {
   mode: "create" | "edit";
   /** False where uploads have nowhere durable to go (lib/storage.ts
-   * uploadsAvailable); the Screenshots panel is then left out. */
+   * uploadsAvailable); the Screenshots panel then says so instead of
+   * offering a drop zone. */
   uploadsEnabled?: boolean;
   accountId: string;
   tradeId?: string;
@@ -95,6 +96,7 @@ export function TradeForm({
 }) {
   const t = useTranslations("trades.form");
   const tEnum = useTranslations("enums");
+  const tAttachments = useTranslations("trades.attachments");
   const router = useRouter();
   const { toast } = useToast();
   const formRef = React.useRef<HTMLFormElement>(null);
@@ -604,6 +606,29 @@ export function TradeForm({
 
       <PreviewStrip preview={preview} mode={rMode ? "R_MULTIPLE" : "PRICE"} />
 
+      {/* Above the collapsed "Advanced" panel, not after it: pasting the chart
+          is the most common thing done here after the prices. Shown even
+          where uploads are off (no S3 on a serverless host), with the reason —
+          hiding it left people looking for a feature that seemed missing. */}
+      {mode === "create" ? (
+        <Panel>
+          <PanelHeader title={t("screenshotsTitle")} caption={t("screenshotsCaption")} />
+          <PanelBody>
+            {uploadsEnabled ? (
+              <PendingScreenshots
+                value={screenshots}
+                onChange={setScreenshots}
+                disabled={form.formState.isSubmitting}
+              />
+            ) : (
+              <p className="rounded-control border border-line bg-panel-sunken px-3 py-2 text-xs text-ink-3">
+                {tAttachments("uploadsUnavailable")}
+              </p>
+            )}
+          </PanelBody>
+        </Panel>
+      ) : null}
+
       <Panel>
         {/* A real disclosure: the button sits inside the heading (a heading
             inside a button is invalid HTML), takes keyboard focus, and
@@ -717,15 +742,6 @@ export function TradeForm({
           </PanelBody>
         ) : null}
       </Panel>
-
-      {mode === "create" && uploadsEnabled ? (
-        <Panel>
-          <PanelHeader title={t("screenshotsTitle")} caption={t("screenshotsCaption")} />
-          <PanelBody>
-            <PendingScreenshots value={screenshots} onChange={setScreenshots} disabled={form.formState.isSubmitting} />
-          </PanelBody>
-        </Panel>
-      ) : null}
 
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="default" onClick={() => router.back()}>
