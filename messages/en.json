@@ -174,7 +174,6 @@
       "save": "Save",
       "cancel": "Cancel",
       "ownerOnly": "Only the instance owner can change shared instrument data.",
-      "edit": "Edit",
       "editSymbol": "Edit {symbol}"
     },
     "data": {
@@ -1000,9 +999,6 @@
       "lastMonth": "Last month"
     },
     "stats": {
-      "title": "Performance",
-      "caption": "Closed trades, by close date, {from} – {to}",
-      "help": "What is this?",
       "noTrades": "No trades",
       "totalPnl": "Total P&L",
       "totalPnlHelp": "Net P&L of every trade closed in the range, after commission and swap.",
@@ -1853,7 +1849,6 @@
       "title": "New replay",
       "hint": "Pick a symbol, timeframe and range with stored bars to step through.",
       "noDataTitle": "No market data yet",
-      "noDataDescription": "Import a symbol's history from Market data before starting a replay.",
       "noBarsTitle": "No bars left for this range",
       "noBarsDescription": "The stored candles for this symbol/timeframe/range were removed after this run was created.",
       "sessionHint": "{symbol} · {timeframe} replay",
