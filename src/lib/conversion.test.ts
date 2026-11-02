@@ -1,6 +1,6 @@
 import { Decimal } from "decimal.js";
 import { describe, expect, it } from "vitest";
-import { baseCurrencyOf, conversionNote, resolveConversion } from "./conversion";
+import { baseCurrencyOf, resolveConversion } from "./conversion";
 
 /**
  * This module's own header explains the stake: assume a rate of 1 for a
@@ -199,46 +199,5 @@ describe("resolveConversion", () => {
       ];
       expect(sources.map((s) => s.needsAttention)).toEqual([false, false, false]);
     });
-  });
-});
-
-describe("conversionNote", () => {
-  it("says nothing when the rate is exactly 1 by identity", () => {
-    const r = resolveConversion({ instrument: instrument("EURUSD", "USD", "EUR"), accountCurrency: "USD" });
-    expect(conversionNote(r, { quoteCurrency: "USD" }, "USD")).toBeNull();
-  });
-
-  it("names both currencies and the rate for the derived case", () => {
-    const r = resolveConversion({
-      instrument: instrument("USDJPY", "JPY", "USD"),
-      accountCurrency: "USD",
-      referencePrice: 150,
-    });
-    const note = conversionNote(r, { quoteCurrency: "JPY" }, "USD");
-    expect(note).toContain("JPY");
-    expect(note).toContain("USD");
-    expect(note).toContain("0.006667");
-  });
-
-  it("asks for a rate, rather than reporting a number, when assuming 1", () => {
-    // The message is the mitigation for the flagged case, so its content is
-    // part of the contract: it must not read as though the P&L is correct.
-    const r = resolveConversion({
-      instrument: instrument("EURJPY", "JPY", "EUR"),
-      accountCurrency: "USD",
-      referencePrice: 160,
-    });
-    const note = conversionNote(r, { quoteCurrency: "JPY" }, "USD");
-    expect(note).toContain("1:1");
-    expect(note).toMatch(/enter a conversion rate/i);
-  });
-
-  it("mentions that the rate was user-entered for the explicit case", () => {
-    const r = resolveConversion({
-      instrument: instrument("EURJPY", "JPY", "EUR"),
-      accountCurrency: "USD",
-      explicitRate: "0.0064",
-    });
-    expect(conversionNote(r, { quoteCurrency: "JPY" }, "USD")).toMatch(/you entered/i);
   });
 });

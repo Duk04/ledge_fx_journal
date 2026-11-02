@@ -1,4 +1,4 @@
-import { english } from "@/i18n/english";
+import { english } from "../../../test/english";
 import { describe, expect, it } from "vitest";
 import { MAX_PASSWORD_BYTES, MIN_PASSWORD_CHARS, validatePassword } from "./password";
 

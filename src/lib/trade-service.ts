@@ -2,7 +2,7 @@ import type { Instrument, Prisma, Trade } from "@prisma/client";
 import { Decimal } from "decimal.js";
 import { computeAnyTrade, marketSession, classifyOutcome } from "@/lib/metrics";
 import type { AnyTradeInput, InstrumentSpec, RTradeInput, TradeInput, TradeRow } from "@/lib/metrics/types";
-import { fromDec, toDec, toDecOr } from "@/lib/decimal-bridge";
+import { fromDec, toDec } from "@/lib/decimal-bridge";
 import { resolveConversion } from "@/lib/conversion";
 
 /**
@@ -120,21 +120,6 @@ export function priceTradeInput(
   };
 }
 
-/** The conversion decision on its own, for the UI to explain. Price mode
- * only: an R-mode trade states its risk in account currency already. */
-export function tradeConversion(
-  trade: Pick<Trade, "exitPrice" | "conversionRate"> & { entryPrice: Prisma.Decimal },
-  instrument: Instrument,
-  accountCurrency: string,
-) {
-  return resolveConversion({
-    instrument,
-    accountCurrency,
-    explicitRate: trade.conversionRate?.toString() ?? null,
-    referencePrice: (trade.exitPrice ?? trade.entryPrice).toString(),
-  });
-}
-
 /** The exact set of columns this service owns. Nothing else may write them. */
 export type DerivedColumns = Pick<
   Prisma.TradeUncheckedUpdateInput,
@@ -217,9 +202,4 @@ export function toTradeRow(
  */
 export function hasDefinedRisk(trade: Pick<Trade, "entryMode" | "stopLoss">): boolean {
   return trade.entryMode === "R_MULTIPLE" || trade.stopLoss !== null;
-}
-
-/** Sum of realised net P&L, used for account equity. */
-export function realisedPnl(trades: { netPnl: Prisma.Decimal | null }[]): Decimal {
-  return trades.reduce((acc, t) => acc.plus(toDecOr(t.netPnl, 0)), new Decimal(0));
 }

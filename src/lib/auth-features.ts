@@ -21,5 +21,3 @@ export const authFeatures = {
   registration: env.ALLOW_REGISTRATION,
   requireEmailVerification: env.REQUIRE_EMAIL_VERIFICATION,
 } as const;
-
-export type AuthFeatures = typeof authFeatures;

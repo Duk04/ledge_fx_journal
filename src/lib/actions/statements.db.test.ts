@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { MT4_DETAILED } from "@/lib/statements/fixtures";
+import { MT4_DETAILED } from "../../../test/fixtures/statements";
 import { signInAs } from "../../../test/db/auth";
 import { createAccount, createUser, ensureInstruments } from "../../../test/db/factories";
 import { importStatement, undoImport } from "./statements";

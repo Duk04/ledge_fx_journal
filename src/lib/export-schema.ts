@@ -320,7 +320,6 @@ export type ExportTradeWrite = z.input<typeof tradeV3Schema>;
 export type ExportFile = z.output<typeof exportFileSchema>;
 /** Every file, once normalised: the version-3 shape with defaults applied. */
 export type NormalizedExport = z.output<typeof exportV3Schema>;
-export type NormalizedAccount = z.output<typeof accountV3Schema>;
 export type NormalizedTrade = z.output<typeof tradeV3Schema>;
 export type NormalizedExecution = z.output<typeof executionSchema>;
 

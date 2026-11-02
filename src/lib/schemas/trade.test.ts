@@ -1,4 +1,4 @@
-import { english } from "@/i18n/english";
+import { english } from "../../../test/english";
 import { describe, expect, it } from "vitest";
 import { closeRTradeSchema, closeTradeSchema, formEntryMode, parseRTradeForm, parseTradeForm } from "./trade";
 

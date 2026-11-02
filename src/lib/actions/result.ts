@@ -76,8 +76,3 @@ export function fieldErrorsFrom(error: z.ZodError): Record<string, string[]> {
   }
   return out;
 }
-
-/** Narrows to the failure arm, for callers that cannot narrow structurally. */
-export function isFailure(result: { ok: boolean }): result is ActionFailure {
-  return !result.ok;
-}

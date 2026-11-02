@@ -173,7 +173,7 @@ by what it's for:
   `checkbox.tsx`, `segmented.tsx`
 - **Feedback** — `toast.tsx`, `empty.tsx` (`EmptyState`/`ErrorState`),
   `skeleton.tsx`
-- **Overlays** — `dialog.tsx` (also backs the mobile `Sheet`),
+- **Overlays** — `dialog.tsx` (its `variant="sheet"` is the mobile bottom sheet),
   `dropdown.tsx`, `tooltip.tsx`
 - **Data display** — `table.tsx`, `pagination.tsx`, `badge.tsx`
   (`Badge`/`DirectionBadge`/`SessionBadge`/`TagChip`), `value.tsx`
@@ -202,11 +202,13 @@ the app rather than reusable primitives.
 4. **New numeric display → check Rule 4.** Wrap it in `.mono` (or reuse
    `Money`/`RValue`/`Pips`/`Percent` from `value.tsx`) unless there's a
    specific reason two of these numbers will never need to be compared.
-5. **Compose, don't duplicate.** `NumberInput` and `Select`'s trigger share
-   `fieldSkin` from `input.tsx` specifically so they can't drift apart
-   visually — if you're writing a new input-shaped thing, check whether it
-   should share that constant (or `.data-table`, or `Panel`) before
-   hand-rolling the classes again.
+5. **Compose, don't duplicate.** `Input`, `NumberInput` and `Select`'s
+   trigger each spell out the same field skin (border, hover, focus ring,
+   disabled, invalid) — change one and change all three. (A shared
+   `fieldSkin` constant was meant to prevent that; nothing used it, and it
+   was removed.) If you're writing a new input-shaped thing, reuse one of
+   them (or `.data-table`, or `Panel`) before hand-rolling the classes
+   again.
 6. **Demo it on `/design`.** Add the new component (or new state of an
    existing one) to `src/app/(app)/design/page.tsx` in the same change.
    Since that page imports the real component, this costs almost nothing and

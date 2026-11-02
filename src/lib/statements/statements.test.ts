@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MT4_DETAILED, MT5_REPORT, utf16le } from "./fixtures";
+import { MT4_DETAILED, MT5_REPORT, utf16le } from "../../../test/fixtures/statements";
 import { brokerTimeToUtc, decodeStatement, detectFormat, parseStatement, reconcile, resolveSymbol } from "./index";
 import { seedInstruments } from "@/lib/instruments";
 

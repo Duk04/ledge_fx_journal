@@ -1,15 +1,7 @@
 import { Decimal as PrismaDecimal } from "@prisma/client/runtime/library";
 import type { Instrument, Trade } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import {
-  derivedColumns,
-  instrumentSpec,
-  priceTradeInput,
-  realisedPnl,
-  toTradeRow,
-  tradeConversion,
-  tradeInput,
-} from "./trade-service";
+import { derivedColumns, instrumentSpec, priceTradeInput, toTradeRow, tradeInput } from "./trade-service";
 
 /**
  * The Decimal-to-plain bridge for every trade write, and the one place that
@@ -134,25 +126,6 @@ describe("priceTradeInput", () => {
   });
 });
 
-describe("tradeConversion", () => {
-  it("reports the decision and whether it needs attention", () => {
-    const identity = tradeConversion(trade() as Parameters<typeof tradeConversion>[0], instrument(), "USD");
-    expect(identity.source).toBe("IDENTITY");
-    expect(identity.needsAttention).toBe(false);
-  });
-
-  it("flags a cross pair whose rate cannot be derived", () => {
-    // EURJPY in a USD account: neither leg is the account currency.
-    const flagged = tradeConversion(
-      trade() as Parameters<typeof tradeConversion>[0],
-      instrument({ symbol: "EURJPY", baseCurrency: "EUR", quoteCurrency: "JPY" }),
-      "USD",
-    );
-    expect(flagged.source).toBe("ASSUMED_ONE");
-    expect(flagged.needsAttention).toBe(true);
-  });
-});
-
 describe("derivedColumns", () => {
   it("returns strings for the Decimal columns and a number for the minutes", () => {
     const derived = derivedColumns(priceTradeInput(trade(), instrument(), "USD"));
@@ -274,33 +247,6 @@ describe("toTradeRow", () => {
     it("is OPEN when the P&L is null even on a closed trade", () => {
       expect(row({ netPnl: null }).outcome).toBe("OPEN");
     });
-  });
-});
-
-describe("realisedPnl", () => {
-  it("sums net P&L", () => {
-    const total = realisedPnl([
-      { netPnl: new PrismaDecimal("100.50") },
-      { netPnl: new PrismaDecimal("-40.25") },
-      { netPnl: new PrismaDecimal("10") },
-    ]);
-    expect(total.toString()).toBe("70.25");
-  });
-
-  it("treats a null as zero rather than poisoning the sum", () => {
-    const total = realisedPnl([{ netPnl: new PrismaDecimal("100") }, { netPnl: null }]);
-    expect(total.toString()).toBe("100");
-  });
-
-  it("is zero for an empty list", () => {
-    expect(realisedPnl([]).toString()).toBe("0");
-  });
-
-  it("sums without float drift", () => {
-    // Ten additions of 0.1 is exactly 1 in Decimal, and 0.9999999999999999 in
-    // floating point. This is the reason the whole layer uses Decimal.
-    const trades = Array.from({ length: 10 }, () => ({ netPnl: new PrismaDecimal("0.1") }));
-    expect(realisedPnl(trades).toString()).toBe("1");
   });
 });
 

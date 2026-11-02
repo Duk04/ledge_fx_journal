@@ -30,7 +30,7 @@ One line per component: what it's for, and when to reach for something else inst
 
 - **Dialog / DialogTrigger / DialogContent / DialogHeader / DialogBody / DialogFooter** — centred modal for a focused task (confirm, edit, create). Don't use for content someone should be able to reference alongside the page — use a `Panel` or a route instead.
 - **DialogContent `variant="drawer"`** — left-edge panel; the mobile navigation. Radix supplies Esc, focus trap and scroll lock. When it is opened from state rather than a `DialogTrigger`, hand focus back yourself in `onCloseAutoFocus`.
-- **Sheet** — same primitive as `DialogContent`, bottom-anchored on small screens. Use for mobile trade entry and other flows that should feel native on a phone; on desktop it behaves like a normal centred dialog, so don't also build a separate desktop-only modal for the same flow.
+- **Sheet** — `DialogContent variant="sheet"`: the same primitive, bottom-anchored on small screens. Use for mobile trade entry and other flows that should feel native on a phone; on desktop it behaves like a normal centred dialog, so don't also build a separate desktop-only modal for the same flow.
 - **Dropdown / DropdownTrigger / DropdownContent / DropdownItem / DropdownCheckboxItem / DropdownLabel / DropdownSeparator** — a menu of actions or options anchored to a trigger. Not for navigation between pages — use a `Link`/tabs.
 - **Tooltip / TooltipProvider / TooltipContent / Tip** — a short label on hover/focus for something whose meaning isn't obvious (an icon button, a truncated value). Don't put anything interactive or essential inside one — content that matters must be visible without hovering.
 

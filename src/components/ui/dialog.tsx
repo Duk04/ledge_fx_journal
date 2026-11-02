@@ -8,7 +8,6 @@ import { cn } from "@/lib/cn";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
-export const DialogClose = DialogPrimitive.Close;
 export const DialogTitle = DialogPrimitive.Title;
 
 type Size = "sm" | "md" | "lg";
@@ -23,9 +22,10 @@ const sizes: Record<Size, string> = {
 /**
  * One primitive backs both the centred dialog and the mobile sheet — a sheet
  * is just a dialog anchored to the bottom edge with its own radius and safe
- * area padding. `variant="sheet"` is what mobile trade entry uses; it stays
- * bottom-pinned on small screens and centres like a normal dialog above the
- * `sm` breakpoint so it never needs a second component to maintain.
+ * area padding. `variant="sheet"` stays bottom-pinned on small screens and
+ * centres like a normal dialog above the `sm` breakpoint, so it never needs a
+ * second component to maintain. (It was described as what mobile trade entry
+ * uses; trade entry is a page, and nothing passes the variant yet.)
  */
 export function DialogContent({
   className,
@@ -104,12 +104,6 @@ export function DialogContent({
       `}</style>
     </DialogPrimitive.Portal>
   );
-}
-
-/** Same primitive, sheet-flavoured by default — the name is what call sites
- * reach for in mobile trade entry so the intent reads at the call site. */
-export function Sheet(props: Omit<React.ComponentProps<typeof DialogContent>, "variant">) {
-  return <DialogContent variant="sheet" {...props} />;
 }
 
 export function DialogHeader({

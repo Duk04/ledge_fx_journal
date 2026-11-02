@@ -290,16 +290,6 @@ export async function getAccountCurrency(accountId: string): Promise<string | nu
   return row?.currency ?? null;
 }
 
-/** Every balance event across the user's accounts, newest first. */
-export async function listBalanceEvents(userId: string, limit = 50) {
-  return prisma.balanceEvent.findMany({
-    where: { account: { userId } },
-    orderBy: { occurredAt: "desc" },
-    take: limit,
-    include: { account: { select: { id: true, label: true, currency: true } } },
-  });
-}
-
 /**
  * Today's trades on one account, for the risk guard.
  *

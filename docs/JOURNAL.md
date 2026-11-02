@@ -137,7 +137,7 @@ by an upsert on `(userId, entryDate)`.
 - **Mood** has no separate save step: selecting a value calls `setMood`
   immediately. Clicking the already-selected value clears it (mood becomes
   `null`) rather than being stuck once set.
-- All three actions (`saveJournalEntry`, `setMood`, `deleteEntry`) live in
+- Both actions (`saveJournalEntry`, `setMood`) live in
   `src/lib/actions/journal.ts`, validate with `zod`, and return `{ ok,
   fieldErrors?, formError? }` — never throw at the form.
 

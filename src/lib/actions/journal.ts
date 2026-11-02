@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { fieldErrorsFrom, ok, type ActionResult } from "./result";
-import { failT, failZod } from "@/i18n/server-t";
+import { failZod } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
 import { isJournalDate, toEntryDate } from "@/lib/journal-date";
 
@@ -83,21 +83,5 @@ export async function setMood(input: z.infer<typeof moodInputSchema>): Promise<A
   });
 
   revalidateDay(parsed.data.date);
-  return ok();
-}
-
-/** Clears a day's entry entirely. `deleteMany` so an already-empty day is a no-op, not an error. */
-export async function deleteEntry(date: string): Promise<ActionResult> {
-  const parsed = dateSchema.safeParse(date);
-  if (!parsed.success) {
-    return failT("invalidDate");
-  }
-
-  const user = await requireUser();
-  const entryDate = toEntryDate(parsed.data);
-
-  await prisma.journalEntry.deleteMany({ where: { userId: user.id, entryDate } });
-
-  revalidateDay(parsed.data);
   return ok();
 }

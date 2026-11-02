@@ -31,11 +31,6 @@ export function pointsToPrice(instrument: SimInstrument, points: number): number
   return points * instrument.pointSize;
 }
 
-/** Convert an absolute price delta into a count of points. Inverse of `pointsToPrice`. */
-export function priceToPoints(instrument: SimInstrument, priceDelta: number): number {
-  return priceDelta / instrument.pointSize;
-}
-
 /**
  * Signed pip move from `entryPrice` to `exitPrice`, positive when favourable
  * to `side`. Deliberately mirrors `computePips` in src/lib/metrics/trade.ts

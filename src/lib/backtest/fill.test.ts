@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closeAtPrice, entryPrice, exitAtMarket, exitOnBar, pipsBetween, pointsToPrice, priceToPoints } from "./fill";
+import { closeAtPrice, entryPrice, exitAtMarket, exitOnBar, pipsBetween, pointsToPrice } from "./fill";
 import type { Bar, FillModel, SimInstrument, SimPosition } from "./types";
 import { computeTrade } from "../metrics";
 
@@ -54,15 +54,10 @@ function bar(overrides: Partial<Bar> = {}): Bar {
   return { ts: 0, open: 1.1, high: 1.1, low: 1.1, close: 1.1, ...overrides };
 }
 
-describe("pointsToPrice / priceToPoints", () => {
+describe("pointsToPrice", () => {
   it("converts points to a price delta using the instrument's pointSize", () => {
     expect(pointsToPrice(EURUSD, 10)).toBeCloseTo(0.0001, 10);
     expect(pointsToPrice(USDJPY, 10)).toBeCloseTo(0.01, 10);
-  });
-
-  it("is the inverse of priceToPoints", () => {
-    expect(priceToPoints(EURUSD, 0.0001)).toBeCloseTo(10, 8);
-    expect(priceToPoints(XAUUSD, 0.02)).toBeCloseTo(2, 8);
   });
 });
 

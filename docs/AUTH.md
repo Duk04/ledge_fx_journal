@@ -352,8 +352,8 @@ All user data cascades from `users` (`auth_attempts` keeps its audit rows with t
 
 Named rather than left to be discovered:
 
-- **Email verification enforcement.** The column, the `signIn` gate and
-  `requireVerifiedUser()` all exist and honour
+- **Email verification enforcement.** The column and the `signIn` gate
+  exist and honour
   `REQUIRE_EMAIL_VERIFICATION`, but nothing sends the mail yet, so turning it
   on would lock everyone out. `env.ts` refuses that combination without a
   Resend key.

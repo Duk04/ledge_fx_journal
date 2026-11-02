@@ -37,8 +37,6 @@ export async function getServerT() {
   return createTranslator({ locale, messages: MESSAGES[locale] as typeof en });
 }
 
-export type ServerT = Awaited<ReturnType<typeof getServerT>>;
-
 /** `fieldErrorsFrom` (actions/result.ts), with `vmsg` keys translated — what a
  * failing action should return so non-`FieldError` call sites (a toast, a
  * `setError` banner) show the reader's language too. */

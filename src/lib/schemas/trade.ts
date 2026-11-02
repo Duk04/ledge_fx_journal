@@ -395,5 +395,3 @@ export const closeTradeSchema = z.object({
     z.coerce.number().finite().positive(vmsg("volumePositive")).optional(),
   ),
 });
-
-export type CloseTradeValues = z.infer<typeof closeTradeSchema>;

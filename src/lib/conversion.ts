@@ -84,21 +84,3 @@ export function resolveConversion({
 
   return { rate: new Decimal(1), source: "ASSUMED_ONE", needsAttention: true };
 }
-
-/** Human-readable explanation for the UI. */
-export function conversionNote(
-  result: ConversionResult,
-  instrument: { quoteCurrency: string },
-  accountCurrency: string,
-) {
-  switch (result.source) {
-    case "IDENTITY":
-      return null;
-    case "EXPLICIT":
-      return `Using the conversion rate you entered (${result.rate.toDecimalPlaces(6)}).`;
-    case "INVERSE_PRICE":
-      return `${instrument.quoteCurrency} converted to ${accountCurrency} at 1/price (${result.rate.toDecimalPlaces(6)}), the rate in effect for this trade.`;
-    case "ASSUMED_ONE":
-      return `This instrument is quoted in ${instrument.quoteCurrency} but the account is in ${accountCurrency}, and the rate can't be derived from the price. P&L is shown at 1:1 — enter a conversion rate to make it accurate.`;
-  }
-}

@@ -7,16 +7,6 @@ import { Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useFieldControlProps } from "./field";
 
-/** Shared skin for anything that looks like a text field — kept in one place
- * so Input, NumberInput and Select's trigger can never drift apart. */
-export const fieldSkin =
-  "flex w-full items-center rounded-control border border-line bg-panel text-ink " +
-  "transition-[border-color,box-shadow] duration-[var(--dur-fast)] ease-[var(--ease-out)] " +
-  "placeholder:text-ink-3 " +
-  "hover:border-line-strong " +
-  "focus-within:border-brand focus-within:outline-none focus-within:ring-2 focus-within:ring-brand-weak " +
-  "has-[input:disabled]:pointer-events-none has-[input:disabled]:opacity-45";
-
 export function Input({ className, ...props }: React.ComponentProps<"input">) {
   const fieldProps = useFieldControlProps();
   return (

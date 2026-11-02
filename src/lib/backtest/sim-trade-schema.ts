@@ -71,5 +71,3 @@ export const simRunResultSchema = z.object({
   logs: z.array(z.string().max(500)).max(MAX_RUN_LOGS).default([]),
   error: z.string().max(2000).optional(),
 });
-
-export type SimRunResultInput = z.input<typeof simRunResultSchema>;

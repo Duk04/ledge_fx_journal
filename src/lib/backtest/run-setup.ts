@@ -41,7 +41,7 @@ export function toSimInstrument(instrument: {
 
 /**
  * One fixed conversion rate for the whole run. The live journal resolves this
- * per trade (see trade-service.ts's `tradeConversion`, using each trade's own
+ * per trade (see trade-service.ts's `priceTradeInput`, using each trade's own
  * exit price), but a backtest fill model (`FillModel.conversionRate`) is a
  * single constant applied to every trade in the run — there is no per-trade
  * slot for it. Using the LAST bar's close as the reference price is the

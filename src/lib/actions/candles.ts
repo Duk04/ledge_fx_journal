@@ -33,9 +33,6 @@ export interface ImportReport {
   warnings: string[];
 }
 
-export type ImportSuccess = { ok: true } & ImportReport;
-export type ImportFailure = { ok: false; formError: string };
-
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 function revalidateDataPage() {

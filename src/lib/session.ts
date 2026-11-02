@@ -31,7 +31,6 @@ import { redirect } from "next/navigation";
 import type { UserRole, TradingAccount } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth-config";
-import { authFeatures } from "@/lib/auth-features";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { canWriteSharedData } from "@/lib/auth/roles";
@@ -139,37 +138,6 @@ export async function requireUser(next?: string): Promise<CurrentUser> {
     redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   }
 
-  return user;
-}
-
-/**
- * Like `requireUser`, but for anything that must not run for an unverified
- * address. Only meaningful when `REQUIRE_EMAIL_VERIFICATION` is on; when it
- * is off, every account is treated as usable.
- */
-export async function requireVerifiedUser(next?: string): Promise<CurrentUser> {
-  const user = await requireUser(next);
-  if (authFeatures.requireEmailVerification && !user.emailVerified) {
-    throw new ForbiddenError("Confirm your email address before doing that.");
-  }
-  return user;
-}
-
-/** Non-throwing role check, for deciding what to RENDER. Pages should hide or
- * disable a control the user cannot use rather than letting them submit and
- * fail. */
-export async function isOwner(): Promise<boolean> {
-  const user = await getCurrentUser();
-  return user ? canWriteSharedData(user.role) : false;
-}
-
-/** Requires one of `roles`. Throws `ForbiddenError`; see that class for why
- * it throws rather than redirecting. */
-export async function requireRole(...roles: UserRole[]): Promise<CurrentUser> {
-  const user = await requireUser();
-  if (!roles.includes(user.role)) {
-    throw new ForbiddenError();
-  }
   return user;
 }
 

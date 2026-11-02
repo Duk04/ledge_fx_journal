@@ -505,30 +505,6 @@ export async function closeRTrade(
 }
 
 // ---------------------------------------------------------------------------
-// setTradeTags
-// ---------------------------------------------------------------------------
-
-export async function setTradeTags(accountId: string, tradeId: string, tagIds: string[]): Promise<TradeResult> {
-  const user = await requireUser();
-  const found = await accountOrFailure(accountId);
-  if ("failure" in found) return found.failure;
-
-  const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId }, select: { id: true } });
-  if (!existing) return failT("tradeNotFound");
-
-  const owned = await assertTagsOwned(user.id, tagIds);
-  if (owned === null) return failFields({ tagIds: [await tr("tagsNotFound")] });
-
-  await prisma.trade.update({
-    where: { id: tradeId },
-    data: { tradeTags: { deleteMany: {}, create: owned.map((tagId) => ({ tagId })) } },
-  });
-
-  revalidateTradeViews(tradeId);
-  return ok({ id: tradeId });
-}
-
-// ---------------------------------------------------------------------------
 // duplicateTrade — a fast way to log "another one of these, right now".
 // ---------------------------------------------------------------------------
 

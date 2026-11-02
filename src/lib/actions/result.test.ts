@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import { fail, failFields, fieldErrorsFrom, isFailure, ok, type ActionResult } from "./result";
+import { fail, failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
 
 describe("ok", () => {
   it("returns a success with no payload", () => {
@@ -26,13 +26,6 @@ describe("fail / failFields", () => {
       ok: false,
       fieldErrors: { symbol: ["Unknown symbol"] },
     });
-  });
-});
-
-describe("isFailure", () => {
-  it("narrows both arms", () => {
-    expect(isFailure(ok({ id: "x" }))).toBe(false);
-    expect(isFailure(fail("nope"))).toBe(true);
   });
 });
 

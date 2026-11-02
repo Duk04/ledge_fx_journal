@@ -245,27 +245,6 @@ export interface ImportRow {
   createdAt: string;
 }
 
-export async function listImports(userId: string, limit = 20): Promise<ImportRow[]> {
-  const rows = await prisma.candleImport.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
-
-  return rows.map((r) => ({
-    id: r.id,
-    symbol: r.symbol,
-    timeframe: r.timeframe,
-    source: r.source,
-    fileName: r.fileName,
-    rowCount: r.rowCount,
-    fromTs: r.fromTs.toISOString(),
-    toTs: r.toTs.toISOString(),
-    tzOffsetMinutes: r.tzOffsetMinutes,
-    createdAt: r.createdAt.toISOString(),
-  }));
-}
-
 /**
  * The close of the last stored bar in a range, or null if the range is empty.
  *

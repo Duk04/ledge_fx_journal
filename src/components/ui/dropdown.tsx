@@ -7,10 +7,6 @@ import { cn } from "@/lib/cn";
 
 export const Dropdown = DropdownPrimitive.Root;
 export const DropdownTrigger = DropdownPrimitive.Trigger;
-export const DropdownGroup = DropdownPrimitive.Group;
-export const DropdownSub = DropdownPrimitive.Sub;
-export const DropdownSubTrigger = DropdownPrimitive.SubTrigger;
-export const DropdownSubContent = DropdownPrimitive.SubContent;
 
 export function DropdownContent({
   className,
