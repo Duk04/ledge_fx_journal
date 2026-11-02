@@ -1,7 +1,7 @@
 import "server-only";
 import { Decimal } from "decimal.js";
 import { prisma } from "@/lib/db";
-import { equityCurve, maxDrawdown, summarize } from "@/lib/metrics";
+import { equityCurve, maxDrawdown } from "@/lib/metrics";
 import { toDec, toDecOr, toNum, toPlain } from "@/lib/decimal-bridge";
 import { toTradeRow } from "@/lib/trade-service";
 import type { BalanceEvent } from "@/lib/metrics/types";
@@ -15,11 +15,15 @@ type PrismaDecimal = Prisma.Decimal;
  */
 
 /**
- * The metrics layer wants signed amounts (a withdrawal reduces the balance),
- * while the database stores a positive magnitude plus a `kind`. Converting in
- * one place means the equity curve can never be off by twice a withdrawal.
+ * The metrics layer wants signed amounts (a withdrawal reduces the balance).
+ * `addBalanceEvent` stores them signed already, but a row written any other
+ * way — an older export restored, a hand-edited one — may hold a WITHDRAWAL
+ * as a positive magnitude. So the sign comes from `kind`, here, and every
+ * reader that feeds `equityCurve()` goes through this: the equity curve can
+ * never be off by twice a withdrawal. (This comment used to say the database
+ * stores a positive magnitude; it has stored the signed amount for a while.)
  */
-function toBalanceEvents(
+export function toBalanceEvents(
   rows: { kind: "DEPOSIT" | "WITHDRAWAL" | "ADJUSTMENT"; amount: PrismaDecimal; occurredAt: Date }[],
 ): BalanceEvent[] {
   return rows.map((e) => {
@@ -51,32 +55,67 @@ export type AccountSummary = {
   spark: number[];
 };
 
-export async function listAccounts(userId: string): Promise<AccountSummary[]> {
-  const accounts = await prisma.tradingAccount.findMany({
-    where: { userId },
-    orderBy: [{ isArchived: "asc" }, { createdAt: "asc" }],
-    include: {
-      trades: {
-        select: {
-          netPnl: true,
-          rMultiple: true,
-          openedAt: true,
-          closedAt: true,
-          holdingMinutes: true,
-          status: true,
-        },
+/**
+ * Every account with its headline numbers — without loading its trades.
+ *
+ * This feeds the app layout (the account switcher, on every full render and
+ * every revalidation) and the accounts page. It used to include every trade
+ * of every account, archived and BACKTEST included, just to sum P&L and draw
+ * a 24-point sparkline; a strategy run writes up to 10,000 trades, so a few
+ * runs meant six-figure row counts per page load. Now the database counts
+ * and sums, and only ~24 points of each curve come back.
+ *
+ * The numbers are still the metrics layer's, not a second copy of its rules:
+ *  - `netPnl`, `tradeCount`, `openCount` are `summarize()`'s — closed means
+ *    status CLOSED with a net P&L; everything else is open.
+ *  - `equity` and `spark` are `equityCurve()`'s: start + net P&L of trades
+ *    with a close time, in close order, + signed balance events.
+ * `accounts.db.test.ts` holds both against the in-memory functions.
+ */
+export async function listAccounts(
+  userId: string,
+  opts: { includeArchived?: boolean } = {},
+): Promise<AccountSummary[]> {
+  const includeArchived = opts.includeArchived ?? true;
+  const accountWhere: Prisma.TradingAccountWhereInput = { userId, ...(includeArchived ? {} : { isArchived: false }) };
+
+  const [accounts, all, closed, samples] = await Promise.all([
+    prisma.tradingAccount.findMany({
+      where: accountWhere,
+      orderBy: [{ isArchived: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        label: true,
+        broker: true,
+        platform: true,
+        accountType: true,
+        currency: true,
+        isArchived: true,
+        startingBalance: true,
+        balanceEvents: { select: { kind: true, amount: true, occurredAt: true } },
       },
-      balanceEvents: { select: { kind: true, amount: true, occurredAt: true } },
-    },
-  });
+    }),
+    prisma.trade.groupBy({ by: ["accountId"], where: { account: accountWhere }, _count: { _all: true } }),
+    prisma.trade.groupBy({
+      by: ["accountId"],
+      where: { account: accountWhere, status: "CLOSED", netPnl: { not: null } },
+      _sum: { netPnl: true },
+      _count: { _all: true },
+    }),
+    sampledRealisedCurves(userId, includeArchived),
+  ]);
+
+  const totalBy = new Map(all.map((g) => [g.accountId, g._count._all]));
+  const closedBy = new Map(closed.map((g) => [g.accountId, g]));
 
   return accounts.map((account) => {
-    const rows = account.trades.map(toTradeRow);
-    const events = toBalanceEvents(account.balanceEvents);
     const start = toDecOr(account.startingBalance, 0);
-    const curve = equityCurve(rows, start, events);
-    const equity = curve.length ? curve[curve.length - 1].balance : start;
-    const stats = summarize(rows);
+    const events = toBalanceEvents(account.balanceEvents);
+    const curve = samples.get(account.id) ?? [];
+    const realised = curve.length ? curve[curve.length - 1].cum : new Decimal(0);
+    const cash = events.reduce((acc, e) => acc.plus(e.amount), new Decimal(0));
+    const tradeCount = totalBy.get(account.id) ?? 0;
+    const closedRow = closedBy.get(account.id);
 
     return {
       id: account.id,
@@ -87,15 +126,74 @@ export async function listAccounts(userId: string): Promise<AccountSummary[]> {
       currency: account.currency,
       isArchived: account.isArchived,
       startingBalance: toPlain(start)!,
-      equity: toPlain(equity)!,
-      netPnl: toPlain(stats.netPnl)!,
-      tradeCount: stats.tradeCount,
-      openCount: stats.openCount,
-      spark: thin(
-        curve.map((p) => toNum(p.balance) ?? 0),
-        24,
-      ),
+      equity: toPlain(start.plus(realised).plus(cash))!,
+      netPnl: toPlain(toDecOr(closedRow?._sum.netPnl ?? null, 0))!,
+      tradeCount,
+      openCount: tradeCount - (closedRow?._count._all ?? 0),
+      spark: thin(sparkPoints(start, curve, events), 24),
     };
+  });
+}
+
+/**
+ * Each account's running realised P&L, sampled: about 24 evenly spaced
+ * closed trades per account, always including the first (where the curve
+ * starts) and the last (whose running total is the account's whole realised
+ * P&L). The running sum is taken over every
+ * row in SQL; only the sample travels.
+ *
+ * The filter and the order are `equityCurve()`'s — a close time and a net
+ * P&L, ascending by close — with the id as a tiebreaker so equal close
+ * times sum in a stable order.
+ */
+async function sampledRealisedCurves(
+  userId: string,
+  includeArchived: boolean,
+): Promise<Map<string, { at: Date; cum: Decimal }[]>> {
+  const rows = await prisma.$queryRaw<{ accountId: string; at: Date; cum: string }[]>`
+    SELECT s.account_id AS "accountId", s.closed_at AS "at", s.cum::text AS "cum"
+    FROM (
+      SELECT t.account_id, t.closed_at,
+             sum(t.net_pnl) OVER w AS cum,
+             row_number() OVER w AS n,
+             count(*) OVER (PARTITION BY t.account_id) AS total
+      FROM trades t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE a.user_id = ${userId}
+        AND (${includeArchived} OR a.is_archived = false)
+        AND t.closed_at IS NOT NULL
+        AND t.net_pnl IS NOT NULL
+      WINDOW w AS (PARTITION BY t.account_id ORDER BY t.closed_at, t.id ROWS UNBOUNDED PRECEDING)
+    ) s
+    WHERE s.total <= ${SPARK_POINTS} OR s.n = 1 OR s.n = s.total OR s.n % ceil(s.total / ${SPARK_POINTS}::numeric)::int = 0
+    ORDER BY s.account_id, s.n`;
+
+  const out = new Map<string, { at: Date; cum: Decimal }[]>();
+  for (const r of rows) {
+    const list = out.get(r.accountId) ?? [];
+    list.push({ at: r.at, cum: new Decimal(r.cum) });
+    out.set(r.accountId, list);
+  }
+  return out;
+}
+
+const SPARK_POINTS = 24;
+
+/** The sampled realised curve with the balance events woven in, as balances
+ * — the same walk `equityCurve()` takes, over the sample. */
+function sparkPoints(start: Decimal, curve: { at: Date; cum: Decimal }[], events: BalanceEvent[]): number[] {
+  type Entry = { at: Date; cum?: Decimal; cash?: Decimal };
+  const entries: Entry[] = [
+    ...curve.map((p) => ({ at: p.at, cum: p.cum })),
+    ...events.map((e) => ({ at: e.at, cash: new Decimal(e.amount) })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
+
+  let realised = new Decimal(0);
+  let cash = new Decimal(0);
+  return entries.map((e) => {
+    if (e.cum) realised = e.cum;
+    if (e.cash) cash = cash.plus(e.cash);
+    return toNum(start.plus(realised).plus(cash)) ?? 0;
   });
 }
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { toBalanceEvents } from "@/lib/queries/accounts";
 import type { Direction } from "@prisma/client";
 import { type DateWindow } from "@/lib/range";
 import { hasDefinedRisk, toTradeRow } from "@/lib/trade-service";
@@ -137,11 +138,9 @@ export async function overview(ctx: AnalyticsCtx): Promise<OverviewData> {
 
   const allRows = trades.map(toTradeRow);
   const startingBalance = toDecOr(account.startingBalance, 0);
-  const allEvents: BalanceEvent[] = balanceEvents.map((e) => ({
-    at: e.occurredAt,
-    amount: toDecOr(e.amount, 0),
-    kind: e.kind,
-  }));
+  // Signed from `kind`, as the accounts list does — a positive WITHDRAWAL
+  // restored from an older file would otherwise be counted as a deposit.
+  const allEvents: BalanceEvent[] = toBalanceEvents(balanceEvents);
 
   // --- ACTIVITY window: trades taken (openedAt) during the selected range ---
   const activityRows = trades.filter((t) => withinWindow(t.openedAt, window)).map(toTradeRow);
