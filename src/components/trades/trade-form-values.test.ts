@@ -231,6 +231,12 @@ describe("buildFormData", () => {
     },
   );
 
+  it("sends no exit or close time for a trade that is not CLOSED", () => {
+    const fd = buildFormData({ ...VALUES, status: "OPEN" });
+    expect(fd.has("exitPrice")).toBe(false);
+    expect(fd.has("closedAt")).toBe(false);
+  });
+
   it('sends a commission of "0", because "0" is a real answer', () => {
     // The distinction the whole blank-versus-zero split rests on: a free
     // trade is not the same as an unrecorded cost.

@@ -146,7 +146,10 @@ export function buildFormData(values: TradeFormInput): FormData {
   fd.set("direction", values.direction);
   fd.set("status", values.status);
   fd.set("openedAt", datetimeLocalToIso(values.openedAt));
-  if (values.closedAt) fd.set("closedAt", datetimeLocalToIso(values.closedAt));
+  // Only a closed trade has a close time or an exit: the inputs keep their
+  // values while hidden, so switching back to OPEN would otherwise post them.
+  const closed = values.status === "CLOSED";
+  if (closed && values.closedAt) fd.set("closedAt", datetimeLocalToIso(values.closedAt));
   if (values.entryMode === "R_MULTIPLE") {
     // No prices at all; the result only once the trade is closed, so an
     // R typed and then switched back to OPEN is not half-saved.
@@ -155,11 +158,11 @@ export function buildFormData(values: TradeFormInput): FormData {
     fd.set("entryMode", "R_MULTIPLE");
     fd.set("plannedRisk", String(values.plannedRisk));
     if (filled(values.plannedRR)) fd.set("plannedRR", String(values.plannedRR));
-    if (values.status === "CLOSED" && filled(values.resultR)) fd.set("resultR", String(values.resultR));
+    if (closed && filled(values.resultR)) fd.set("resultR", String(values.resultR));
     if (filled(values.volumeLots)) fd.set("volumeLots", String(values.volumeLots));
   } else {
     fd.set("entryPrice", values.entryPrice);
-    if (values.exitPrice) fd.set("exitPrice", values.exitPrice);
+    if (closed && values.exitPrice) fd.set("exitPrice", values.exitPrice);
     if (values.stopLoss) fd.set("stopLoss", values.stopLoss);
     if (values.initialStopLoss) fd.set("initialStopLoss", values.initialStopLoss);
     if (values.maePrice) fd.set("maePrice", values.maePrice);

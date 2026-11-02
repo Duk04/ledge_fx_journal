@@ -237,3 +237,25 @@ describe("updateTrade on a partly closed trade", () => {
     ]);
   });
 });
+
+describe("updateTrade back to OPEN", () => {
+  it("drops the exit, the close time and the P&L, whatever the POST carries", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const account = await createAccount(user.id);
+    signInAs(user.id);
+
+    const created = await createTrade(account.id, closedEurusdLong());
+    if (!created.ok) throw new Error(JSON.stringify(created));
+
+    // A crafted POST: status OPEN but the exit still attached.
+    const fd = closedEurusdLong();
+    fd.set("status", "OPEN");
+    const res = await updateTrade(account.id, created.id, fd);
+    expect(res.ok).toBe(true);
+
+    const row = await prisma.trade.findUniqueOrThrow({ where: { id: created.id }, include: { executions: true } });
+    expect(row).toMatchObject({ status: "OPEN", exitPrice: null, closedAt: null, netPnl: null, holdingMinutes: null });
+    expect(row.executions.map((e) => e.kind)).toEqual(["ENTRY"]);
+  });
+});

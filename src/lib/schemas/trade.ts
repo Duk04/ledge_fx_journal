@@ -304,19 +304,27 @@ export function parseTradeForm(
     return { ok: false, fieldErrors: result.error.flatten().fieldErrors as Record<string, string[]> };
   }
 
+  // An exit belongs to a CLOSED trade only. The form keeps a hidden exit's
+  // value when the status is switched back to OPEN, and storing it left an
+  // open trade with a close time and a P&L — which the equity curve counts
+  // (it filters on closedAt) while the summary calls the trade open. The
+  // R-mode form already drops its result the same way (formRTradeInput).
+  const values =
+    result.data.status === "CLOSED" ? result.data : { ...result.data, exitPrice: undefined, closedAt: undefined };
+
   const warnings = validateTradeGeometry({
     instrument: GEOMETRY_ONLY_INSTRUMENT,
-    direction: result.data.direction,
-    entryPrice: result.data.entryPrice,
-    exitPrice: result.data.exitPrice,
-    stopLoss: result.data.stopLoss,
-    takeProfit: result.data.takeProfit,
-    volumeLots: result.data.volumeLots,
-    openedAt: result.data.openedAt,
-    closedAt: result.data.closedAt,
+    direction: values.direction,
+    entryPrice: values.entryPrice,
+    exitPrice: values.exitPrice,
+    stopLoss: values.stopLoss,
+    takeProfit: values.takeProfit,
+    volumeLots: values.volumeLots,
+    openedAt: values.openedAt,
+    closedAt: values.closedAt,
   });
 
-  return { ok: true, values: result.data, warnings };
+  return { ok: true, values, warnings };
 }
 
 const R_SCALAR_KEYS = [

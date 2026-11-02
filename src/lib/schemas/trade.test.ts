@@ -68,6 +68,16 @@ describe("parseTradeForm", () => {
       expect(result.values.closedAt).toBeInstanceOf(Date);
     });
 
+    it.each(["OPEN", "CANCELLED"])("drops the exit and close time of a %s trade", (status) => {
+      // The form keeps hidden values; a trade switched back to OPEN must not
+      // carry the exit that would give it a P&L.
+      const result = parseTradeForm(form({ ...CLOSED_TRADE, status }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.values.exitPrice).toBeUndefined();
+      expect(result.values.closedAt).toBeUndefined();
+    });
+
     it("uppercases and trims the symbol", () => {
       const result = parseTradeForm(form({ ...OPEN_TRADE, symbol: "  eurusd  " }));
       expect(result.ok && result.values.symbol).toBe("EURUSD");
