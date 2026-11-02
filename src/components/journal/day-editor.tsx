@@ -4,13 +4,15 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import { Textarea, Segmented, SegmentedItem, Label2 } from "@/components/ui";
 import { saveJournalEntry, setMood as setMoodAction } from "@/lib/actions/journal";
+import { AttachmentUploader, type AttachmentView } from "@/components/trades/attachment-uploader";
 
 /**
  * Autosave contract (see docs/JOURNAL.md): each Textarea is its own
  * independent field. It saves on blur, only if its value actually changed
  * since the last successful save, and shows one of three states next to its
  * label — "Saving…", "Saved HH:MM", or an inline error — never a separate
- * submit button. Mood saves immediately on selection, same principle.
+ * submit button. Mood saves immediately on selection, same principle, and so
+ * does each screenshot: it uploads the moment it is pasted or dropped.
  */
 
 const MOOD_LABELS: Record<string, string> = { "1": "😞", "2": "😕", "3": "😐", "4": "🙂", "5": "😄" };
@@ -27,6 +29,7 @@ function FieldEditor({
   placeholder,
   initialValue,
   initialSavedAt,
+  onFocus,
 }: {
   date: string;
   field: "preMarket" | "review";
@@ -34,6 +37,7 @@ function FieldEditor({
   placeholder: string;
   initialValue: string;
   initialSavedAt: string | null;
+  onFocus: () => void;
 }) {
   const t = useTranslations("journal.editor");
   const [value, setValue] = React.useState(initialValue);
@@ -74,6 +78,7 @@ function FieldEditor({
           setStatus("dirty");
         }}
         onBlur={commit}
+        onFocus={onFocus}
         placeholder={placeholder}
         className="min-h-32"
       />
@@ -87,16 +92,30 @@ export function DayEditor({
   review,
   updatedAt,
   mood,
+  attachments,
+  uploadsEnabled,
 }: {
   date: string;
   preMarket: string;
   review: string;
   updatedAt: string | null;
   mood: number | null;
+  attachments: AttachmentView[];
+  /** lib/storage.ts uploadsAvailable — without it the uploader says why. */
+  uploadsEnabled: boolean;
 }) {
   const t = useTranslations("journal.editor");
   const [currentMood, setCurrentMood] = React.useState<number | null>(mood);
   const [moodStatus, setMoodStatus] = React.useState<"idle" | "error">("idle");
+
+  // Which half of the day is being written, so a chart pasted mid-sentence is
+  // filed with it: BEFORE = the pre-market plan, AFTER = the review. Read at
+  // paste time, so a ref — focusing a field should not re-render the page.
+  const lastField = React.useRef<"preMarket" | "review" | null>(null);
+  const pasteKind = React.useCallback(
+    () => (lastField.current === "preMarket" ? "BEFORE" : lastField.current === "review" ? "AFTER" : "OTHER"),
+    [],
+  );
 
   async function handleMoodChange(v: string) {
     const next = v ? Number(v) : null;
@@ -130,6 +149,7 @@ export function DayEditor({
         placeholder={t("preMarketPlaceholder")}
         initialValue={preMarket}
         initialSavedAt={updatedAt}
+        onFocus={() => (lastField.current = "preMarket")}
       />
 
       <FieldEditor
@@ -139,7 +159,23 @@ export function DayEditor({
         placeholder={t("reviewPlaceholder")}
         initialValue={review}
         initialSavedAt={updatedAt}
+        onFocus={() => (lastField.current = "review")}
       />
+
+      {/* One uploader for the whole day, not one per field: its paste
+          listener is page-wide, and two would each take the same image. */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <Label2>{t("screenshots")}</Label2>
+          <span className="text-2xs text-ink-3">{t("screenshotsHint")}</span>
+        </div>
+        <AttachmentUploader
+          target={{ journalDate: date }}
+          initialAttachments={attachments}
+          uploadsEnabled={uploadsEnabled}
+          defaultKind={pasteKind}
+        />
+      </div>
     </div>
   );
 }

@@ -785,7 +785,18 @@
       },
       "pickFiles": "Скриншот сонгох",
       "removePending": "{name}-г хасах",
-      "uploadsUnavailable": "Энэ deploy дээр скриншот хуулах тохируулагдаагүй (S3 хадгалах сан хэрэгтэй). Зургийг https линкээр нь хавсаргах боломжтой."
+      "uploadsUnavailable": "Энэ deploy дээр скриншот хуулах тохируулагдаагүй (S3 хадгалах сан хэрэгтэй). Зургийг https линкээр нь хавсаргах боломжтой.",
+      "journalKind": {
+        "BEFORE": "Төлөвлөгөө",
+        "AFTER": "Дүгнэлт",
+        "OTHER": "Бусад"
+      },
+      "journalKindBadge": {
+        "BEFORE": "ТӨЛӨВЛӨГӨӨ",
+        "AFTER": "ДҮГНЭЛТ",
+        "OTHER": "БУСАД"
+      },
+      "journalAlt": "Journal-ын screenshot"
     }
   },
   "playbooks": {
@@ -954,7 +965,9 @@
       "preMarket": "Зах нээгдэхээс өмнөх төлөвлөгөө",
       "preMarketPlaceholder": "Өнөөдрийн төлөвлөгөө юу вэ? Чиг хандлага, гол түвшнүүд, юу үүнийг хүчингүй болгох вэ…",
       "review": "Сешний дараах дүгнэлт",
-      "reviewPlaceholder": "Бодитоор хэрхэн болсон бэ? Төлөвлөгөөгөө дагасан уу?"
+      "reviewPlaceholder": "Бодитоор хэрхэн болсон бэ? Төлөвлөгөөгөө дагасан уу?",
+      "screenshots": "Screenshot-ууд",
+      "screenshotsHint": "Төлөвлөгөө бичиж байхдаа paste (⌘/Ctrl+V) хийвэл pre-market, дүгнэлт бичиж байхдаа хийвэл review гэж ангилагдана."
     },
     "trades": {
       "empty": "Энэ өдөр арилжаа хийгдээгүй.",
@@ -1475,7 +1488,15 @@
     "checklistFull": "Жагсаалтад хамгийн ихдээ {max} зүйл байна.",
     "ownerOnlyImportCandles": "Хуваалцсан зах зээлийн өгөгдлийг зөвхөн инстанцын эзэмшигч импортлох боломжтой.",
     "tzOffsetRequired": "Цагийн бүсийн зөрүү заавал шаардлагатай — талбарын хажуух тайлбарыг харна уу.",
-    "unknownInstrument": "\"{symbol}\" гэсэн инструмент бүртгэлгүй байна."
+    "unknownInstrument": "\"{symbol}\" гэсэн инструмент бүртгэлгүй байна.",
+    "uploadsNeedS3": "Энэ орчинд screenshot upload хийхэд S3 storage (S3_BUCKET) хэрэгтэй. Оронд нь зургийн холбоос нэмнэ үү.",
+    "expectedMultipart": "multipart/form-data хүлээж байсан.",
+    "attachmentTargetMissing": "Энэ screenshot аль арилжаа эсвэл journal-ын өдөрт хамаарахыг заана уу.",
+    "attachmentTargetNotFound": "Тэр арилжаа эсвэл journal-ын өдөр олдсонгүй.",
+    "missingFile": "Файл алга.",
+    "unsupportedImageType": "Дэмжигдээгүй файлын төрөл. Зөвшөөрөгдөх формат: {formats}.",
+    "attachmentNoFile": "Энэ хавсралтад файл алга.",
+    "storedFileMissing": "Хадгалсан файл олдсонгүй."
   },
   "validation": {
     "mustBeNumber": "Тоо байх ёстой",

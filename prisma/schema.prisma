@@ -477,22 +477,29 @@ model TradeTag {
   @@map("trade_tags")
 }
 
+/// A screenshot (an uploaded file or an https link) on a trade OR on a day's
+/// journal entry — exactly one of the two. Prisma cannot say "exactly one",
+/// so a CHECK in migration journal_attachments does. On a journal entry,
+/// `kind` reads BEFORE = pre-market, AFTER = review. docs/JOURNAL.md.
 model Attachment {
-  id          String         @id @default(uuid())
-  tradeId     String         @map("trade_id")
-  kind        AttachmentKind @default(OTHER)
-  storageKey  String?        @map("storage_key")
-  externalUrl String?        @map("external_url")
-  mimeType    String?        @map("mime_type")
-  width       Int?
-  height      Int?
-  sizeBytes   Int?           @map("size_bytes")
-  caption     String?
-  createdAt   DateTime       @default(now()) @map("created_at")
+  id             String         @id @default(uuid())
+  tradeId        String?        @map("trade_id")
+  journalEntryId String?        @map("journal_entry_id")
+  kind           AttachmentKind @default(OTHER)
+  storageKey     String?        @map("storage_key")
+  externalUrl    String?        @map("external_url")
+  mimeType       String?        @map("mime_type")
+  width          Int?
+  height         Int?
+  sizeBytes      Int?           @map("size_bytes")
+  caption        String?
+  createdAt      DateTime       @default(now()) @map("created_at")
 
-  trade Trade @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  trade        Trade?        @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
   @@index([tradeId])
+  @@index([journalEntryId])
   @@map("attachments")
 }
 
@@ -506,7 +513,8 @@ model JournalEntry {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@unique([userId, entryDate])
   @@map("journal_entries")

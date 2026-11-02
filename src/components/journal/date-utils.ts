@@ -5,6 +5,7 @@
  * already the correct local calendar values (see docs/JOURNAL.md), so the
  * only job left here is calendar math, not timezone conversion.
  */
+import { isJournalDate } from "@/lib/journal-date";
 
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number);
@@ -55,6 +56,8 @@ export function isValidMonth(value: string | undefined): value is string {
   return !!value && /^\d{4}-\d{2}$/.test(value);
 }
 
+/** A real calendar day — "2026-13-01" is a 404, not an Invalid Date that
+ * reaches the database (lib/journal-date.ts). */
 export function isValidDate(value: string | undefined): value is string {
-  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return isJournalDate(value);
 }

@@ -785,7 +785,18 @@
       },
       "pickFiles": "Choose screenshots",
       "removePending": "Remove {name}",
-      "uploadsUnavailable": "Uploading screenshots isn't set up on this deployment (it needs S3 storage). You can still attach an image by its https link."
+      "uploadsUnavailable": "Uploading screenshots isn't set up on this deployment (it needs S3 storage). You can still attach an image by its https link.",
+      "journalKind": {
+        "BEFORE": "Pre-market",
+        "AFTER": "Review",
+        "OTHER": "Other"
+      },
+      "journalKindBadge": {
+        "BEFORE": "PRE-MARKET",
+        "AFTER": "REVIEW",
+        "OTHER": "OTHER"
+      },
+      "journalAlt": "Journal screenshot"
     }
   },
   "playbooks": {
@@ -954,7 +965,9 @@
       "preMarket": "Pre-market plan",
       "preMarketPlaceholder": "What's the plan today? Bias, key levels, what would invalidate it…",
       "review": "Post-session review",
-      "reviewPlaceholder": "How did it actually go? Did you follow the plan?"
+      "reviewPlaceholder": "How did it actually go? Did you follow the plan?",
+      "screenshots": "Screenshots",
+      "screenshotsHint": "Paste (⌘/Ctrl+V) while writing the plan and it is filed as pre-market; while writing the review, as review."
     },
     "trades": {
       "empty": "No trades landed on this day.",
@@ -1475,7 +1488,15 @@
     "checklistFull": "A checklist holds {max} items at most.",
     "ownerOnlyImportCandles": "Only the instance owner can import shared market data.",
     "tzOffsetRequired": "A timezone offset is required — see the hint next to that field.",
-    "unknownInstrument": "\"{symbol}\" is not a known instrument."
+    "unknownInstrument": "\"{symbol}\" is not a known instrument.",
+    "uploadsNeedS3": "Screenshot uploads need S3 storage on this deployment (S3_BUCKET). Add the image as a link instead.",
+    "expectedMultipart": "Expected multipart/form-data.",
+    "attachmentTargetMissing": "Say which trade or journal day this screenshot belongs to.",
+    "attachmentTargetNotFound": "That trade or journal day was not found.",
+    "missingFile": "Missing file.",
+    "unsupportedImageType": "Unsupported file type. Accepted formats: {formats}.",
+    "attachmentNoFile": "This attachment has no file.",
+    "storedFileMissing": "The stored file is missing."
   },
   "validation": {
     "mustBeNumber": "Must be a number",

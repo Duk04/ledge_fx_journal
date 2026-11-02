@@ -12,6 +12,7 @@ import { dayView, resolveActiveTradingAccountId } from "@/lib/queries/journal";
 import { getAccountCurrency } from "@/lib/queries/accounts";
 import { dailyChecklist } from "@/lib/queries/checklist";
 import { DailyChecklist } from "@/components/journal/daily-checklist";
+import { uploadsAvailable } from "@/lib/storage";
 
 export default async function JournalDayPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = await params;
@@ -64,6 +65,8 @@ export default async function JournalDayPage({ params }: { params: Promise<{ dat
             review={view.entry?.review ?? ""}
             updatedAt={view.entry?.updatedAt ?? null}
             mood={view.entry?.mood ?? null}
+            attachments={view.attachments}
+            uploadsEnabled={uploadsAvailable()}
           />
         </PanelBody>
       </Panel>

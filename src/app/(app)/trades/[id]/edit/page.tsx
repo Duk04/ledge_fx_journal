@@ -88,7 +88,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         <PanelHeader title={tDetail("panels.screenshots")} />
         <PanelBody>
           <AttachmentUploader
-            tradeId={trade.id}
+            target={{ tradeId: trade.id }}
             initialAttachments={trade.attachments}
             uploadsEnabled={uploadsAvailable()}
           />

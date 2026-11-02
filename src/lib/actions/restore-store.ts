@@ -104,6 +104,37 @@ function isHttps(url: string): boolean {
   }
 }
 
+/**
+ * An exported attachment as a row under `owner` — a trade or a journal entry
+ * — or null, with the reason counted. Only an https link restores: an
+ * upload's bytes never travel in the file, only its storage key, and that
+ * key points into storage the new rows have no business reading.
+ */
+function restorableAttachment(
+  att: NormalizedTrade["attachments"][number],
+  owner: { tradeId: string } | { journalEntryId: string },
+  skipped: RestoreSkipped,
+): Prisma.AttachmentCreateManyInput | null {
+  if (!att.externalUrl) {
+    if (att.storageKey) skipped.uploadedAttachments++;
+    return null;
+  }
+  if (!isHttps(att.externalUrl)) {
+    skipped.unsafeLinks++;
+    return null;
+  }
+  return {
+    ...owner,
+    kind: att.kind,
+    externalUrl: att.externalUrl,
+    mimeType: att.mimeType,
+    caption: att.caption,
+    width: att.width,
+    height: att.height,
+    sizeBytes: att.sizeBytes,
+  };
+}
+
 /** Strategy params as the strategy form writes them: a flat map of
  * primitives. Anything else is dropped to `{}` rather than stored, since the
  * workbench reads these as run-form defaults. */
@@ -421,24 +452,8 @@ export async function restoreInto(
       }
 
       for (const att of t.attachments) {
-        if (!att.externalUrl) {
-          if (att.storageKey) skipped.uploadedAttachments++;
-          continue;
-        }
-        if (!isHttps(att.externalUrl)) {
-          skipped.unsafeLinks++;
-          continue;
-        }
-        attachmentRows.push({
-          tradeId,
-          kind: att.kind,
-          externalUrl: att.externalUrl,
-          mimeType: att.mimeType,
-          caption: att.caption,
-          width: att.width,
-          height: att.height,
-          sizeBytes: att.sizeBytes,
-        });
+        const row = restorableAttachment(att, { tradeId }, skipped);
+        if (row) attachmentRows.push(row);
       }
     }
   }
@@ -470,12 +485,16 @@ export async function restoreInto(
       })
     ).map((e) => e.entryDate.toISOString().slice(0, 10)),
   );
-  const newEntries = [...entries.values()].filter((e) => !existingDays.has(e.date));
+  // Ids chosen here so the day's screenshots can point at their entry.
+  const newEntries = [...entries.values()]
+    .filter((e) => !existingDays.has(e.date))
+    .map((e) => ({ ...e, id: randomUUID() }));
   let journalCreated = 0;
   await insertChunked(newEntries, async (chunk) => {
     const res = await tx.journalEntry.createMany({
       skipDuplicates: true,
       data: chunk.map((e) => ({
+        id: e.id,
         userId,
         entryDate: toEntryDate(e.date),
         preMarket: e.preMarket,
@@ -487,6 +506,28 @@ export async function restoreInto(
   });
   summary.journalEntries = journalCreated;
   skipped.journalDays += entries.size - journalCreated;
+
+  // A day skipped above (already written here) keeps its own screenshots;
+  // only the entries this restore created get the file's. Asked back rather
+  // than assumed, because `skipDuplicates` may have dropped one.
+  const created = new Set(
+    (
+      await tx.journalEntry.findMany({
+        where: { id: { in: newEntries.map((e) => e.id) } },
+        select: { id: true },
+      })
+    ).map((e) => e.id),
+  );
+  const journalAttachmentRows: Prisma.AttachmentCreateManyInput[] = [];
+  for (const e of newEntries) {
+    if (!created.has(e.id)) continue;
+    for (const att of e.attachments) {
+      const row = restorableAttachment(att, { journalEntryId: e.id }, skipped);
+      if (row) journalAttachmentRows.push(row);
+    }
+  }
+  await insertChunked(journalAttachmentRows, (data) => tx.attachment.createMany({ data }));
+  summary.attachments += journalAttachmentRows.length;
 
   // --- Daily checklist: reuse an item of the same text, then add its days ----
   // Ticks are a set per (item, day), so restoring onto days already ticked

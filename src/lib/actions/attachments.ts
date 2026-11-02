@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
+import type { AttachmentTarget } from "@/lib/attachment-target";
+import { findOwnedAttachment, resolveAttachmentOwner } from "./attachment-owner";
 import { vmsg } from "@/i18n/encoded";
 import { failT, failZod } from "@/i18n/server-t";
 
@@ -18,29 +20,18 @@ import { failT, failZod } from "@/i18n/server-t";
  * the calling form's side.
  */
 
-/** Loads a trade scoped to the current user, or null. Every action below calls this before writing anything — see SCOPING RULE in lib/session.ts. */
-async function ownedTrade(userId: string, tradeId: string) {
-  return prisma.trade.findFirst({ where: { id: tradeId, account: { userId } }, select: { id: true } });
-}
-
-/** Loads an attachment scoped to the current user (through trade -> account), or null. */
-async function ownedAttachment(userId: string, attachmentId: string) {
-  return prisma.attachment.findFirst({
-    where: { id: attachmentId, trade: { account: { userId } } },
-    select: { id: true, tradeId: true, storageKey: true },
-  });
-}
-
-function revalidateTrade(tradeId: string) {
-  revalidatePath(`/trades/${tradeId}`);
-}
+/**
+ * Every action below finds its row through `./attachment-owner`, scoped to
+ * the current user through whichever owner the attachment has — a trade's
+ * account, or a journal entry (SCOPING RULE in lib/session.ts).
+ */
 
 // ---------------------------------------------------------------------------
 // addExternalLink
 // ---------------------------------------------------------------------------
 
 const addExternalLinkSchema = z.object({
-  tradeId: z.string().min(1),
+  target: z.union([z.object({ tradeId: z.string().min(1) }), z.object({ journalDate: z.string().min(1) })]),
   // https-only: an http:// screenshot link is either a mistake or something
   // that will start throwing mixed-content errors the moment this app is
   // served over TLS (which it always is outside local dev).
@@ -53,30 +44,30 @@ const addExternalLinkSchema = z.object({
 });
 
 export async function addExternalLink(
-  tradeId: string,
+  target: AttachmentTarget,
   url: string,
   kind: "BEFORE" | "AFTER" | "OTHER" = "OTHER",
   caption?: string,
 ): Promise<ActionResult<{ id: string }>> {
-  const parsed = addExternalLinkSchema.safeParse({ tradeId, url, kind, caption });
+  const parsed = addExternalLinkSchema.safeParse({ target, url, kind, caption });
   if (!parsed.success) {
     return failZod(fieldErrorsFrom(parsed.error));
   }
 
   const user = await requireUser();
-  const trade = await ownedTrade(user.id, parsed.data.tradeId);
-  if (!trade) return failT("tradeNotFound");
+  const owner = await resolveAttachmentOwner(user.id, parsed.data.target);
+  if (!owner) return failT("attachmentTargetNotFound");
 
   const row = await prisma.attachment.create({
     data: {
-      tradeId: trade.id,
+      ...owner.data,
       kind: parsed.data.kind,
       externalUrl: parsed.data.url,
       caption: parsed.data.caption?.trim() || null,
     },
   });
 
-  revalidateTrade(trade.id);
+  revalidatePath(owner.path);
   return { ok: true, id: row.id };
 }
 
@@ -96,7 +87,7 @@ export async function setCaption(attachmentId: string, caption: string | null): 
   }
 
   const user = await requireUser();
-  const attachment = await ownedAttachment(user.id, parsed.data.attachmentId);
+  const attachment = await findOwnedAttachment(user.id, parsed.data.attachmentId);
   if (!attachment) return failT("attachmentNotFound");
 
   const value = parsed.data.caption?.trim();
@@ -105,7 +96,7 @@ export async function setCaption(attachmentId: string, caption: string | null): 
     data: { caption: value ? value : null },
   });
 
-  revalidateTrade(attachment.tradeId);
+  revalidatePath(attachment.path);
   return ok();
 }
 
@@ -128,12 +119,12 @@ export async function setAttachmentKind(
   }
 
   const user = await requireUser();
-  const attachment = await ownedAttachment(user.id, parsed.data.attachmentId);
+  const attachment = await findOwnedAttachment(user.id, parsed.data.attachmentId);
   if (!attachment) return failT("attachmentNotFound");
 
   await prisma.attachment.update({ where: { id: attachment.id }, data: { kind: parsed.data.kind } });
 
-  revalidateTrade(attachment.tradeId);
+  revalidatePath(attachment.path);
   return ok();
 }
 
@@ -145,7 +136,7 @@ export async function deleteAttachment(attachmentId: string): Promise<ActionResu
   if (!attachmentId) return failT("missingAttachmentId");
 
   const user = await requireUser();
-  const attachment = await ownedAttachment(user.id, attachmentId);
+  const attachment = await findOwnedAttachment(user.id, attachmentId);
   if (!attachment) return failT("attachmentNotFound");
 
   if (attachment.storageKey) {
@@ -153,6 +144,6 @@ export async function deleteAttachment(attachmentId: string): Promise<ActionResu
   }
   await prisma.attachment.delete({ where: { id: attachment.id } });
 
-  revalidateTrade(attachment.tradeId);
+  revalidatePath(attachment.path);
   return ok();
 }

@@ -1,10 +1,11 @@
 /**
  * What the browser checks before an attachment upload, and the upload itself
  * — shared by the trade form (files picked before the trade exists) and the
- * uploader on a saved trade. The server re-checks everything
+ * uploader on a saved trade or a journal day. The server re-checks everything
  * (app/api/attachments/route.ts sniffs the bytes); these exist so an obvious
  * mistake is reported before a slow upload, not after.
  */
+import type { AttachmentTarget } from "@/lib/attachment-target";
 
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"];
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -40,12 +41,13 @@ export type UploadResult<T> = { ok: true; row: T } | { ok: false; error: string 
  * words each itself.
  */
 export function uploadAttachment<T>(
-  input: { tradeId: string; file: File; kind: AttachmentKindName; caption?: string },
+  input: { target: AttachmentTarget; file: File; kind: AttachmentKindName; caption?: string },
   onProgress?: (percent: number) => void,
 ): Promise<UploadResult<T>> {
   return new Promise((resolve) => {
     const form = new FormData();
-    form.set("tradeId", input.tradeId);
+    if ("tradeId" in input.target) form.set("tradeId", input.target.tradeId);
+    else form.set("journalDate", input.target.journalDate);
     form.set("file", input.file);
     form.set("kind", input.kind);
     if (input.caption) form.set("caption", input.caption);

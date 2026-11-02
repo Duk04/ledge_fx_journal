@@ -450,7 +450,13 @@ export function getStorage(): StorageDriver {
   return cachedDriver;
 }
 
-/** Builds the storage key a new attachment is written to. Not a full path — drivers decide their own root. */
-export function makeAttachmentKey(userId: string, tradeId: string, contentType: AllowedImageType): string {
-  return `${userId}/${tradeId}/${crypto.randomUUID()}.${extensionForType(contentType)}`;
+/**
+ * Builds the storage key a new attachment is written to. Not a full path —
+ * drivers decide their own root. `scope` is the owner's segment: a trade id,
+ * or `journal/<YYYY-MM-DD>` for a day's journal entry
+ * (actions/attachment-owner.ts). Both come from the database or a validated
+ * date, never from a request body verbatim.
+ */
+export function makeAttachmentKey(userId: string, scope: string, contentType: AllowedImageType): string {
+  return `${userId}/${scope}/${crypto.randomUUID()}.${extensionForType(contentType)}`;
 }

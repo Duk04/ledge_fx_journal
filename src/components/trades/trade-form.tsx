@@ -216,7 +216,7 @@ export function TradeForm({
       if (mode === "create" && screenshots.length) {
         for (const [i, shot] of screenshots.entries()) {
           setUploading({ done: i, total: screenshots.length });
-          const up = await uploadAttachment({ tradeId: result.id, file: shot.file, kind: shot.kind });
+          const up = await uploadAttachment({ target: { tradeId: result.id }, file: shot.file, kind: shot.kind });
           if (!up.ok) failed++;
         }
         setUploading(null);

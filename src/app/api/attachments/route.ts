@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import type { AttachmentKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { resolveAttachmentOwner } from "@/lib/actions/attachment-owner";
+import { tr } from "@/i18n/server-t";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_UPLOAD_BYTES,
@@ -12,16 +15,17 @@ import {
 } from "@/lib/storage";
 
 /**
- * `POST /api/attachments` — multipart upload of a trade screenshot.
+ * `POST /api/attachments` — multipart upload of a screenshot, onto a trade
+ * (`tradeId`) or onto a day's journal entry (`journalDate`, YYYY-MM-DD).
  *
  * A plain route handler (not a server action) on purpose: the uploader
  * component drives this with `XMLHttpRequest` so it can show per-file
  * upload progress, which a server action's `fetch`-based transport can't
  * report.
  *
- * Every step re-derives trust from the signed-in user — the trade id in the
- * form body is never assumed to belong to them (see SCOPING RULE in
- * lib/session.ts).
+ * Every step re-derives trust from the signed-in user — the trade id or date
+ * in the form body is never assumed to belong to them (see SCOPING RULE in
+ * lib/session.ts, and actions/attachment-owner.ts for the two paths).
  */
 
 const VALID_KINDS: readonly AttachmentKind[] = ["BEFORE", "AFTER", "OTHER"];
@@ -29,45 +33,38 @@ const VALID_KINDS: readonly AttachmentKind[] = ["BEFORE", "AFTER", "OTHER"];
 export async function POST(request: Request) {
   const user = await requireUser();
   if (!uploadsAvailable()) {
-    return NextResponse.json(
-      { error: "Screenshot uploads need S3 storage on this deployment (S3_BUCKET). Add the image as a link instead." },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: await tr("uploadsNeedS3") }, { status: 503 });
   }
 
   let form: FormData;
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json({ error: "Expected multipart/form-data." }, { status: 400 });
+    return NextResponse.json({ error: await tr("expectedMultipart") }, { status: 400 });
   }
 
   const tradeId = form.get("tradeId");
-  if (typeof tradeId !== "string" || !tradeId) {
-    return NextResponse.json({ error: "Missing tradeId." }, { status: 400 });
-  }
-
-  // Ownership check: the trade must belong to an account owned by this user.
-  // Joining through account rather than trusting tradeId is the whole point
-  // — see SCOPING RULE in lib/session.ts.
-  const trade = await prisma.trade.findFirst({
-    where: { id: tradeId, account: { userId: user.id } },
-    select: { id: true },
-  });
-  if (!trade) {
-    return NextResponse.json({ error: "Trade not found." }, { status: 404 });
+  const journalDate = form.get("journalDate");
+  const target =
+    typeof tradeId === "string" && tradeId
+      ? { tradeId }
+      : typeof journalDate === "string" && journalDate
+        ? { journalDate }
+        : null;
+  if (!target) {
+    return NextResponse.json({ error: await tr("attachmentTargetMissing") }, { status: 400 });
   }
 
   const file = form.get("file");
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Missing file." }, { status: 400 });
+    return NextResponse.json({ error: await tr("missingFile") }, { status: 400 });
   }
   if (file.size === 0) {
-    return NextResponse.json({ error: "That file is empty." }, { status: 400 });
+    return NextResponse.json({ error: await tr("fileEmpty") }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json(
-      { error: `That file is too large — the limit is ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))}MB.` },
+      { error: await tr("fileTooLarge", { mb: String(Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))) }) },
       { status: 413 },
     );
   }
@@ -77,7 +74,9 @@ export async function POST(request: Request) {
   if (!sniffed) {
     return NextResponse.json(
       {
-        error: `Unsupported file type. Accepted formats: ${ALLOWED_IMAGE_TYPES.map((t) => t.split("/")[1]).join(", ")}.`,
+        error: await tr("unsupportedImageType", {
+          formats: ALLOWED_IMAGE_TYPES.map((t) => t.split("/")[1]).join(", "),
+        }),
       },
       { status: 400 },
     );
@@ -91,12 +90,19 @@ export async function POST(request: Request) {
   const captionRaw = form.get("caption");
   const caption = typeof captionRaw === "string" && captionRaw.trim() ? captionRaw.trim().slice(0, 500) : null;
 
-  const key = makeAttachmentKey(user.id, trade.id, sniffed.contentType);
+  // Resolved only once the file has passed every check: for a journal day
+  // this creates the day's entry, and a rejected file should not leave one.
+  const owner = await resolveAttachmentOwner(user.id, target);
+  if (!owner) {
+    return NextResponse.json({ error: await tr("attachmentTargetNotFound") }, { status: 404 });
+  }
+
+  const key = makeAttachmentKey(user.id, owner.scope, sniffed.contentType);
   await getStorage().putObject({ key, body: buffer, contentType: sniffed.contentType });
 
   const row = await prisma.attachment.create({
     data: {
-      tradeId: trade.id,
+      ...owner.data,
       kind,
       storageKey: key,
       mimeType: sniffed.contentType,
@@ -107,6 +113,7 @@ export async function POST(request: Request) {
     },
   });
 
+  revalidatePath(owner.path);
   return NextResponse.json(
     {
       id: row.id,

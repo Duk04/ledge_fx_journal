@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { failT, failZod } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
+import { isJournalDate, toEntryDate } from "@/lib/journal-date";
 
 /**
  * Journal writes. See docs/JOURNAL.md for the autosave contract these back:
@@ -16,11 +17,9 @@ import { vmsg } from "@/i18n/encoded";
  * that the form is always there, ready.
  */
 
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, vmsg("invalidDate"));
-
-function toEntryDate(date: string): Date {
-  return new Date(`${date}T00:00:00.000Z`);
-}
+// A real calendar day, not just the shape of one: "2026-13-01" passes a
+// regex, becomes an Invalid Date and makes Prisma throw (lib/journal-date.ts).
+const dateSchema = z.string().refine(isJournalDate, vmsg("invalidDate"));
 
 function revalidateDay(date: string) {
   revalidatePath(`/journal/${date}`);

@@ -31,6 +31,30 @@ Concretely (`src/lib/queries/journal.ts`):
   …), which is fixed to UTC hours in `src/lib/metrics/session.ts` regardless
   of any user setting, and it never rewrites a stored timestamp.
 
+## Screenshots on a journal day
+
+The day page takes charts the same way a trade does — drop, pick, or paste
+(⌘/Ctrl+V) — in one uploader under the plan and review
+(`src/components/journal/day-editor.tsx`, reusing `AttachmentUploader`).
+
+- **Filed by what you were writing.** A paste while the pre-market field was
+  last focused is stored as `BEFORE` and labelled *Pre-market*; while the
+  review was, `AFTER` / *Review*; before either, *Other*. The label can be
+  changed on the thumbnail. There is one uploader, not one per field, because
+  its paste listener is page-wide and two would each take the same image.
+- **Same table as trade screenshots.** `Attachment` hangs off a trade OR a
+  journal entry — exactly one, held by a CHECK constraint (migration
+  `journal_attachments`). Ownership runs through whichever it has
+  (`src/lib/actions/attachment-owner.ts`), and every reader — the upload and
+  serve routes, the caption/kind/delete actions, account deletion — asks
+  through that one helper.
+- **The first upload creates the day.** Like the first keystroke of a plan,
+  an upload on a day with no entry creates it. A day with only screenshots
+  therefore counts as journaled for the nudge and the weekly summary.
+- **Saved immediately**, like every field on the page. Uploads need durable
+  storage (`S3_BUCKET` on a serverless host — `src/lib/storage.ts`); without
+  it the uploader says so, and an https link still works.
+
 ## Daily checklist
 
 Each user keeps their own list of what to look at before trading ("check
@@ -206,7 +230,7 @@ Everything the user owns, as one JSON document: profile (minus password
 hash), every trading account with its challenge rules, balance events and
 trades (each trade including its tags, playbook, checklist answers,
 MAE/MFE, attachment metadata and fills), all tags, playbooks with their
-rules, journal entries, the daily checklist with the days each item was
+rules, journal entries (with their screenshots' metadata), the daily checklist with the days each item was
 ticked, coded strategies, symbol aliases and notification
 preferences. A top-level `notIncluded` array documents what's deliberately
 left out — the password hash, other users' data, the shared instrument
@@ -273,9 +297,10 @@ writing and states the rules. In short:
   restored again.
 - **Journal days** this user has already written are kept; the file's entry
   for that date is skipped.
-- **Attachments**: only https `externalUrl` links are restored. An upload's
-  storage key is never copied — it points at another user's bytes, and
-  copying it would grant read access to them.
+- **Attachments**, on trades and on journal days: only https `externalUrl`
+  links are restored. An upload's storage key is never copied — it points at
+  another user's bytes, and copying it would grant read access to them. A
+  journal day kept because it was already written keeps its own screenshots.
 - **Strategies** and **symbol aliases** are added unless the name / broker
   symbol is already in use. Profile and notification preferences are not
   applied: they belong to the login being restored into.

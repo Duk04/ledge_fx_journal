@@ -5,6 +5,7 @@ import { auth, signOut } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
+import { attachmentOwnedBy } from "./attachment-owner";
 import { reportError } from "@/lib/report";
 import { failT, tr } from "@/i18n/server-t";
 import type { ActionResult } from "./result";
@@ -69,7 +70,9 @@ export async function deleteMyAccount(formData: FormData): Promise<ActionResult>
   }
 
   const blobs = await prisma.attachment.findMany({
-    where: { trade: { account: { userId: user.id } }, storageKey: { not: null } },
+    // Through either owner — a trade's account or a journal day — or a
+    // journal screenshot's file outlives its user.
+    where: { ...attachmentOwnedBy(user.id), storageKey: { not: null } },
     select: { storageKey: true },
   });
   await prisma.user.delete({ where: { id: user.id } });

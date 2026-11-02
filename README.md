@@ -56,7 +56,9 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   stored locally on disk or in an S3-compatible bucket depending on
   configuration. See `docs/PWA.md`'s sibling concerns and `src/lib/storage.ts`.
 - **A daily journal** — a pre-market plan and an end-of-day review per
-  calendar day, autosaving field-by-field.
+  calendar day, autosaving field-by-field, with chart screenshots pasted
+  straight into the day (filed as pre-market or review by the field you were
+  writing). See `docs/JOURNAL.md`.
 - **Multi-account** — track several broker accounts (demo/live/prop,
   MT4/MT5/cTrader) with independent starting balances, currencies, and
   per-trade risk settings.

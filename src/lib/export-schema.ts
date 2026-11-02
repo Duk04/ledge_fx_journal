@@ -225,6 +225,9 @@ const journalEntrySchema = z.object({
   preMarket: opt(z.string()),
   review: opt(z.string()),
   mood: opt(rating),
+  // Journal-day screenshots, added after v3 shipped. Defaulted, so a v3 file
+  // written before them still parses as the same version.
+  attachments: z.array(attachmentSchema).default([]),
 });
 
 const strategySchema = z.object({

@@ -13,12 +13,14 @@ import { EmptyState } from "@/components/ui/empty";
 import { useToast } from "@/components/ui/toast";
 import { useOnlineStatus } from "@/components/pwa/use-online-status";
 import { addExternalLink, deleteAttachment, setAttachmentKind, setCaption } from "@/lib/actions/attachments";
+import type { AttachmentTarget } from "@/lib/attachment-target";
 import {
   ACCEPTED_IMAGE_TYPES,
   ATTACHMENT_KINDS,
   imagesFromClipboard,
   uploadAttachment,
   validateImageFile,
+  type AttachmentKindName,
 } from "./attachment-files";
 
 export interface AttachmentView {
@@ -31,6 +33,12 @@ export interface AttachmentView {
 }
 
 const KINDS = ATTACHMENT_KINDS;
+
+/** On a journal day the same three kinds read as the day's two halves:
+ * BEFORE = the pre-market plan, AFTER = the review (schema.prisma). */
+type KindLabels = { kind: "kind" | "journalKind"; badge: "kindBadge" | "journalKindBadge"; alt: "alt" | "journalAlt" };
+const TRADE_LABELS: KindLabels = { kind: "kind", badge: "kindBadge", alt: "alt" };
+const JOURNAL_LABELS: KindLabels = { kind: "journalKind", badge: "journalKindBadge", alt: "journalAlt" };
 
 type PendingUpload = {
   tempId: string;
@@ -47,7 +55,7 @@ function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): s
 }
 
 /**
- * Screenshot attachments for one trade: drop a file, pick one, or paste
+ * Screenshot attachments for one trade or one journal day: drop a file, pick one, or paste
  * (Ctrl/⌘+V) a chart screenshot straight from the clipboard — the paste
  * path matters more than the button, since it's how traders actually get a
  * chart out of MT5/TradingView and onto a trade.
@@ -58,12 +66,18 @@ function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): s
  * than waiting on a round trip through the parent's server component.
  */
 export function AttachmentUploader({
-  tradeId,
+  target,
   initialAttachments,
   uploadsEnabled = true,
+  defaultKind,
 }: {
-  tradeId: string;
+  /** A saved trade, or a journal day — whose entry the first upload creates. */
+  target: AttachmentTarget;
   initialAttachments: AttachmentView[];
+  /** The kind a new upload or link starts as. Read at upload time, so the
+   * journal can file a paste by the field being written (day-editor.tsx).
+   * "Other" when absent; it can be changed on the thumbnail either way. */
+  defaultKind?: () => AttachmentKindName;
   /** False without durable storage (lib/storage.ts uploadsAvailable): the
    * drop zone and paste are off, linking an image still works. */
   uploadsEnabled?: boolean;
@@ -78,6 +92,19 @@ export function AttachmentUploader({
   const [linkOpen, setLinkOpen] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // The target as primitives, so the callbacks below depend on its value
+  // rather than on an object literal the parent rebuilds every render.
+  const tradeId = "tradeId" in target ? target.tradeId : null;
+  const journalDate = "journalDate" in target ? target.journalDate : null;
+  const labels = journalDate ? JOURNAL_LABELS : TRADE_LABELS;
+
+  // Latest `defaultKind`, read at upload time without re-subscribing the
+  // paste listener whenever the parent passes a new function.
+  const defaultKindRef = React.useRef(defaultKind);
+  React.useEffect(() => {
+    defaultKindRef.current = defaultKind;
+  }, [defaultKind]);
 
   const upload = React.useCallback(
     (file: File, tempId: string = crypto.randomUUID()) => {
@@ -104,7 +131,9 @@ export function AttachmentUploader({
         return [...prev, { tempId, name: file.name, progress: 0, status: "uploading", file }];
       });
 
-      void uploadAttachment<AttachmentView>({ tradeId, file, kind: "OTHER" }, (pct) =>
+      const uploadTarget: AttachmentTarget = tradeId ? { tradeId } : { journalDate: journalDate! };
+      const kind = defaultKindRef.current?.() ?? "OTHER";
+      void uploadAttachment<AttachmentView>({ target: uploadTarget, file, kind }, (pct) =>
         setUploads((prev) => prev.map((u) => (u.tempId === tempId ? { ...u, progress: pct } : u))),
       ).then((result) => {
         if (result.ok) {
@@ -117,7 +146,7 @@ export function AttachmentUploader({
         setUploads((prev) => prev.map((u) => (u.tempId === tempId ? { ...u, status: "error", error: message } : u)));
       });
     },
-    [tradeId, toast, online, t],
+    [tradeId, journalDate, toast, online, t],
   );
 
   // `useCallback` purely so the paste effect below can depend on it
@@ -188,7 +217,8 @@ export function AttachmentUploader({
 
   async function onAddLink(formData: FormData) {
     const url = String(formData.get("url") ?? "");
-    const result = await addExternalLink(tradeId, url, "OTHER");
+    const kind = defaultKindRef.current?.() ?? "OTHER";
+    const result = await addExternalLink(target, url, kind);
     if (!result.ok) {
       toast({
         title: t("linkFailed"),
@@ -198,7 +228,7 @@ export function AttachmentUploader({
       return;
     }
     setAttachments((prev) => [
-      { id: result.id!, kind: "OTHER", storageKey: null, externalUrl: url, caption: null, mimeType: null },
+      { id: result.id!, kind, storageKey: null, externalUrl: url, caption: null, mimeType: null },
       ...prev,
     ]);
     setLinkOpen(false);
@@ -320,6 +350,7 @@ export function AttachmentUploader({
             <AttachmentTile
               key={a.id}
               attachment={a}
+              labels={labels}
               onKindChange={(kind) => onKindChange(a.id, kind)}
               onCaptionBlur={(value) => onCaptionBlur(a.id, value)}
               onDelete={() => setConfirmDeleteId(a.id)}
@@ -368,11 +399,13 @@ export function AttachmentUploader({
 
 function AttachmentTile({
   attachment,
+  labels,
   onKindChange,
   onCaptionBlur,
   onDelete,
 }: {
   attachment: AttachmentView;
+  labels: KindLabels;
   onKindChange: (kind: (typeof KINDS)[number]) => void;
   onCaptionBlur: (value: string) => void;
   onDelete: () => void;
@@ -390,7 +423,7 @@ function AttachmentTile({
             {/* eslint-disable-next-line @next/next/no-img-element -- attachment bytes come from our own authenticated route or an arbitrary https URL, neither of which next/image can optimise */}
             <img
               src={src}
-              alt={attachment.caption ?? t("alt")}
+              alt={attachment.caption ?? t(labels.alt)}
               className="size-full object-cover transition-transform group-hover:scale-[1.02]"
             />
           </button>
@@ -401,7 +434,7 @@ function AttachmentTile({
         )}
 
         <Badge tone={attachment.kind === "AFTER" ? "profit" : "neutral"} className="absolute top-1.5 left-1.5">
-          {t(`kindBadge.${attachment.kind}`)}
+          {t(`${labels.badge}.${attachment.kind}`)}
         </Badge>
         <button
           type="button"
@@ -420,7 +453,7 @@ function AttachmentTile({
       >
         {KINDS.map((k) => (
           <SegmentedItem key={k} value={k} className="flex-1 text-2xs">
-            {t(`kind.${k}`)}
+            {t(`${labels.kind}.${k}`)}
           </SegmentedItem>
         ))}
       </Segmented>
@@ -437,7 +470,7 @@ function AttachmentTile({
         <DialogContent size="lg" className="max-h-[90vh]">
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element -- a full-size lightbox of an attachment whose dimensions are unknown until it loads, served from our own authenticated route or an arbitrary https URL. next/image can optimise neither.
-            <img src={src} alt={attachment.caption ?? t("alt")} className="max-h-[85vh] w-full object-contain" />
+            <img src={src} alt={attachment.caption ?? t(labels.alt)} className="max-h-[85vh] w-full object-contain" />
           ) : null}
           {caption ? (
             <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{caption}</p>

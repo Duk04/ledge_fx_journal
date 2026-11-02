@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { checklistDate } from "@/lib/queries/checklist";
+import { isJournalDate } from "@/lib/journal-date";
 import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { failT, failZod } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
@@ -25,7 +26,9 @@ const textSchema = z
   .min(1, vmsg("checklistTextRequired"))
   .max(MAX_TEXT, vmsg("checklistTextTooLong", { max: MAX_TEXT }));
 const idSchema = z.string().min(1).max(64);
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, vmsg("invalidDate"));
+// A real calendar day, not just the shape of one: "2026-13-01" passes a
+// regex, becomes an Invalid Date and makes Prisma throw (lib/journal-date.ts).
+const dateSchema = z.string().refine(isJournalDate, vmsg("invalidDate"));
 
 function revalidateJournal(date?: string) {
   revalidatePath("/journal");

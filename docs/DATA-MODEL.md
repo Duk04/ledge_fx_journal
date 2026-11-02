@@ -16,7 +16,7 @@ short and the `@map`/`@@map` names below match the actual Postgres columns.
 | `trades` | The core record: one row per position, from raw broker-reported fields (entry/exit price, stop, target, volume, commission, swap) plus a block of derived analytics fields — see "Computed columns" below. |
 | `tags` | User-defined labels for setups and mistakes (`kind`: SETUP / MISTAKE / SESSION / CUSTOM), attached to trades via `trade_tags`. |
 | `trade_tags` | Trade↔Tag join table. |
-| `attachments` | Screenshots/files attached to a trade (before/after chart, etc.), either an object-storage key or an external URL. |
+| `attachments` | Screenshots attached to a trade (before/after chart) or to a day's journal entry (pre-market/review) — exactly one of the two, held by a CHECK constraint — either an object-storage key or an external URL. |
 | `journal_entries` | Free-form daily journal: pre-market plan, end-of-day review, mood — one per user per calendar date. |
 | `balance_events` | Deposits/withdrawals/adjustments against an account, for reconciling equity curve against raw trade P&L. |
 | `notification_prefs`, `notification_logs` | Which reminders a user wants and at what local hour; and one row per (user, kind, period) claimed before a mail is sent — the unique key is the duplicate-send guard. See `docs/NOTIFICATIONS.md`. |

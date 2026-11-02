@@ -3,28 +3,25 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
+import { findOwnedAttachment } from "@/lib/actions/attachment-owner";
+import { tr } from "@/i18n/server-t";
 
 /**
  * `GET`/`DELETE /api/attachments/[id]` — the only way a stored screenshot's
  * bytes ever reach a browser. Attachments live under `.uploads/` (or an S3
  * bucket), never `public/`, precisely so this ownership check runs on every
- * single fetch instead of being bypassable by guessing a URL.
+ * single fetch instead of being bypassable by guessing a URL. Ownership runs
+ * through the trade's account or the journal entry, whichever the
+ * attachment hangs off (actions/attachment-owner.ts).
  */
-
-async function loadOwnedAttachment(id: string, userId: string) {
-  return prisma.attachment.findFirst({
-    where: { id, trade: { account: { userId } } },
-    select: { id: true, tradeId: true, storageKey: true, externalUrl: true, mimeType: true },
-  });
-}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
 
-  const attachment = await loadOwnedAttachment(id, user.id);
+  const attachment = await findOwnedAttachment(user.id, id);
   if (!attachment) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+    return NextResponse.json({ error: await tr("attachmentNotFound") }, { status: 404 });
   }
 
   if (!attachment.storageKey) {
@@ -33,12 +30,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (attachment.externalUrl) {
       return NextResponse.redirect(attachment.externalUrl, 307);
     }
-    return NextResponse.json({ error: "This attachment has no file." }, { status: 404 });
+    return NextResponse.json({ error: await tr("attachmentNoFile") }, { status: 404 });
   }
 
   const object = await getStorage().getObject(attachment.storageKey);
   if (!object) {
-    return NextResponse.json({ error: "The stored file is missing." }, { status: 404 });
+    return NextResponse.json({ error: await tr("storedFileMissing") }, { status: 404 });
   }
 
   return new NextResponse(new Uint8Array(object.body), {
@@ -58,9 +55,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const user = await requireUser();
   const { id } = await params;
 
-  const attachment = await loadOwnedAttachment(id, user.id);
+  const attachment = await findOwnedAttachment(user.id, id);
   if (!attachment) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+    return NextResponse.json({ error: await tr("attachmentNotFound") }, { status: 404 });
   }
 
   if (attachment.storageKey) {
@@ -70,6 +67,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
   await prisma.attachment.delete({ where: { id: attachment.id } });
 
-  revalidatePath(`/trades/${attachment.tradeId}`);
+  revalidatePath(attachment.path);
   return NextResponse.json({ ok: true });
 }

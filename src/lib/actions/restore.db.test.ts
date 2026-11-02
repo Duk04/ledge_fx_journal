@@ -71,7 +71,7 @@ async function exportedUser() {
   const rules = await prisma.playbookRule.findMany({ where: { playbookId: pb.id }, orderBy: { sortOrder: "asc" } });
   await setRuleCheck(account.id, win, rules[0].id, true);
   await setRuleCheck(account.id, win, rules[1].id, false);
-  await addExternalLink(win, "https://example.com/chart.png", "BEFORE", "entry");
+  await addExternalLink({ tradeId: win }, "https://example.com/chart.png", "BEFORE", "entry");
   // An upload: only its storage key would travel, never the bytes.
   await prisma.attachment.create({ data: { tradeId: win, storageKey: `${user.id}/chart.png` } });
 
@@ -130,6 +130,9 @@ async function exportedUser() {
   });
   await saveJournalEntry({ date: "2026-03-04", field: "review", value: "A's review" });
   await saveJournalEntry({ date: "2026-03-05", field: "preMarket", value: "A's plan" });
+  // The days' own screenshots: one on a day B has not written, one on a day B has.
+  await addExternalLink({ journalDate: "2026-03-05" }, "https://example.com/plan.png", "BEFORE");
+  await addExternalLink({ journalDate: "2026-03-04" }, "https://example.com/review.png", "AFTER");
   const item = await addChecklistItem({ text: "Check the 1H trend" });
   if (!item.ok) throw new Error(item.formError);
   await setDailyCheck({ itemId: item.id, date: "2026-03-04", checked: true });
@@ -266,10 +269,19 @@ describe("restoreFromExport", () => {
       { text: "Check the 1H trend", checked: true },
     ]);
 
-    const journal = await prisma.journalEntry.findMany({ where: { userId: b.id }, orderBy: { entryDate: "asc" } });
+    const journal = await prisma.journalEntry.findMany({
+      where: { userId: b.id },
+      orderBy: { entryDate: "asc" },
+      include: { attachments: true },
+    });
     expect(journal.map((e) => [e.entryDate.toISOString().slice(0, 10), e.review ?? e.preMarket])).toEqual([
       ["2026-03-04", "B's own review"],
       ["2026-03-05", "A's plan"],
+    ]);
+    // A day B had already written keeps only its own screenshots.
+    expect(journal.map((e) => e.attachments.map((x) => [x.kind, x.externalUrl]))).toEqual([
+      [],
+      [["BEFORE", "https://example.com/plan.png"]],
     ]);
 
     // Nobody else moved.

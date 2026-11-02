@@ -1,3 +1,4 @@
+import type { Attachment } from "@prisma/client";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import {
@@ -19,6 +20,22 @@ import {
  * cannot drift apart without a compile error here.
  */
 export const dynamic = "force-dynamic";
+
+/** One attachment, the same shape on a trade and on a journal day. */
+function exportAttachment(att: Attachment) {
+  return {
+    id: att.id,
+    kind: att.kind,
+    storageKey: att.storageKey,
+    externalUrl: att.externalUrl,
+    mimeType: att.mimeType,
+    width: att.width,
+    height: att.height,
+    sizeBytes: att.sizeBytes,
+    caption: att.caption,
+    createdAt: att.createdAt.toISOString(),
+  };
+}
 
 export async function GET() {
   const user = await requireUser();
@@ -45,7 +62,11 @@ export async function GET() {
         },
       }),
       prisma.tag.findMany({ where: { userId: user.id }, orderBy: [{ kind: "asc" }, { sortOrder: "asc" }] }),
-      prisma.journalEntry.findMany({ where: { userId: user.id }, orderBy: { entryDate: "asc" } }),
+      prisma.journalEntry.findMany({
+        where: { userId: user.id },
+        orderBy: { entryDate: "asc" },
+        include: { attachments: { orderBy: { createdAt: "asc" } } },
+      }),
       prisma.playbook.findMany({
         where: { userId: user.id },
         orderBy: { name: "asc" },
@@ -153,18 +174,7 @@ export async function GET() {
         tagRefs: t.tradeTags.map((tt) => ({ name: tt.tag.name, kind: tt.tag.kind })),
         playbook: t.playbook?.name ?? null,
         ruleChecks: t.ruleChecks.map((c) => ({ rule: c.rule.text, followed: c.followed })),
-        attachments: t.attachments.map((att) => ({
-          id: att.id,
-          kind: att.kind,
-          storageKey: att.storageKey,
-          externalUrl: att.externalUrl,
-          mimeType: att.mimeType,
-          width: att.width,
-          height: att.height,
-          sizeBytes: att.sizeBytes,
-          caption: att.caption,
-          createdAt: att.createdAt.toISOString(),
-        })),
+        attachments: t.attachments.map(exportAttachment),
       })),
     })),
     tags: tags.map((t) => ({ id: t.id, name: t.name, kind: t.kind, color: t.color, sortOrder: t.sortOrder })),
@@ -179,6 +189,7 @@ export async function GET() {
       preMarket: e.preMarket,
       review: e.review,
       mood: e.mood,
+      attachments: e.attachments.map(exportAttachment),
     })),
     // Strategy source is the user's own work and was missing from the export
     // until the restore feature asked "what would be lost?". Backtest RUNS

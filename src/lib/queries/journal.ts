@@ -1,6 +1,7 @@
 import "server-only";
 import { Decimal } from "decimal.js";
 import { TZDate } from "@date-fns/tz";
+import type { AttachmentKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { checksPerDay } from "./checklist";
 import { toDec, toPlain } from "@/lib/decimal-bridge";
@@ -234,6 +235,15 @@ export type DayTrade = {
   rMultiple: string | null;
 };
 
+export type DayAttachment = {
+  id: string;
+  kind: AttachmentKind;
+  externalUrl: string | null;
+  storageKey: string | null;
+  caption: string | null;
+  mimeType: string | null;
+};
+
 export type DayView = {
   date: string;
   entry: {
@@ -242,6 +252,9 @@ export type DayView = {
     mood: number | null;
     updatedAt: string;
   } | null;
+  /** Screenshots on the day itself (not on its trades), newest first — the
+   * order the uploader adds them in. */
+  attachments: DayAttachment[];
   trades: DayTrade[];
 };
 
@@ -257,6 +270,12 @@ export async function dayView(
   const [entry, trades] = await Promise.all([
     prisma.journalEntry.findUnique({
       where: { userId_entryDate: { userId, entryDate } },
+      include: {
+        attachments: {
+          orderBy: { createdAt: "desc" },
+          select: { id: true, kind: true, externalUrl: true, storageKey: true, caption: true, mimeType: true },
+        },
+      },
     }),
     accountId ? fetchDayTrades(userId, accountId, date, timeZone) : Promise.resolve([]),
   ]);
@@ -271,6 +290,7 @@ export async function dayView(
           updatedAt: entry.updatedAt.toISOString(),
         }
       : null,
+    attachments: entry?.attachments ?? [],
     trades,
   };
 }

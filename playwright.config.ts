@@ -62,6 +62,9 @@ export default defineConfig({
       // the "email unavailable" state and must never send real mail.
       RESEND_API_KEY: "",
       AUTH_RESEND_KEY: "",
+      // Local-disk attachments (.uploads/), whatever a developer's .env says:
+      // the screenshot specs must never write into a real bucket.
+      S3_BUCKET: "",
     },
   },
 });

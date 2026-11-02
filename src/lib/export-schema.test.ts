@@ -198,6 +198,21 @@ describe("parseExportFile", () => {
     expect(res.data.strategies).toHaveLength(1);
   });
 
+  it("reads a journal day's screenshots, and a day written before they existed as having none", () => {
+    const file = JSON.parse(JSON.stringify(v3File()));
+    file.journalEntries.push({
+      date: "2026-03-05",
+      preMarket: null,
+      review: null,
+      mood: null,
+      attachments: [{ ...file.accounts[0].trades[0].attachments[0], id: "j1", kind: "AFTER" }],
+    });
+    const res = parseExportFile(file);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.journalEntries.map((e) => e.attachments.map((a) => a.kind))).toEqual([[], ["AFTER"]]);
+  });
+
   it("reads every version-2 trade as a PRICE trade", () => {
     const res = parseExportFile(v2File());
     if (!res.ok) throw new Error(res.issues.join("; "));
