@@ -9,8 +9,8 @@ import { reportClientError } from "@/lib/report-client-error";
 /**
  * Analytics gets its own boundary because the message differs: this is the
  * heaviest query path in the app — six reports over one cached account load —
- * and the group-level boundary would say "Couldn't load the overview", which
- * is the wrong page.
+ * and the group-level boundary's "Couldn't load this page" says less than
+ * this one can.
  *
  * `retry`, not `reset`: Next 16.3 stabilised the `retry` prop and recommends
  * it (see node_modules/next/dist/docs/.../file-conventions/error.md).
