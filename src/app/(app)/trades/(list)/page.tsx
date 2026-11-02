@@ -12,22 +12,9 @@ import {
   StatRow,
   Money,
   Percent,
-  Pips,
   RValue,
-  DataTable,
-  Td,
-  Th,
-  TableEmpty,
-  TrLink,
-  DirectionBadge,
-  Badge,
-  TagChip,
-  SessionBadge,
-  RBar,
   EmptyState,
-  Tip,
 } from "@/components/ui";
-import { formatInZone, formatPrice, formatRR } from "@/lib/metrics/formatters";
 import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import {
@@ -41,8 +28,7 @@ import {
 import { first, parseTradeListQuery, type SearchParams } from "@/lib/trade-list-query";
 import { TradeFilterBar } from "@/components/trades/filter-bar";
 import { TradePaginationBar } from "@/components/trades/pagination-bar";
-import { SortLink } from "@/components/trades/sort-link";
-import { TradeRowMenu } from "@/components/trades/row-menu";
+import { TradeTable } from "@/components/trades/trade-table";
 
 function toSearchParams(sp: SearchParams): URLSearchParams {
   const params = new URLSearchParams();
@@ -204,194 +190,16 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           </PanelBody>
         ) : (
           <>
-            <DataTable>
-              <thead>
-                <tr>
-                  <Th sortable sortDirection={sortField === "openedAt" ? sortDirection : false}>
-                    <SortLink
-                      field="openedAt"
-                      label={t("common.opened")}
-                      currentField={sortField}
-                      currentDirection={sortDirection}
-                      buildHref={buildSortHref}
-                    />
-                  </Th>
-                  <Th sortable sortDirection={sortField === "symbol" ? sortDirection : false}>
-                    <SortLink
-                      field="symbol"
-                      label={t("common.symbol")}
-                      currentField={sortField}
-                      currentDirection={sortDirection}
-                      buildHref={buildSortHref}
-                    />
-                  </Th>
-                  <Th>{t("common.dir")}</Th>
-                  <Th numeric className="hidden md:table-cell">
-                    {t("common.entryExit")}
-                  </Th>
-                  <Th
-                    numeric
-                    className="hidden md:table-cell"
-                    sortable
-                    sortDirection={sortField === "volumeLots" ? sortDirection : false}
-                  >
-                    <SortLink
-                      numeric
-                      field="volumeLots"
-                      label={t("common.lots")}
-                      currentField={sortField}
-                      currentDirection={sortDirection}
-                      buildHref={buildSortHref}
-                    />
-                  </Th>
-                  <Th
-                    numeric
-                    className="hidden md:table-cell"
-                    sortable
-                    sortDirection={sortField === "pips" ? sortDirection : false}
-                  >
-                    <SortLink
-                      numeric
-                      field="pips"
-                      label={t("common.pips")}
-                      currentField={sortField}
-                      currentDirection={sortDirection}
-                      buildHref={buildSortHref}
-                    />
-                  </Th>
-                  <Th numeric sortable sortDirection={sortField === "netPnl" ? sortDirection : false}>
-                    <SortLink
-                      numeric
-                      field="netPnl"
-                      label={t("common.netPnl")}
-                      currentField={sortField}
-                      currentDirection={sortDirection}
-                      buildHref={buildSortHref}
-                    />
-                  </Th>
-                  <Th numeric sortable sortDirection={sortField === "rMultiple" ? sortDirection : false}>
-                    <SortLink
-                      numeric
-                      field="rMultiple"
-                      label={t("common.r")}
-                      currentField={sortField}
-                      currentDirection={sortDirection}
-                      buildHref={buildSortHref}
-                    />
-                  </Th>
-                  <Th aria-label={t("list.rToScale")} className="hidden md:table-cell" />
-                  <Th className="hidden md:table-cell">{t("common.tags")}</Th>
-                  <Th aria-label={t("common.actions")} />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const absR = row.rMultiple !== null ? Math.abs(Number(row.rMultiple)) : 0;
-                  const isOutlier = absR >= 2;
-                  const outlierPositive = row.rMultiple !== null && Number(row.rMultiple) > 0;
-
-                  return (
-                    <TrLink key={row.id} href={`/trades/${row.id}`}>
-                      {/* The outlier rule sits on the first cell, not the
-                          <tr>: DataTable uses border-collapse: separate, and
-                          in that model a row's own border is never painted. */}
-                      <Td
-                        className={
-                          isOutlier
-                            ? outlierPositive
-                              ? "border-l-2 border-l-profit"
-                              : "border-l-2 border-l-loss"
-                            : undefined
-                        }
-                      >
-                        <div className="flex items-center gap-1.5">
-                          {row.followedPlan === false ? (
-                            <Tip label={t("list.planNotFollowedTip")}>
-                              <span
-                                role="img"
-                                className="relative inline-flex size-1.5 shrink-0 rounded-full bg-warn"
-                                aria-label={t("list.planNotFollowed")}
-                              />
-                            </Tip>
-                          ) : null}
-                          <div className="mono flex flex-col text-xs leading-tight">
-                            <span className="text-ink">{formatInZone(row.openedAt, user.timezone, "MMM dd")}</span>
-                            <span className="flex items-center gap-1 text-ink-3">
-                              {formatInZone(row.openedAt, user.timezone, "HH:mm")}
-                              <SessionBadge session={row.marketSession} />
-                            </span>
-                          </div>
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-ink">{row.symbol}</span>
-                          <span className="mono text-2xs text-ink-3">
-                            {row.entryPrice !== null
-                              ? formatPrice(Number(row.entryPrice), row.digits)
-                              : row.plannedRR !== null
-                                ? formatRR(row.plannedRR)
-                                : null}
-                          </span>
-                        </div>
-                      </Td>
-                      <Td>
-                        <DirectionBadge direction={row.direction} />
-                      </Td>
-                      {/* Below md the table drops to what a phone needs to scan:
-                          when, what, which way, money, R. */}
-                      <Td numeric className="hidden md:table-cell">
-                        {row.entryPrice !== null ? (
-                          <>
-                            {formatPrice(Number(row.entryPrice), row.digits)}
-                            <span className="text-ink-3"> → </span>
-                            {row.exitPrice !== null ? (
-                              formatPrice(Number(row.exitPrice), row.digits)
-                            ) : (
-                              <span className="text-ink-3">—</span>
-                            )}
-                          </>
-                        ) : (
-                          // An R-mode trade has no prices; its plan is the R:R.
-                          <span className="text-ink-3">
-                            {row.plannedRR !== null ? `R:R ${formatRR(row.plannedRR)}` : "—"}
-                          </span>
-                        )}
-                      </Td>
-                      <Td numeric className="hidden md:table-cell">
-                        {row.volumeLots !== null ? Number(row.volumeLots).toFixed(2) : "—"}
-                      </Td>
-                      <Td numeric className="hidden md:table-cell">
-                        <Pips value={row.pips} />
-                      </Td>
-                      <Td numeric>
-                        <Money value={row.netPnl} currency={account.currency} signed />
-                      </Td>
-                      <Td numeric>
-                        <RValue value={row.rMultiple} />
-                      </Td>
-                      <Td className="hidden md:table-cell">
-                        <div className="flex justify-end">
-                          <RBar value={row.rMultiple} scale={scale} />
-                        </div>
-                      </Td>
-                      <Td className="hidden md:table-cell">
-                        <div className="flex items-center gap-1">
-                          {row.tags.slice(0, 2).map((tag) => (
-                            <TagChip key={tag.id} name={tag.name} color={tag.color} />
-                          ))}
-                          {row.tags.length > 2 ? <Badge tone="neutral">+{row.tags.length - 2}</Badge> : null}
-                        </div>
-                      </Td>
-                      <Td>
-                        <TradeRowMenu accountId={account.id} tradeId={row.id} />
-                      </Td>
-                    </TrLink>
-                  );
-                })}
-                {rows.length === 0 ? <TableEmpty colSpan={11}>{t("list.noRowsOnPage")}</TableEmpty> : null}
-              </tbody>
-            </DataTable>
+            <TradeTable
+              rows={rows}
+              scale={scale}
+              currency={account.currency}
+              accountId={account.id}
+              timezone={user.timezone}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              buildSortHref={buildSortHref}
+            />
             <PanelFooter>
               <TradePaginationBar page={page} pageSize={pageSize} total={total} />
             </PanelFooter>
