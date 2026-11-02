@@ -444,6 +444,9 @@ model Trade {
   @@index([accountId, openedAt(sort: Desc)])
   @@index([accountId, symbol])
   @@index([accountId, status])
+  // The journal calendar, the day view, the weekly summary and the activity
+  // count all filter an account's trades by close time.
+  @@index([accountId, closedAt])
   @@index([backtestRunId])
   @@index([importId])
   @@index([playbookId])
@@ -688,6 +691,7 @@ model TradeImport {
   cashMoves BalanceEvent[]
 
   @@index([accountId, createdAt(sort: Desc)])
+  @@index([userId])
   @@map("trade_imports")
 }
 
@@ -819,6 +823,7 @@ model BacktestRun {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([accountId])
+  @@index([strategyId])
   @@map("backtest_runs")
 }
 

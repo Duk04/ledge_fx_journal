@@ -206,7 +206,11 @@ export async function listTrades(params: {
     prisma.trade.findMany({
       where,
       include: LIST_INCLUDE,
-      orderBy: { [sort.field]: sort.direction },
+      // The id breaks ties: sorted by symbol or P&L, many rows compare
+      // equal, and without a total order Postgres may return them in a
+      // different order per page — a row repeated on page 2, another never
+      // shown.
+      orderBy: [{ [sort.field]: sort.direction }, { id: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -454,10 +458,12 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
 
 /** Every symbol the user has ever traded, across all their accounts. */
 export async function listSymbols(userId: string): Promise<string[]> {
-  const rows = await prisma.trade.findMany({
+  // groupBy, not findMany's `distinct`: Prisma's distinct is applied in
+  // memory over every matching row, i.e. all of the user's trades on every
+  // render of the trade list. GROUP BY makes the database do it.
+  const rows = await prisma.trade.groupBy({
+    by: ["symbol"],
     where: { account: { userId } },
-    select: { symbol: true },
-    distinct: ["symbol"],
     orderBy: { symbol: "asc" },
   });
   return rows.map((r) => r.symbol);

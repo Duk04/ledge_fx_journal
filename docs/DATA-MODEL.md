@@ -87,6 +87,9 @@ Why one shared function instead of computing them at every write site:
   account (e.g. "how have I done on XAUUSD").
 - `trades(account_id, status)` — separating OPEN from CLOSED (and CANCELLED)
   trades, used on every dashboard load.
+- `trades(account_id, closed_at)` — the journal calendar and day view, the
+  weekly summary and the activity count all select an account's trades by
+  close time.
 - `executions(trade_id, executed_at)` — a trade's fills in order; the
   trade row's prices, size, times and status are their aggregate
   (docs/TRADES.md, "Executions").
@@ -106,9 +109,13 @@ Why one shared function instead of computing them at every write site:
   reconstruction reads an account's balance events in reverse-chronological
   order.
 - Every other table gets a plain index on its owning foreign key
-  (`user_id`/`account_id`/`trade_id`/`tag_id`) so cascading deletes and
-  ownership joins (used by both app queries and the RLS policies in
-  `rls.sql`) don't full-scan.
+  (`user_id`/`account_id`/`trade_id`/`tag_id`/`journal_entry_id`) so
+  cascading deletes and ownership joins (used by both app queries and the RLS
+  policies in `rls.sql`) don't full-scan. `trade_imports.user_id` and
+  `backtest_runs.strategy_id` were the exceptions that made this sentence
+  false until migration `query_indexes`. Where a composite index already
+  leads with the key (`daily_checks`' primary key on `(item_id, date)`), it
+  serves instead.
 
 ## Running it
 
