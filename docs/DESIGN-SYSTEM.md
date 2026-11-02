@@ -96,7 +96,9 @@ standing exceptions both need concrete values where CSS cannot reach:
 `scripts/make-icons.mjs`, which runs outside the token system entirely and
 hands colours to an SVG/raster buffer, and the last-resort fallbacks in
 `src/components/charts/chart-theme.ts`, which the canvas charts use only if
-the tokens cannot be read (they read the real tokens otherwise). Never use a stock Tailwind palette class (`bg-red-500`, `text-slate-400`,
+the tokens cannot be read (they read the real tokens otherwise). Tag colours
+(`TAG_SWATCHES` in `color-swatch-picker.tsx`) are not chrome at all but data a
+user picks and `Tag.color` stores. Never use a stock Tailwind palette class (`bg-red-500`, `text-slate-400`,
 …) — if a colour you need doesn't have a token yet, that's a sign a token is
 missing, not a reason to reach past the system.
 
@@ -194,7 +196,8 @@ the app rather than reusable primitives.
    is a token in `globals.css`, even if that means adding one.
 2. **No component owns a colour that isn't a token.** `style={{ background:
    'var(--profit)' }}` is fine; `style={{ background: '#17916a' }}` is not,
-   anywhere outside `globals.css` and `scripts/make-icons.mjs`.
+   anywhere outside `globals.css` and the exceptions listed under the
+   palette above.
 3. **Border first, shadow only for things that float.** If the new thing
    sits in the page's normal flow, it gets `border border-line` (or a step
    up the surface ladder). `shadow-overlay`/`shadow-sticky` are for content

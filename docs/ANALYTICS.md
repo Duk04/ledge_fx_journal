@@ -2,14 +2,18 @@
 
 Owns: `src/app/(app)/(overview)/page.tsx` (Overview), `src/app/(app)/analytics/page.tsx`
 (Reports), `src/components/charts/**`, `src/components/dashboard/**`,
-`src/lib/queries/analytics.ts`.
+`src/lib/queries/analytics/`.
 
 ## Which query feeds which view
 
-All reads live in `src/lib/queries/analytics.ts`, one function per view. Every
+All reads live in `src/lib/queries/analytics/` — one module per view
+(`overview.ts`, `breakdowns.ts`, `distributions.ts`, `periods.ts`,
+`journal-stats.ts`, `simulation.ts`), sharing one cached account load
+(`context.ts`) and one serialiser (`serialize.ts`), re-exported from
+`index.ts`. Every
 function takes `{ userId, accountId, from, to }` (`from`/`to` from
 `resolveRange(rangeParam, timezone)`) and returns plain, fully-serialised data
-— no Prisma `Decimal` ever leaves this file.
+— no Prisma `Decimal` ever leaves these modules.
 
 | Query | Overview page | Analytics page |
 |---|---|---|
@@ -100,13 +104,11 @@ bar at the bottom" (a big win) from "big bar at the top" (a big loss).
   so this dimension is built by hand (not via the shared `groupBy()`
   helper, which assumes one key per row) but still calls `summarize()` per
   group like every other dimension — no parallel statistics code.
-- **`marketSession` spelling.** `src/lib/metrics/session.ts` classifies a
-  trade's session as `'NEW_YORK'` (with an underscore); the Prisma
-  `MarketSession` enum column is `NEWYORK` (without one). This is a
-  pre-existing mismatch outside analytics.ts's owned files — `badge.tsx`'s
-  `SESSION_CODES` map already defends against both spellings. analytics.ts
-  only ever reads the column back (never writes it), so it consistently
-  uses the six DB enum values (`SYDNEY/TOKYO/LONDON/NEWYORK/OVERLAP/OFFHOURS`).
+- **`marketSession` spelling.** The stored value is `NEWYORK`; the Prisma
+  enum maps it to `NEW_YORK` (`@map` in schema.prisma), which is the
+  spelling `src/lib/metrics/session.ts` and every TypeScript reader use.
+  (This used to be a live mismatch that `badge.tsx` defended against; the
+  `@map` settled it.)
 - **Discipline panel scope.** `discipline` (plan-followed rate, no-stop-loss
   count, average emotion) is computed over the *activity* window like the
   main summary, so it moves with the range picker — unlike the open

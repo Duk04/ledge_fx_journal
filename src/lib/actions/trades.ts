@@ -59,6 +59,7 @@ type TradeResult = ActionResult<{ id: string }>;
  * for these (see `fromDec()`), so re-typing the numeric columns down to that
  * plain shape for a `create` payload is safe — this is a create/update input
  * shape mismatch, not a risk of the wrong value landing here. `marketSession`
+ * is listed for the same reason: its update input also admits `{ set }`.
  */
 type PlainDerivedNumbers = {
   grossPnl: string | null;
@@ -151,9 +152,6 @@ function rModeColumns(values: RTradeFormValues) {
   };
 }
 
-/** Confirms every id in `tagIds` is a real tag owned by `userId`. Returns
- * null (rather than throwing) if any id doesn't check out, so the caller can
- * turn it into a field error instead of a 500. */
 /** The playbook id if it is the user's, undefined for none, null if it isn't
  * theirs (a field error, like a foreign tag). */
 async function ownedPlaybook(userId: string, playbookId: string | undefined): Promise<string | undefined | null> {
@@ -162,6 +160,9 @@ async function ownedPlaybook(userId: string, playbookId: string | undefined): Pr
   return pb ? pb.id : null;
 }
 
+/** Confirms every id in `tagIds` is a real tag owned by `userId`. Returns
+ * null (rather than throwing) if any id doesn't check out, so the caller can
+ * turn it into a field error instead of a 500. */
 async function assertTagsOwned(userId: string, tagIds: string[]): Promise<string[] | null> {
   const unique = [...new Set(tagIds)];
   if (unique.length === 0) return [];

@@ -208,15 +208,6 @@ model User {
   @@map("users")
 }
 
-// Auth.js (next-auth) Prisma adapter models. Field names on these three
-// models must match what @auth/prisma-adapter expects verbatim — only the
-// table name is remapped via @@map.
-/// MUST be named `Account` even though the table is `auth_accounts`:
-/// @auth/prisma-adapter calls `prisma.account.findUnique` / `.create` /
-/// `.delete` (see its getUserByAccount/linkAccount/unlinkAccount). With the
-/// model named AuthAccount, the client exposed `prisma.authAccount` and
-/// `prisma.account` was undefined, so every OAuth sign-in threw a TypeError.
-/// The @@map keeps the table name, so no data moves.
 /// One signed-out session token, by its `sid` claim. A JWT session has no
 /// server-side row to delete, and Auth.js's middleware re-sets the session
 /// cookie on every request — so a request still in flight when the user signs
@@ -226,7 +217,9 @@ model User {
 ///
 /// Rows are only needed until the token would have expired anyway
 /// (`expiresAt`, = issue time + session maxAge); signOutAction prunes older
-/// ones as it goes.
+/// ones as it goes. That holds because the DAL refuses any token older than
+/// maxAge from its sign-in (src/lib/session.ts) — the cookie's own expiry
+/// is refreshed on use and bounds nothing.
 model RevokedSession {
   sid       String   @id
   userId    String   @map("user_id")
@@ -240,6 +233,16 @@ model RevokedSession {
   @@map("revoked_sessions")
 }
 
+// Auth.js (next-auth) Prisma adapter models. Field names on these two
+// models (Account, VerificationToken) must match what @auth/prisma-adapter
+// expects verbatim — only the table name is remapped via @@map. (A third,
+// Session, was dropped: sessions are JWTs, and sign-out is RevokedSession.)
+/// MUST be named `Account` even though the table is `auth_accounts`:
+/// @auth/prisma-adapter calls `prisma.account.findUnique` / `.create` /
+/// `.delete` (see its getUserByAccount/linkAccount/unlinkAccount). With the
+/// model named AuthAccount, the client exposed `prisma.authAccount` and
+/// `prisma.account` was undefined, so every OAuth sign-in threw a TypeError.
+/// The @@map keeps the table name, so no data moves.
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("userId")
@@ -400,7 +403,9 @@ model Trade {
 
   // --- Computed-and-stored columns -----------------------------------
   // Written only by derivedColumns() in lib/trade-service.ts, never straight
-  // from a form. On an R_MULTIPLE trade they are derived from the R-mode
+  // from a form — except a backtest's trades, which a strategy run or replay
+  // writes with the run's own numbers (toJournalTrade, lib/backtest/runner.ts)
+  // and which no recompute touches (lib/actions/recompute.ts). On an R_MULTIPLE trade they are derived from the R-mode
   // inputs above (rMultiple = resultR, netPnl = resultR × plannedRisk −
   // costs) rather than from prices. See docs/DATA-MODEL.md for the rationale.
   netPnl         Decimal?       @map("net_pnl") @db.Decimal(18, 2)

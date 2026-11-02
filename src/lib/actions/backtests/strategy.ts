@@ -50,9 +50,7 @@ const recordStrategyRunSchema = z
 
 export type RecordStrategyRunInput = z.input<typeof recordStrategyRunSchema>;
 
-/** Converts a finished `SimTrade` array straight into `TradeRow`s for
- * `summarize()`/`equityCurve()`, without a DB round-trip — the run's own
-
+/**
  * WHY THE SIMULATION IS NOT HERE
  *
  * This action used to compile and run the strategy itself, which meant
@@ -75,7 +73,7 @@ export type RecordStrategyRunInput = z.input<typeof recordStrategyRunSchema>;
  * backtest results. That is accepted, for reasons spelled out in
  * docs/BACKTEST.md: the rows land in a fresh BACKTEST account owned by that
  * user, every read path in the app is scoped by userId, and `recordReplayTrade`
- * below has worked exactly this way since day one. The tripwire is also in
+ * (replay.ts) has worked exactly this way since day one. The tripwire is also in
  * that doc — if a shared, public or comparative view of results is ever
  * added, this assumption breaks and the simulation has to move somewhere
  * trustworthy.

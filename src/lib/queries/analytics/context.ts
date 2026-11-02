@@ -14,10 +14,12 @@ import { type DateWindow } from "@/lib/range";
  *
  * DO NOT WRAP `fetchAccountData` AGAIN, and do not copy it into another
  * module. React's `cache()` deduplicates per *binding*, not per call: the
- * five entry points share one database round trip only because they all
- * or a helpfully "local" copy in one of the report modules — silently turns
- * one query into five identical ones on every analytics render, with nothing
- * failing to show it.
+ * report modules (overview, breakdowns, distributions, periods,
+ * journal-stats, simulation) share one database round trip only because
+ * they all call this one binding. A second binding — a wrapper with its own
+ * `cache()`, or a helpfully "local" copy in one of the report modules —
+ * silently turns one query into several identical ones on every analytics
+ * render, with nothing failing to show it.
  *
  * ES modules are singletons, so importing this from the report modules
  * preserves the behaviour the single file had.

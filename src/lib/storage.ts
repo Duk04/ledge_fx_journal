@@ -431,7 +431,6 @@ function createS3Driver(): StorageDriver {
 
 let cachedDriver: StorageDriver | null = null;
 
-/** The active storage driver — `s3` when `S3_BUCKET` is set, `local` otherwise. Cached for the life of the process; there's nothing about it that needs to change mid-request. */
 /**
  * Whether uploaded attachment bytes have somewhere durable to go. On Vercel
  * the filesystem is read-only and per-invocation, so the local driver would
@@ -443,6 +442,7 @@ export function uploadsAvailable(): boolean {
   return Boolean(process.env.S3_BUCKET) || !process.env.VERCEL;
 }
 
+/** The active storage driver — `s3` when `S3_BUCKET` is set, `local` otherwise. Cached for the life of the process; there's nothing about it that needs to change mid-request. */
 export function getStorage(): StorageDriver {
   if (!cachedDriver) {
     cachedDriver = process.env.S3_BUCKET ? createS3Driver() : createLocalDriver();

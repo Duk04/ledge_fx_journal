@@ -9,8 +9,8 @@ short and the `@map`/`@@map` names below match the actual Postgres columns.
 
 | Table | Purpose |
 |---|---|
-| `users` | One row per journal user. Holds auth profile fields (email, name, image, password hash for the dev credentials login) plus app preferences (role; timezone — used for local calendar days and reminder hours; locale — the UI and email language, `docs/I18N.md`). |
-| `auth_accounts`, `sessions`, `verification_tokens` | Auth.js (`@auth/prisma-adapter`) tables. Field names/shapes follow the adapter's contract exactly (see the comment in the schema); only table names are remapped. Not user-data in the same sense as the rest — the adapter owns them. |
+| `users` | One row per journal user. Holds auth profile fields (email, name, image, password hash for email + password sign-in) plus app preferences (role; timezone — used for local calendar days and reminder hours; locale — the UI and email language, `docs/I18N.md`). |
+| `auth_accounts`, `verification_tokens` | Auth.js (`@auth/prisma-adapter`) tables. (Sessions are JWTs; the adapter's `sessions` table was dropped — revocation is `revoked_sessions`, below.) Field names/shapes follow the adapter's contract exactly (see the comment in the schema); only table names are remapped. Not user-data in the same sense as the rest — the adapter owns them. |
 | `accounts` (model `TradingAccount`) | A broker account the user tracks (demo/live/prop, MT4/MT5/cTrader, its own currency and starting balance). Trades and balance events both hang off an account, not directly off a user. |
 | `instruments` | Reference data: one row per tradable symbol with its pip size, contract size, quote precision, and asset class. Shared across all users — not user-scoped, no RLS. Seeded from `src/lib/instruments.ts`. |
 | `trades` | The core record: one row per position, from raw broker-reported fields (entry/exit price, stop, target, volume, commission, swap) plus a block of derived analytics fields — see "Computed columns" below. |
@@ -19,6 +19,13 @@ short and the `@map`/`@@map` names below match the actual Postgres columns.
 | `attachments` | Screenshots attached to a trade (before/after chart) or to a day's journal entry (pre-market/review) — exactly one of the two, held by a CHECK constraint — either an object-storage key or an external URL. |
 | `journal_entries` | Free-form daily journal: pre-market plan, end-of-day review, mood — one per user per calendar date. |
 | `balance_events` | Deposits/withdrawals/adjustments against an account, for reconciling equity curve against raw trade P&L. |
+| `revoked_sessions`, `auth_attempts` | Per-token sign-out (a JWT's `sid`, until it would have expired) and the sign-in/registration throttle's audit log. `docs/AUTH.md`. |
+| `executions` | A trade's fills — entries and exits; the trade row's prices, size, times and status are their aggregate (`docs/TRADES.md`, "Executions"). |
+| `playbooks`, `playbook_rules`, `trade_rule_checks` | A user's setups as named rule lists, and each trade's answers to its playbook's rules. `docs/PLAYBOOKS.md`. |
+| `checklist_items`, `daily_checks` | The user's own daily checklist, and which items were ticked on which day. `docs/JOURNAL.md`. |
+| `trade_imports`, `symbol_aliases` | One row per statement import (what it created, for undo), and the user's broker-symbol mappings. `docs/IMPORT.md`. |
+| `candles`, `candle_imports` | Shared OHLC bars — reference data like `instruments`, writes owner-only — and who imported which range. `docs/BACKTEST-DATA.md`. |
+| `strategies`, `backtest_runs` | Coded strategies and the runs of them (replays too); a run's trades live in a BACKTEST account as ordinary `trades` rows. `docs/BACKTEST.md`. |
 | `notification_prefs`, `notification_logs` | Which reminders a user wants and at what local hour; and one row per (user, kind, period) claimed before a mail is sent — the unique key is the duplicate-send guard. See `docs/NOTIFICATIONS.md`. |
 
 ## Row-level security approach
@@ -79,7 +86,8 @@ Why stored:
 Why one shared function instead of computing them at every write site:
 - P&L, R-multiple, and session classification all have real business logic
   (pip size and contract size per instrument, direction sign, conversion
-  rate to account currency, session boundaries in the *account's* timezone).
+  rate to account currency, session boundaries — fixed UTC hours, in
+  `src/lib/metrics/session.ts`, whatever the user's or account's timezone).
   Duplicating that logic in the seed script, an import job, and a manual
   trade-edit endpoint is exactly how those three drift out of sync with each
   other. A single backfill function called after every write (create,
@@ -136,10 +144,8 @@ npm run db:reset       # prisma migrate reset (drops + reseeds)
 npm run db:studio     # prisma studio
 ```
 
-See the top of `prisma.config.ts` and `src/lib/db.ts` for why this project's
-Prisma Client uses `engineType = "client"` with an explicit `@prisma/adapter-pg`
-driver adapter instead of the classic native query engine — a network-policy
-detail of this particular sandbox, not a schema decision.
+The query engine is the native one by default; the next section says how
+it got there and when to use the pure-JS fallback instead.
 
 
 ## Query engine: native by default, JS as a fallback

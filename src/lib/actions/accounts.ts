@@ -12,9 +12,10 @@ import { ACCOUNT_COOKIE } from "@/lib/active-account";
 import { failZod, tr } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
 
-/** `requireAccountAccess` throws NotFoundError for a missing/foreign account —
- * actions must never throw at a form, so every write funnels the lookup
- * through this instead. */
+/** Every page that shows an account's numbers: the list, and the shared
+ * layout's account switcher. (Every write below finds its account through
+ * `accountOrFailure` — guard.ts — which turns requireAccountAccess's
+ * NotFoundError into a failure result, since actions never throw at a form.) */
 function revalidateAccounts() {
   revalidatePath("/accounts");
   // Equity/label/type shown in the account switcher & rail live in the shared layout.

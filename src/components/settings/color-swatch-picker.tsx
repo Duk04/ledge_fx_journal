@@ -9,8 +9,11 @@ import { cn } from "@/lib/cn";
  * jade, clay, amber — see globals.css) plus enough extra hue spread to tell
  * ten different tags apart at a glance. Tag colour is the one place in the
  * app where an arbitrary hex value is legitimate UI data, not chrome — it's
- * always rendered as a dot/swatch, never as text colour (see AGENTS
- * instructions / docs/JOURNAL.md).
+ * always rendered as a dot/swatch, never as text colour. The no-raw-hex rule
+ * (AGENTS.md, docs/DESIGN-SYSTEM.md) is about chrome; these are values a
+ * user picks and `Tag.color` stores, and DESIGN-SYSTEM.md lists them as an
+ * exception. (This comment used to cite AGENTS.md and JOURNAL.md for that,
+ * and neither said it.)
  */
 export const TAG_SWATCHES = [
   "#3F57C9", // cobalt

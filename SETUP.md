@@ -108,21 +108,16 @@ the code and wonder why it's built this way.
    `next/font` — worth doing once you're building somewhere with normal
    internet access, since it self-hosts the font files and removes a
    render-blocking third-party request.
-2. **Prisma's "client" engine, and a one-off adapter patch.** `prisma/schema.prisma`
-   sets `engineType = "client"`, which makes Prisma use its pure JS/Wasm
-   query engine instead of downloading a native binary from
-   `binaries.prisma.sh` — again, no route to that host in the original build
-   environment. Running `prisma migrate` against real Postgres through that
-   engine, in that same sandboxed environment, needed a small local patch to
-   `@prisma/adapter-pg`'s installed files (see `docs/DATA-MODEL.md` for the
-   engine/adapter background — this isn't an application-code decision, it's
-   purely about that one sandbox's network policy). **You should not need
-   to patch anything** to follow this guide on a normal machine with normal
-   internet access. If you ever want to drop this setup entirely and use
-   Prisma's standard native engine: delete `engineType = "client"` from
-   `prisma/schema.prisma`, remove the `PrismaPg` adapter construction in
-   `prisma.config.ts` and `src/lib/db.ts` (Prisma will use `DATABASE_URL`
-   directly), and re-run `npx prisma generate`.
+2. **Prisma's engine: native by default, pure-JS as a fallback.** The
+   project was first built where `binaries.prisma.sh` was unreachable, so it
+   ran Prisma's pure JS/Wasm engine through `@prisma/adapter-pg`. It now uses
+   the standard native engine, and **you should not need to do anything**
+   on a normal network. Only if the engine download is blocked: set
+   `PRISMA_JS_ENGINE=1` (read by `prisma.config.ts` and `src/lib/db.ts`) and
+   add `engineType = "client"` to the generator block in
+   `prisma/schema.prisma`. `docs/DATA-MODEL.md` explains the trade-offs,
+   including the adapter's OID gap that breaks `prisma migrate` on some
+   Postgres servers.
 
 ## 5. Deploying (Vercel + hosted Postgres)
 
@@ -137,25 +132,24 @@ the code and wonder why it's built this way.
    - `AUTH_SECRET` — a fresh `openssl rand -base64 32` (do **not** reuse your
      local dev one)
    - `AUTH_URL` — your production URL, e.g. `https://your-app.vercel.app`
-   - `ALLOW_DEV_LOGIN` — set to `false` (see `docs/AUTH.md` — the seeded
-     credentials login is a dev convenience, not something to expose
-     publicly)
+   - `ALLOW_PASSWORD_LOGIN` — leave it on (the default) for email +
+     password sign-in, which is throttled and production-ready, or set it to
+     `false` for Google / magic-link only (see `docs/AUTH.md`). Do **not**
+     set the old `ALLOW_DEV_LOGIN`: `src/lib/env.ts` refuses to boot with it
+   - `AUTH_OWNER_EMAILS` — your own address, so you are the instance owner
    - Optionally `S3_*` if you want attachment uploads to persist across
      deploys — **do set these in production**, since Vercel's filesystem is
      ephemeral and the local-disk storage fallback (`.uploads/`) will not
      survive a redeploy or scale past one instance. See `src/lib/storage.ts`
      and `docs/PWA.md`.
-5. Deploy. Then run the migration once against the production database —
-   either via Vercel's build command (`prisma migrate deploy && next build`)
-   or manually from your machine with production's `DATABASE_URL`/`DIRECT_URL`
-   exported locally: `npx prisma migrate deploy`.
-6. On a normal (non-sandboxed) network like Vercel's build environment, you
-   can drop `engineType = "client"` first (see gotcha #2 above) and let
-   Prisma use its standard native engine — this is the better-supported path
-   when nothing is forcing you off it.
+5. Deploy. Vercel runs `npm run vercel-build`, which applies the committed
+   migrations (`prisma migrate deploy`) and seeds the instrument table before
+   `next build` — so every deploy migrates the production database. To do it
+   by hand instead, run `npx prisma migrate deploy` from your machine with
+   production's `DATABASE_URL`/`DIRECT_URL` exported.
 
 See `README.md`'s **"Before production"** section for the rest of the
-pre-launch checklist (turning off dev login, RLS, re-running the backfill,
+pre-launch checklist (password login, RLS, re-running the backfill,
 etc.) — this file only covers *getting it running*, not *making it
 production-ready*.
 

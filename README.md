@@ -88,7 +88,7 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   IP), Google OAuth and Resend magic links, each only registered when
   configured. `docs/AUTH.md` states the threat model and what is
   deliberately not built yet
-- **Vitest** — 766 unit tests across the pure layers (metrics, the backtest
+- **Vitest** — about 890 unit tests across the pure layers (metrics, the backtest
   engine, candle parsing, conversions, validation schemas, the auth rules),
   no I/O and no mocking, running in about a second; plus a Postgres-backed
   tier for the authorization wiring and Playwright e2e for the main user flows.
@@ -155,34 +155,44 @@ are left as their run wrote them.
 
 ```
 prisma/                  schema.prisma, migrations, seed.ts, rls.sql
-scripts/                 backfill-metrics.ts, make-icons.mjs
+scripts/                 backfill-metrics.ts, download-starter-data.ts, make-icons.mjs
+e2e/                     Playwright specs for the main user flows
+test/                    the db-test harness, shared fixtures
 src/
   app/
-    (auth)/login/        sign-in / registration
+    (auth)/              login, register, forgot/reset password
     (app)/               everything behind auth — shares AppShell + nav
-      page.tsx            Overview dashboard
-      accounts/, analytics/, journal/, settings/, trades/
+      (overview)/         the Overview dashboard
+      accounts/, analytics/, journal/, playbooks/, settings/, trades/
+      backtest/           replay, strategies, runs, market data
+      simulate/, calculator/
       design/             the living styleguide (/design)
     api/
       auth/[...nextauth]/  Auth.js route handler
-      attachments/         screenshot upload/serve/delete
-      export/               CSV/JSON export routes
-    layout.tsx            root HTML shell, fonts, manifest link, ToastProvider
+      attachments/         screenshot upload/serve/delete (trades and journal days)
+      backtest/bars/       bars for a strategy run, streamed to the browser worker
+      cron/notifications/  the hourly reminder / weekly summary runner
+      export/              CSV/JSON export routes
+      notifications/       the signed unsubscribe link
+    layout.tsx, error.tsx root HTML shell and the root error boundary
   components/
-    ui/                   design-system primitives (button, input, table, …)
+    ui/                   design-system primitives — import from the barrel
     shell/                app chrome: nav rail, account switcher, theme toggle
-    charts/                Recharts wrappers
-    dashboard/            Overview-page panels + the risk guard
-    trades/                trade list/detail/form pieces + the attachment uploader
-    pwa/                   service-worker registration, offline banner
+    charts/               Recharts wrappers and the canvas-chart theme
+    dashboard/, journal/, trades/, accounts/, playbooks/, settings/, …
+    backtest/             replay session, strategy workbench, candle data
+    pwa/                  service-worker registration, offline banner
   lib/
-    metrics/               pure P&L/R/session formulas + tests
-    queries/                server-only reads, always scoped to a userId
-    actions/                server actions ("use server"), one file per domain
-    risk.ts                same-day risk-guard formulas + tests
-    storage.ts              attachment storage abstraction (local disk / S3)
-    session.ts              requireUser / requireAccountAccess — the one place auth is checked
-    db.ts                   the Prisma client singleton
+    metrics/              pure P&L/R/session formulas + tests (decimal.js)
+    backtest/             the engine: fills, runner, indicators, sandbox (plain numbers)
+    queries/              server-only reads, always scoped to a userId
+    actions/              server actions ("use server"), one file per domain,
+                          plus server-only helpers (guard, recompute, attachment-owner)
+    statements/, candles/, notifications/, simulate/
+    session.ts            requireUser / requireAccountAccess — the one place auth is checked
+    trade-service.ts      the only writer of a trade's derived columns
+    storage.ts            attachment storage abstraction (local disk / S3)
+    db.ts                 the Prisma client singleton
 docs/                     one topic per file — read AUTH.md/DATA-MODEL.md/etc. before touching that area
 ```
 
@@ -211,10 +221,10 @@ instance. Before deploying it for real:
   if you ran `npm run db:seed` against this database.
 - **Generate a real `AUTH_SECRET`** (`openssl rand -base64 32`) and set
   `AUTH_URL` to your real origin.
-- **Drop `engineType = "client"`** if your deploy target can reach
-  `binaries.prisma.sh` — see "Two things to know" below and
-  `docs/DATA-MODEL.md`. Not required, but it's the better-supported path
-  when nothing forces you off it.
+- **Leave `PRISMA_JS_ENGINE` unset** unless your deploy target cannot reach
+  `binaries.prisma.sh`. The native query engine is the default and the
+  better-supported path — see "Two things to know" below and
+  `docs/DATA-MODEL.md`.
 - **Point attachment storage at S3** (or an S3-compatible bucket) rather
   than local disk — `.uploads/` on a serverless/ephemeral filesystem does
   not survive a redeploy, and on Vercel screenshot uploads stay switched off
@@ -238,13 +248,11 @@ instance. Before deploying it for real:
    — see the comment at the top of that file for the one-block change to
    switch back to `next/font` (self-hosted, no runtime request) once you're
    building somewhere with normal internet access.
-2. **Prisma uses `engineType = "client"` with `@prisma/adapter-pg`**, not
-   the classic native query engine, because this sandbox can't reach
-   `binaries.prisma.sh` either. Migrating against Postgres through the JS
-   engine in this specific sandboxed environment needed a small local patch
-   to `@prisma/adapter-pg`'s installed files (unrelated to any app code —
-   see `docs/DATA-MODEL.md` for the engine/adapter background). **On a
-   normal network you don't need any of this**: delete `engineType =
-   "client"` from `prisma/schema.prisma`, drop the `PrismaPg` adapter
-   wiring in `prisma.config.ts` and `src/lib/db.ts`, and Prisma downloads
-   and uses its standard engine binary with no patching required.
+2. **Prisma runs its standard native engine by default.** It was first
+   built where `binaries.prisma.sh` was unreachable, on the pure-JS engine
+   with `@prisma/adapter-pg`; that path survives as an opt-in fallback.
+   Set `PRISMA_JS_ENGINE=1` (read by `prisma.config.ts` and
+   `src/lib/db.ts`) and add `engineType = "client"` to the generator block
+   only on a network that blocks the engine download — `docs/DATA-MODEL.md`
+   has the details, including the adapter's OID gap that breaks
+   `prisma migrate` on some servers.

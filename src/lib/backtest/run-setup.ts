@@ -19,7 +19,10 @@ import type { SimInstrument } from "@/lib/backtest/types";
  * cross to the browser, not the code that derives them.
  */
 
-/** Backtest accounts are always denominated in USD. */
+/** Backtest accounts are always denominated in USD — see docs/BACKTEST.md's
+ * design-decision section. Nothing in the run/replay forms asks for a
+ * currency, so there is nowhere else this could come from. (This sentence
+ * used to sit orphaned in actions/backtests/shared.ts, above nothing.) */
 export const BACKTEST_ACCOUNT_CURRENCY = "USD";
 
 export function toSimInstrument(instrument: {

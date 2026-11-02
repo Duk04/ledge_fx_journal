@@ -1,6 +1,7 @@
 /**
- * The supported UI languages. Edge-safe and dependency-free: the middleware,
- * the request config and client components all import it.
+ * The supported UI languages. Edge-safe and dependency-free, so the request
+ * config, server code and client components can all import it. (The
+ * middleware does not; it resolves no locale.)
  */
 export const LOCALES = ["en", "mn"] as const;
 export type Locale = (typeof LOCALES)[number];

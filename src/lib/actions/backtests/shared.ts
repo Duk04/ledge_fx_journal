@@ -42,10 +42,6 @@ export const fillSchema = z.object({
   pessimisticFills: z.boolean().default(true),
 });
 
-/** Backtest accounts are always opened in USD — see docs/BACKTEST.md's
- * design-decision section. Nothing in the run/replay forms asks for a
- * currency, so there is nowhere else this could come from. */
-
 /**
  * The error arm is typed `ActionFailure`, not `ActionResult`. `ActionResult`
  * includes the success arm, so returning one from a function declared
