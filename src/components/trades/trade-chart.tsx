@@ -10,7 +10,7 @@ import {
   type SeriesMarker,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { readTokens } from "@/components/backtest/replay/candlestick-chart";
+import { onThemeChange, readTokens } from "@/components/charts/chart-theme";
 import type { Bar } from "@/lib/backtest/types";
 import type { TradeExecution } from "@/lib/queries/trades";
 
@@ -102,7 +102,31 @@ export function TradeChart({
       line(initialStopLoss, t("initialSl"), tokens.loss, LineStyle.Dotted);
 
     chart.timeScale().fitContent();
-    return () => chart.remove();
+
+    // Follow a light/dark toggle, as the replay chart does. The colours were
+    // read once at mount, so the grid and text kept the old theme until a
+    // reload. Markers and price lines are left: brand, ink, profit and loss
+    // are legible on either background.
+    const stopTheming = onThemeChange(() => {
+      const next = readTokens();
+      chart.applyOptions({
+        layout: { textColor: next.ink3 },
+        grid: { vertLines: { color: next.line }, horzLines: { color: next.line } },
+        rightPriceScale: { borderColor: next.line },
+        timeScale: { borderColor: next.line },
+      });
+      series.applyOptions({
+        upColor: next.profit,
+        downColor: next.loss,
+        wickUpColor: next.profit,
+        wickDownColor: next.loss,
+      });
+    });
+
+    return () => {
+      stopTheming();
+      chart.remove();
+    };
   }, [bars, digits, direction, executions, stopLoss, initialStopLoss, takeProfit, t]);
 
   return (

@@ -91,10 +91,12 @@ visibly distinct. `--flat` (a zero P&L) follows `--ink-3`. If you change the
 grey ramp or a surface, recompute this table rather than trusting it.
 
 Never reference a `--grey-*`/`--cobalt-*`/`--jade-*`/etc. primitive directly
-from a component. Never write a raw hex outside `globals.css` (the one
-standing exception is `scripts/make-icons.mjs`, which runs outside the CSS
-token system entirely and needs concrete values to hand to an SVG/raster
-buffer). Never use a stock Tailwind palette class (`bg-red-500`, `text-slate-400`,
+from a component. Never write a raw hex outside `globals.css`. The two
+standing exceptions both need concrete values where CSS cannot reach:
+`scripts/make-icons.mjs`, which runs outside the token system entirely and
+hands colours to an SVG/raster buffer, and the last-resort fallbacks in
+`src/components/charts/chart-theme.ts`, which the canvas charts use only if
+the tokens cannot be read (they read the real tokens otherwise). Never use a stock Tailwind palette class (`bg-red-500`, `text-slate-400`,
 …) — if a colour you need doesn't have a token yet, that's a sign a token is
 missing, not a reason to reach past the system.
 

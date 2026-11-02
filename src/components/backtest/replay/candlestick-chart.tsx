@@ -15,29 +15,7 @@ import {
 import type { Bar, SimPosition } from "@/lib/backtest/types";
 import { pointsFor, type Anchor, type Drawing, type DrawingKind } from "@/lib/backtest/replay-tools";
 import { DrawingsPrimitive, type PositionScene, type Scene } from "./drawings-primitive";
-
-/**
- * lightweight-charts paints on a `<canvas>`, so it cannot consume Tailwind
- * classes or `var(--token)` strings the way the rest of the app's chrome
- * does — the library wants resolved colour strings. This reads them off
- * `document.documentElement` via `getComputedStyle` instead of hard-coding
- * hex values, so the chart still follows the app's real tokens (and the
- * light/dark swap) rather than a second, drifting copy of the palette.
- */
-export function readTokens() {
-  const style = getComputedStyle(document.documentElement);
-  const v = (name: string) => style.getPropertyValue(name).trim();
-  return {
-    panel: v("--panel") || "#0d1015",
-    ink: v("--ink") || "#e9ecf1",
-    ink3: v("--ink-3") || "#6b7480",
-    line: v("--line") || "#1b2027",
-    profit: v("--profit") || "#35c08f",
-    loss: v("--loss") || "#c0402a",
-    brand: v("--brand") || "#6c86f5",
-    warn: v("--warn") || "#e0a93b",
-  };
-}
+import { onThemeChange, readTokens } from "@/components/charts/chart-theme";
 
 export type ChartTool = DrawingKind | "cursor";
 
@@ -228,9 +206,7 @@ export function CandlestickChart({
     container.addEventListener("pointerup", onPointerUp);
     container.addEventListener("pointercancel", onPointerUp);
 
-    // Re-theme on a light/dark toggle: an explicit `data-theme` attribute
-    // flip, or (in "system" mode, no attribute) the OS preference changing.
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    // Re-theme on a light/dark toggle (chart-theme.ts, onThemeChange).
     function applyTheme() {
       const t = readTokens();
       chart.applyOptions({
@@ -242,9 +218,7 @@ export function CandlestickChart({
       series.applyOptions({ upColor: t.profit, downColor: t.loss, wickUpColor: t.profit, wickDownColor: t.loss });
       setSceneTick((n) => n + 1);
     }
-    const observer = new MutationObserver(applyTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    media.addEventListener("change", applyTheme);
+    const stopTheming = onThemeChange(applyTheme);
 
     return () => {
       container.removeEventListener("pointerdown", onPointerDown, { capture: true });
@@ -252,8 +226,7 @@ export function CandlestickChart({
       container.removeEventListener("pointerup", onPointerUp);
       container.removeEventListener("pointercancel", onPointerUp);
       chart.unsubscribeCrosshairMove(onMove);
-      media.removeEventListener("change", applyTheme);
-      observer.disconnect();
+      stopTheming();
       primitiveRef.current = null;
       chart.remove();
       chartRef.current = null;
