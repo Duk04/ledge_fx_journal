@@ -118,10 +118,13 @@ Where fills are created and changed:
   defaults to everything open; fewer is a partial close.
 - **Fills panel** (detail page): add an ENTRY (scale in) or EXIT, or remove a
   fill. The only ENTRY cannot be removed — delete the trade instead.
-- **Edit form**: for a trade with one entry and at most one exit, editing
-  prices/size/times replaces its fills. With more fills than that the form
-  cannot describe the trade, so those fields are read-only (and the update
-  action ignores them even if posted — it is an endpoint).
+- **Edit form**: for a trade with one entry and at most one exit that closes
+  all of it, editing prices/size/times replaces its fills. Otherwise — scaled
+  in, several exits, or partly closed — the form cannot describe the trade,
+  so those fields are read-only (and the update action ignores them even if
+  posted — it is an endpoint). `fitsSimpleForm()` in `lib/metrics/fills.ts`
+  is that rule. It once only counted fills, so a single partial exit left
+  the form unlocked and the next save deleted it.
 
 **A partly closed trade stays OPEN with no P&L.** Realised P&L on the closed
 part is well defined (average cost), but nothing downstream — stats, equity,

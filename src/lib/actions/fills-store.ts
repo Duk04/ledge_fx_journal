@@ -35,14 +35,6 @@ export function simpleExecutionsCreate(trade: {
   }));
 }
 
-/** True when a trade has more than one entry OR more than one exit — i.e.
- * when the plain trade form (one entry, one exit) can no longer describe it. */
-export function hasMultipleFills(executions: Pick<Execution, "kind">[]): boolean {
-  const entries = executions.filter((e) => e.kind === "ENTRY").length;
-  const exits = executions.filter((e) => e.kind === "EXIT").length;
-  return entries > 1 || exits > 1;
-}
-
 /**
  * The columns a trade gets from its fills: the aggregate (entry, exit,
  * volume, opened, closed, status) and then every derived analytics column,

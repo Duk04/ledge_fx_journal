@@ -19,8 +19,8 @@ import {
 import { derivedColumns, instrumentSpec, rTradeInput } from "@/lib/trade-service";
 import { resolveConversion } from "@/lib/conversion";
 import type { RTradeInput, TradeInput } from "@/lib/metrics/types";
-import { hasMultipleFills, simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
-import { aggregateFills, validateFills } from "@/lib/metrics/fills";
+import { simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
+import { aggregateFills, fitsSimpleForm, validateFills } from "@/lib/metrics/fills";
 import { Decimal } from "decimal.js";
 import { failT, failZod, tr } from "@/i18n/server-t";
 
@@ -262,7 +262,7 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
 
   const existing = await prisma.trade.findFirst({
     where: { id: tradeId, accountId: account.id },
-    include: { executions: { select: { kind: true } } },
+    include: { executions: true },
   });
   if (!existing) return failT("tradeNotFound");
 
@@ -327,7 +327,7 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
     ...(existing.playbookId !== (playbookId ?? null) ? { ruleChecks: { deleteMany: {} } } : {}),
   };
 
-  if (hasMultipleFills(existing.executions)) {
+  if (!fitsSimpleForm(existing.executions.map(toFill))) {
     // Scaled in or partly closed: prices, size, times and status come from
     // the fills, which the form cannot express. Those form fields are
     // read-only in that case, and are ignored here regardless — this is an

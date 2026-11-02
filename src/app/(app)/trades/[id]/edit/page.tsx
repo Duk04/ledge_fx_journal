@@ -74,7 +74,7 @@ export default async function EditTradePage({ params }: { params: Promise<{ id: 
         instruments={instruments}
         tags={tags}
         currency={trade.currency}
-        fillsLocked={trade.multiFill}
+        fillsLocked={trade.fillsLocked}
         playbooks={
           trade.playbook && !playbooks.some((p) => p.id === trade.playbook!.id)
             ? [...playbooks, { id: trade.playbook.id, name: trade.playbook.name }]

@@ -183,3 +183,57 @@ describe("R-mode trades", () => {
     expect(row.entryPrice).toBeNull();
   });
 });
+
+describe("updateTrade on a partly closed trade", () => {
+  it("keeps the partial exit when only the notes change", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const account = await createAccount(user.id);
+    signInAs(user.id);
+
+    const open = buildFormData(
+      defaultFormValues({
+        entryMode: "PRICE",
+        symbol: "EURUSD",
+        direction: "LONG",
+        status: "OPEN",
+        openedAt: "2026-03-04T13:30:00.000Z",
+        entryPrice: "1.10000",
+        stopLoss: "1.09900",
+        volumeLots: "1",
+      }),
+    );
+    const created = await createTrade(account.id, open);
+    if (!created.ok) throw new Error(JSON.stringify(created));
+    const partial = await closeTrade(account.id, created.id, {
+      exitPrice: "1.10100",
+      closedAt: "2026-03-04T14:00:00.000Z",
+      volumeLots: "0.5",
+    });
+    expect(partial.ok).toBe(true);
+
+    // What the (locked) edit form posts back: its fields, plus a note.
+    const edited = buildFormData(
+      defaultFormValues({
+        entryMode: "PRICE",
+        symbol: "EURUSD",
+        direction: "LONG",
+        status: "OPEN",
+        openedAt: "2026-03-04T13:30:00.000Z",
+        entryPrice: "1.10000",
+        stopLoss: "1.09900",
+        volumeLots: "1",
+        notes: "held the runner",
+      }),
+    );
+    const res = await updateTrade(account.id, created.id, edited);
+    expect(res.ok).toBe(true);
+
+    const row = await prisma.trade.findUniqueOrThrow({ where: { id: created.id }, include: { executions: true } });
+    expect(row.notes).toBe("held the runner");
+    expect(row.executions.map((e) => [e.kind, e.volumeLots.toString()]).sort()).toEqual([
+      ["ENTRY", "1"],
+      ["EXIT", "0.5"],
+    ]);
+  });
+});

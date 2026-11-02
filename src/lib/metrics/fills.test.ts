@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Decimal } from "decimal.js";
-import { aggregateFills, simpleFills, validateFills, type Fill } from "./fills";
+import { aggregateFills, fitsSimpleForm, simpleFills, validateFills, type Fill } from "./fills";
 import { computeTrade } from "./trade";
 import type { TradeInput } from "./types";
 
@@ -107,5 +107,24 @@ describe("validateFills", () => {
     ["zero volume", [{ ...entry, volumeLots: "0" }], "NON_POSITIVE"],
   ])("%s", (_, fills, code) => {
     expect(validateFills(fills).map((p) => p.code)).toContain(code);
+  });
+});
+
+describe("fitsSimpleForm", () => {
+  const entry = (lots: string) => ({ kind: "ENTRY" as const, volumeLots: lots });
+  const exit = (lots: string) => ({ kind: "EXIT" as const, volumeLots: lots });
+
+  it("accepts an open trade and one fully closed by a single exit", () => {
+    expect(fitsSimpleForm([entry("1")])).toBe(true);
+    expect(fitsSimpleForm([entry("1"), exit("1.0")])).toBe(true);
+  });
+
+  it("refuses one entry partly closed by one exit — the form would drop the exit", () => {
+    expect(fitsSimpleForm([entry("1"), exit("0.5")])).toBe(false);
+  });
+
+  it("refuses scale-ins and several exits", () => {
+    expect(fitsSimpleForm([entry("1"), entry("1")])).toBe(false);
+    expect(fitsSimpleForm([entry("1"), exit("0.5"), exit("0.5")])).toBe(false);
   });
 });

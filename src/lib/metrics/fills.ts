@@ -123,6 +123,24 @@ export function aggregateFills(fills: readonly Fill[]): FillAggregate {
   };
 }
 
+/**
+ * Whether the plain trade form — one entry, and at most one exit that closes
+ * ALL of it — can still describe these fills. When it cannot, the form's
+ * symbol, price, size, time and status fields are locked, and saving it
+ * leaves the fills alone (actions/trades.ts, updateTrade).
+ *
+ * Counting fills is not enough. One entry partly closed by one exit has one
+ * of each, and the save used to rebuild the fills from the form — which
+ * recreated only the entry and silently deleted the partial close.
+ */
+export function fitsSimpleForm(fills: readonly Pick<Fill, "kind" | "volumeLots">[]): boolean {
+  const entries = fills.filter((f) => f.kind === "ENTRY");
+  const exits = fills.filter((f) => f.kind === "EXIT");
+  if (entries.length > 1 || exits.length > 1) return false;
+  if (exits.length === 0) return true;
+  return entries.length === 1 && new Decimal(exits[0].volumeLots).eq(entries[0].volumeLots);
+}
+
 /** The fills a trade entered as a single entry (and exit) stands for — what
  * every one-shot write path records, and what the migration backfilled. */
 export function simpleFills(trade: {

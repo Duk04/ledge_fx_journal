@@ -1,6 +1,7 @@
 import "server-only";
 import { Decimal } from "decimal.js";
 import { excursionInR } from "@/lib/metrics/excursion";
+import { fitsSimpleForm } from "@/lib/metrics/fills";
 import type { AttachmentKind, Direction, MarketSession, Prisma, TradeEntryMode } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeAnyTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
@@ -259,8 +260,9 @@ export interface TradeDetail {
   playbook: { id: string; name: string; rules: { id: string; text: string; followed: boolean | null }[] } | null;
   /** Lots still open: total entered minus total exited. */
   openLots: string;
-  /** More than one entry or exit — the edit form can't change prices then. */
-  multiFill: boolean;
+  /** The fills outgrew the plain form — scaled in or partly closed — so
+   * the edit form locks prices, size, times and status (fitsSimpleForm). */
+  fillsLocked: boolean;
   symbol: string;
   displayName: string;
   digits: number;
@@ -393,9 +395,7 @@ export async function getTrade(userId: string, id: string): Promise<TradeDetail 
     openLots: trade.executions
       .reduce((acc, e) => (e.kind === "ENTRY" ? acc.plus(e.volumeLots) : acc.minus(e.volumeLots)), new Decimal(0))
       .toString(),
-    multiFill:
-      trade.executions.filter((e) => e.kind === "ENTRY").length > 1 ||
-      trade.executions.filter((e) => e.kind === "EXIT").length > 1,
+    fillsLocked: !fitsSimpleForm(trade.executions.map((e) => ({ kind: e.kind, volumeLots: e.volumeLots.toString() }))),
     symbol: trade.symbol,
     displayName: trade.instrument.displayName,
     digits: spec.digits,
