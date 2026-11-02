@@ -29,22 +29,17 @@ import {
 import { formatMoney, formatPrice } from "@/lib/metrics/formatters";
 import { aggregateBars } from "@/lib/candles/aggregate";
 import { defaultPositionTool, positionToolStats } from "@/lib/backtest/replay-tools";
-import { recordReplayTrade } from "@/lib/actions/backtests";
-import type { Bar, FillModel, SimInstrument, SimTrade } from "@/lib/backtest/types";
+import type { Bar, FillModel, SimInstrument } from "@/lib/backtest/types";
 import { useReplayEngine, type ReplaySpeed } from "./use-replay-engine";
 import { CandlestickChart, type ChartTool, type ChartTools } from "./candlestick-chart";
 import { ReplayToolbar, type PositionToolSide } from "./replay-toolbar";
 import { useReplayDrawings } from "./use-replay-drawings";
+import { useReplayHotkeys } from "./use-replay-hotkeys";
+import { useReplayPersistence } from "./use-replay-persistence";
 import type { PositionScene } from "./drawings-primitive";
 import { TIMEFRAMES } from "@/lib/timeframes";
 
 const SPEED_STEPS: readonly ReplaySpeed[] = [0.5, 1, 2, 5, "max"];
-
-/** Typing into a field must never trigger a chart shortcut. */
-function isTyping(target: EventTarget | null) {
-  const el = target as HTMLElement | null;
-  return el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.tagName === "SELECT" || el?.isContentEditable;
-}
 
 const SPEED_LABEL: Record<Exclude<ReplaySpeed, "max">, string> = { 0.5: "0.5x", 1: "1x", 2: "2x", 5: "5x" };
 
@@ -80,42 +75,9 @@ export function ReplaySession({
   const t = useTranslations("backtest");
   const router = useRouter();
   const { toast } = useToast();
-  // A ref so `handleSaveToJournal` can await the exact in-flight set (a
-  // functional state update wouldn't hand back the promises themselves),
-  // plus a plain counter kept in state purely so the footer's "Saving…"
-  // text re-renders — mutating a ref alone does not.
-  const inFlight = React.useRef<Set<Promise<unknown>>>(new Set());
-  const [pendingSaves, setPendingSaves] = React.useState(0);
-  // Trades whose save failed, refused or lost in transit: finishing would
-  // navigate to results that silently lack them.
-  const failedSaves = React.useRef(0);
+  const saves = useReplayPersistence(runId);
 
-  const handleTradeClosed = React.useCallback(
-    (trade: SimTrade) => {
-      setPendingSaves((n) => n + 1);
-      const p = recordReplayTrade(runId, trade)
-        .then((res) => {
-          if (res.ok) return;
-          failedSaves.current += 1;
-          toast({ title: t("replay.couldNotSaveTrade"), description: res.formError, tone: "loss" });
-        })
-        // A rejected call (the network, not the action) must resolve this
-        // promise too: handleSaveToJournal races the set, and a rejection
-        // there threw out of it with the button left disabled.
-        .catch(() => {
-          failedSaves.current += 1;
-          toast({ title: t("replay.couldNotSaveTrade"), description: t("replay.saveNetworkError"), tone: "loss" });
-        })
-        .finally(() => {
-          inFlight.current.delete(p);
-          setPendingSaves((n) => n - 1);
-        });
-      inFlight.current.add(p);
-    },
-    [runId, toast, t],
-  );
-
-  const engine = useReplayEngine({ bars, instrument, fill, initialBalance, onTradeClosed: handleTradeClosed });
+  const engine = useReplayEngine({ bars, instrument, fill, initialBalance, onTradeClosed: saves.onTradeClosed });
   const {
     cursor,
     visibleBars,
@@ -199,18 +161,7 @@ export function ReplaySession({
     () => (htf ? aggregateBars(visibleBars, timeframe, htf) : []),
     [htf, visibleBars, timeframe],
   );
-  /**
-   * Declared above the keyboard effect, and memoised, so that effect can list
-   * it as a dependency.
-   *
-   * It previously sat below and was excluded via a suppression, on the
-   * reasoning that every value it reads (`lots`, `stopLoss`, `takeProfit`,
-   * `canOrder`) was already in the effect's dependency list — which was true,
-   * and is exactly the kind of correctness that stops being true the moment
-   * someone adds a fifth value here and does not think to update a list in
-   * another part of the file. `toast`, `buy` and `sell` were already
-   * missing from it.
-   */
+  /** Places the ticket's order — from the buttons and from B/S. */
   const submitOrder = React.useCallback(
     (side: "LONG" | "SHORT") => {
       const lotsNum = orderLots;
@@ -234,103 +185,31 @@ export function ReplaySession({
   );
 
   // -------------------------------------------------------------- keyboard
-  // docs/BACKTEST.md lists these; the toolbar's keyboard button shows them.
-  React.useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (isTyping(e.target)) return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        draw.undo();
-        return;
-      }
-      if (mod || e.altKey) return;
-      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      switch (key) {
-        case " ":
-          e.preventDefault();
-          togglePlaying();
-          break;
-        case "ArrowRight":
-          e.preventDefault();
-          stepForward(e.shiftKey ? 10 : 1);
-          break;
-        case "ArrowLeft":
-          e.preventDefault();
-          stepBack();
-          break;
-        case "+":
-        case "=":
-        case "-": {
-          const i = SPEED_STEPS.indexOf(speed);
-          const next = SPEED_STEPS[Math.max(0, Math.min(SPEED_STEPS.length - 1, i + (key === "-" ? -1 : 1)))];
-          setSpeed(next);
-          break;
-        }
-        case "b":
-          if (!canOrder) break;
-          if (e.shiftKey) startPositionTool(positionSide === "LONG" ? null : "LONG");
-          else submitOrder("LONG");
-          break;
-        case "s":
-          if (!canOrder) break;
-          if (e.shiftKey) startPositionTool(positionSide === "SHORT" ? null : "SHORT");
-          else submitOrder("SHORT");
-          break;
-        case "c":
-          requestClose();
-          break;
-        case "x":
-          cancelPendingOrder();
-          break;
-        case "v":
-          setTool("cursor");
-          break;
-        case "t":
-          setTool("trend");
-          break;
-        case "h":
-          setTool("hline");
-          break;
-        case "r":
-          setTool("rect");
-          break;
-        case "f":
-          setTool("fib");
-          break;
-        case "m":
-          if (htfOptions.length) chooseHtf(htf ? null : (lastHtf.current ?? htfOptions[0]));
-          break;
-        case "Escape":
-          setTool("cursor");
-          draw.select(null);
-          setPositionSide(null);
-          break;
-        case "Delete":
-        case "Backspace":
-          draw.removeSelected();
-          break;
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
+  useReplayHotkeys({
+    undo: draw.undo,
     togglePlaying,
     stepForward,
     stepBack,
-    speed,
-    setSpeed,
+    changeSpeed: (direction) => {
+      const i = SPEED_STEPS.indexOf(speed);
+      setSpeed(SPEED_STEPS[Math.max(0, Math.min(SPEED_STEPS.length - 1, i + direction))]);
+    },
     canOrder,
-    submitOrder,
-    startPositionTool,
-    positionSide,
-    requestClose,
-    cancelPendingOrder,
-    draw,
-    htf,
-    htfOptions,
-    chooseHtf,
-  ]);
+    order: submitOrder,
+    togglePositionTool: (side) => startPositionTool(positionSide === side ? null : side),
+    close: requestClose,
+    cancelPending: cancelPendingOrder,
+    setTool,
+    toggleHigherTimeframe: () => {
+      if (htfOptions.length) chooseHtf(htf ? null : (lastHtf.current ?? htfOptions[0]));
+    },
+    escape: () => {
+      setTool("cursor");
+      draw.select(null);
+      setPositionSide(null);
+    },
+    removeSelected: draw.removeSelected,
+  });
 
   // ------------------------------------------------------------ chart scene
   const money = React.useCallback((n: number) => formatMoney(n, currency), [currency]);
@@ -435,18 +314,12 @@ export function ReplaySession({
   async function handleSaveToJournal() {
     setFinishing(true);
     if (position) finish();
-    // `finish()` (and every fill during play) enqueues a save into
-    // `inFlight` synchronously — draining the set (which can still grow
-    // while we wait, since `.finally` only removes entries) until it's
-    // empty guarantees every trade from this session reached the server
-    // before we navigate to the results page that reads them back.
-    while (inFlight.current.size > 0) {
-      await Promise.race(inFlight.current);
-    }
+    // `finish()` (and every fill during play) enqueues a save; draining
+    // waits for all of them — the results page reads them back.
+    const failed = await saves.drain();
     setFinishing(false);
-    if (failedSaves.current > 0) {
-      toast({ title: t("replay.unsavedTrades", { count: failedSaves.current }), tone: "warn" });
-      failedSaves.current = 0;
+    if (failed > 0) {
+      toast({ title: t("replay.unsavedTrades", { count: failed }), tone: "warn" });
       return;
     }
     router.push(`/backtest/runs/${runId}`);
@@ -736,7 +609,7 @@ export function ReplaySession({
             </p>
           </PanelBody>
           <PanelFooter>
-            <span className="text-2xs text-ink-3">{pendingSaves > 0 ? t("replay.saving") : t("replay.upToDate")}</span>
+            <span className="text-2xs text-ink-3">{saves.pending > 0 ? t("replay.saving") : t("replay.upToDate")}</span>
             <Button variant="default" size="sm" onClick={handleSaveToJournal} disabled={finishing}>
               {finishing ? t("replay.saving") : t("replay.saveToJournal")}
             </Button>
