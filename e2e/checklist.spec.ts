@@ -9,7 +9,8 @@ test("build a daily checklist, tick it, and see it on the calendar", async ({ pa
 
   const add = page.getByRole("textbox", { name: /Add something to check/ });
   await add.fill("Check the 1H trend");
-  await page.getByRole("button", { name: "Add" }).click();
+  // Exact: the day page also has the screenshots' "Add link instead".
+  await page.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Rename Check the 1H trend" })).toBeVisible();
   // Clicking Add blurs the field first; that must still add it once.
   await expect(page.getByRole("textbox", { name: "Rename Check the 1H trend" })).toHaveCount(1);

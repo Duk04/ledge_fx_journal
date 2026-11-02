@@ -26,7 +26,7 @@ import {
   TableEmpty,
   useToast,
 } from "@/components/ui";
-import { formatMoney, formatPrice } from "@/lib/metrics/formatters";
+import { formatInZone, formatMoney, formatPrice } from "@/lib/metrics/formatters";
 import { aggregateBars } from "@/lib/candles/aggregate";
 import { defaultPositionTool, positionToolStats } from "@/lib/backtest/replay-tools";
 import type { Bar, FillModel, SimInstrument } from "@/lib/backtest/types";
@@ -43,15 +43,6 @@ const SPEED_STEPS: readonly ReplaySpeed[] = [0.5, 1, 2, 5, "max"];
 
 const SPEED_LABEL: Record<Exclude<ReplaySpeed, "max">, string> = { 0.5: "0.5x", 1: "1x", 2: "2x", 5: "5x" };
 
-function formatTs(ts: number): string {
-  return new Date(ts).toLocaleString(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function ReplaySession({
   runId,
   symbol,
@@ -61,8 +52,14 @@ export function ReplaySession({
   initialBalance,
   currency,
   timeframe,
+  timezone,
 }: {
   runId: string;
+  /** The user's, so the bar time reads the same on the server and in the
+   * browser. `toLocaleString()` used the host's zone on each side, and the
+   * two disagreed whenever the server ran in another zone — a hydration
+   * mismatch on every replay page. */
+  timezone: string;
   symbol: string;
   /** The bars' own timeframe; the second chart offers the coarser ones. */
   timeframe: Timeframe;
@@ -333,7 +330,10 @@ export function ReplaySession({
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
       <div className="flex flex-col gap-3 xl:col-span-9">
         <Panel className="h-[65vh] min-h-96">
-          <PanelHeader title={symbol} caption={currentBar ? formatTs(currentBar.ts) : undefined} />
+          <PanelHeader
+            title={symbol}
+            caption={currentBar ? formatInZone(new Date(currentBar.ts), timezone, "MMM dd, HH:mm") : undefined}
+          />
           <div className="border-b border-line px-2 py-1">
             <ReplayToolbar
               tool={tool}

@@ -85,6 +85,7 @@ export default async function ReplayPage({ searchParams }: { searchParams: Promi
       />
       <ReplaySession
         runId={run.id}
+        timezone={user.timezone}
         symbol={run.symbol}
         bars={bars}
         instrument={{
