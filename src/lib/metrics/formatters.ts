@@ -47,6 +47,20 @@ export function formatR(value: Numeric): string {
  * Percentage, formatted from a FRACTION (0-1), e.g. 0.625 -> "62.5%".
  * "—" for null.
  */
+/**
+ * A planned risk:reward as "1:2.5" — risk first, as the column header
+ * "R:R" reads. Two conventions had grown up, "1:2" in the lists and
+ * "2.00:1" on the trade page and the price-mode preview, so the same plan
+ * read differently from one screen to the next. Up to two decimals,
+ * trailing zeros dropped; "—" for no plan.
+ */
+export function formatRR(value: Decimal | number | string | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const n = new Decimal(value.toString());
+  if (!n.isFinite() || n.lte(0)) return "—";
+  return `1:${n.toDecimalPlaces(2).toString()}`;
+}
+
 export function formatPercent(value: Numeric, digits = 1): string {
   const n = toNumber(value);
   if (n === null) return "—";

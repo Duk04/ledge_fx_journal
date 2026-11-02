@@ -8,6 +8,7 @@ import { ownerOrFailure } from "./guard";
 import { parseCandleCsv } from "@/lib/candles/parse";
 import { upsertCandles } from "@/lib/candles/upsert";
 import { failT, tr } from "@/i18n/server-t";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
 /**
  * Candle imports and deletes. Same result-object convention as every other
@@ -35,7 +36,6 @@ export interface ImportReport {
 export type ImportSuccess = { ok: true } & ImportReport;
 export type ImportFailure = { ok: false; formError: string };
 
-const TIMEFRAMES: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 function revalidateDataPage() {

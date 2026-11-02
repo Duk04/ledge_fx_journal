@@ -15,8 +15,8 @@ import { insertMissingCandles } from "@/lib/candles/upsert";
 import { failT, tr } from "@/i18n/server-t";
 import { fail, ok, type ActionResult } from "./result";
 import { ownerOrFailure } from "./guard";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
-const TIMEFRAMES: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface DownloadReport {

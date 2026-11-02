@@ -26,8 +26,8 @@ import {
 import { downloadCandles } from "@/lib/actions/market-data";
 import { defaultDownloadRange } from "@/lib/candles/oanda";
 import type { InstrumentOption } from "@/lib/queries/instruments";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
 type Tf = (typeof TIMEFRAMES)[number];
 
 /**

@@ -22,7 +22,7 @@ import {
   SegmentedItem,
 } from "@/components/ui";
 import { closeRTrade, closeTrade, deleteTrade, duplicateTrade } from "@/lib/actions/trades";
-import { resultForOutcome, outcomeFor, type ROutcome } from "./trade-form-values";
+import { resultForOutcome, outcomeFor, toDatetimeLocal, type ROutcome } from "./trade-form-values";
 
 /** The trade detail header's actions: Edit/Duplicate/Delete always, plus a
  * "Close trade" shortcut for the common case (just an exit price and a
@@ -329,9 +329,4 @@ function CloseTradeDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function toDatetimeLocal(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }

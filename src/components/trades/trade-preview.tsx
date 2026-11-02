@@ -10,7 +10,7 @@
  */
 import { useTranslations } from "next-intl";
 import { computeRTrade, computeTrade, validateTradeGeometry } from "@/lib/metrics";
-import { formatMoney, formatPips } from "@/lib/metrics/formatters";
+import { formatMoney, formatPips, formatRR } from "@/lib/metrics/formatters";
 import type { AssetClass } from "@/lib/metrics/types";
 import { Stat, Panel, PanelBody } from "@/components/ui";
 import type { InstrumentOption } from "@/lib/queries/trades";
@@ -107,7 +107,7 @@ export function buildPreview(
     mode: "PRICE",
     pips: formatPips(atExit.pips),
     riskAmount: base.riskAmount ? formatMoney(base.riskAmount, currency) : "—",
-    plannedRR: base.plannedRR ? `${base.plannedRR.toFixed(2)}:1` : "—",
+    plannedRR: formatRR(base.plannedRR),
     netPnl: atExit.netPnl ? formatMoney(atExit.netPnl, currency) : "—",
     netPnlIsProjection,
   };
@@ -141,7 +141,7 @@ export function buildRPreview(values: Partial<TradeFormInput>, currency: string)
     mode: "R_MULTIPLE",
     pips: r.rMultiple ? `${r.rMultiple.isNegative() ? "" : "+"}${r.rMultiple.toFixed(2)}R` : "—",
     riskAmount: formatMoney(risk, currency),
-    plannedRR: plannedRR ? `1:${plannedRR}` : "—",
+    plannedRR: formatRR(plannedRR),
     netPnl: r.netPnl ? formatMoney(r.netPnl, currency) : "—",
     netPnlIsProjection: !closed && plannedRR !== undefined,
   };

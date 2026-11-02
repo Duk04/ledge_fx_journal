@@ -36,8 +36,8 @@ import { CandlestickChart, type ChartTool, type ChartTools } from "./candlestick
 import { ReplayToolbar, type PositionToolSide } from "./replay-toolbar";
 import { useReplayDrawings } from "./use-replay-drawings";
 import type { PositionScene } from "./drawings-primitive";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
-const TIMEFRAME_ORDER: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 const SPEED_STEPS: readonly ReplaySpeed[] = [0.5, 1, 2, 5, "max"];
 
 /** Typing into a field must never trigger a chart shortcut. */
@@ -185,7 +185,7 @@ export function ReplaySession({
   const orderLots = toolActive ? (toolStats?.lots ?? 0) : Number(lots);
 
   // ------------------------------------------------------------ second chart
-  const htfOptions = React.useMemo(() => TIMEFRAME_ORDER.slice(TIMEFRAME_ORDER.indexOf(timeframe) + 1), [timeframe]);
+  const htfOptions = React.useMemo(() => TIMEFRAMES.slice(TIMEFRAMES.indexOf(timeframe) + 1), [timeframe]);
   const [htf, setHtf] = React.useState<Timeframe | null>(null);
   const lastHtf = React.useRef<Timeframe | null>(null);
   const chooseHtf = React.useCallback((tf: Timeframe | null) => {

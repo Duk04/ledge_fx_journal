@@ -4,6 +4,7 @@ import { toNum } from "@/lib/decimal-bridge";
 import { aggregateBars } from "@/lib/candles/aggregate";
 import type { Bar } from "@/lib/backtest/types";
 import type { CandleSource, Timeframe } from "@prisma/client";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
 /**
  * Candle reads. Unlike every other query module in this app, `candles` and
@@ -15,8 +16,6 @@ import type { CandleSource, Timeframe } from "@prisma/client";
  * *who imported what*) is still user-scoped, which is why `listCoverage`
  * and `listImports` both take a `userId`.
  */
-
-const TIMEFRAME_ORDER: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 
 function timeframeMinutes(tf: Timeframe): number {
   switch (tf) {
@@ -113,9 +112,9 @@ export async function getBars(params: {
     return { bars: direct, timeframe, aggregatedFrom: null };
   }
 
-  const idx = TIMEFRAME_ORDER.indexOf(timeframe);
+  const idx = TIMEFRAMES.indexOf(timeframe);
   for (let i = idx - 1; i >= 0; i--) {
-    const finer = TIMEFRAME_ORDER[i];
+    const finer = TIMEFRAMES[i];
     // No `limit` here: aggregation needs the full source range to build
     // correct buckets, and only the aggregated output gets truncated below.
     const sourceRows = await queryStoredBars({ symbol, timeframe: finer, from, to });

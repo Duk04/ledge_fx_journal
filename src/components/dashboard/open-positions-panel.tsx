@@ -1,7 +1,7 @@
 import { Inbox } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState, Badge, DirectionBadge } from "@/components/ui";
-import { formatMoney, formatPrice } from "@/lib/metrics/formatters";
+import { formatMoney, formatPrice, formatRR } from "@/lib/metrics/formatters";
 import type { OpenTrade } from "@/lib/queries/analytics";
 
 /**
@@ -31,7 +31,7 @@ export function OpenPositionsPanel({ trades, currency }: { trades: OpenTrade[]; 
                 ? t("lotsAt", { lots: trade.volumeLots.toFixed(2), price: formatPrice(trade.entryPrice, trade.digits) })
                 : t("riskPlan", {
                     risk: formatMoney(trade.plannedRisk, currency),
-                    rr: trade.plannedRR !== null ? `1:${trade.plannedRR}` : "—",
+                    rr: formatRR(trade.plannedRR),
                   })}
             </span>
           </div>

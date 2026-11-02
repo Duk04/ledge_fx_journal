@@ -18,8 +18,6 @@ import type { SimTrade } from "@/lib/backtest/types";
  * `import "server-only"` is what keeps it off the client instead.
  */
 
-export const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
-
 /** Fewer bars than this can't tell you anything about a strategy or a
  * replay session — refuse rather than run something meaningless. */
 export const MIN_BARS = 50;

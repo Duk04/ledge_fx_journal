@@ -4,6 +4,7 @@ import { getBars, lastCloseIn } from "@/lib/queries/candles";
 import { resolveRunConversionRate, toSimInstrument } from "@/lib/backtest/run-setup";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
 /**
  * Historical bars for a browser-side strategy run.
@@ -33,8 +34,6 @@ export const MAX_BARS_PER_REQUEST = 200_000;
 
 /** Below this there is not enough history for a run to mean anything. */
 export const MIN_BARS_PER_REQUEST = 50;
-
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
 
 const querySchema = z.object({
   symbol: z.string().trim().min(1).max(20).toUpperCase(),

@@ -28,8 +28,7 @@ import type { CoverageRow } from "@/lib/queries/candles";
 import { createReplayRun } from "@/lib/actions/backtests";
 import { downloadCandles } from "@/lib/actions/market-data";
 import { defaultDownloadRange } from "@/lib/candles/oanda";
-
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
+import { TIMEFRAMES } from "@/lib/timeframes";
 
 function isoDate(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);

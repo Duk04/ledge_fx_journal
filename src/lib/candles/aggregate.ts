@@ -23,6 +23,7 @@
 
 import type { Timeframe } from "@prisma/client";
 import type { Bar } from "@/lib/backtest/types";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -32,8 +33,6 @@ const WEEK_MS = 7 * DAY_MS;
 // later. Anchoring the weekly bucket grid there makes every W1 bucket start
 // at 00:00 UTC on a Monday, which is the "calendar week" traders mean.
 const WEEK_MONDAY_ANCHOR_MS = 4 * DAY_MS;
-
-const TIMEFRAME_ORDER: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 
 const BUCKET_MS: Partial<Record<Timeframe, number>> = {
   M1: MINUTE_MS,
@@ -92,8 +91,8 @@ function mergeBucket(ts: number, group: readonly Bar[]): Bar {
  * effort.
  */
 export function aggregateBars(bars: readonly Bar[], from: Timeframe, to: Timeframe): Bar[] {
-  const fromIdx = TIMEFRAME_ORDER.indexOf(from);
-  const toIdx = TIMEFRAME_ORDER.indexOf(to);
+  const fromIdx = TIMEFRAMES.indexOf(from);
+  const toIdx = TIMEFRAMES.indexOf(to);
   if (fromIdx === -1) throw new Error(`Unknown timeframe "${from}".`);
   if (toIdx === -1) throw new Error(`Unknown timeframe "${to}".`);
   if (toIdx < fromIdx) {

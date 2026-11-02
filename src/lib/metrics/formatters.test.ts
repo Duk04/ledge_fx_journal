@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatInZone, formatMoneyCompact } from "./formatters";
+import { formatInZone, formatMoneyCompact, formatRR } from "./formatters";
 
 describe("formatInZone", () => {
   // 2026-03-02T20:30Z is already Tuesday morning in Ulaanbaatar (UTC+8) but
@@ -23,5 +23,19 @@ describe("formatMoneyCompact", () => {
     expect(formatMoneyCompact(1234, "USD")).toBe("+$1.2K");
     expect(formatMoneyCompact(-340, "USD")).toBe("−$340");
     expect(formatMoneyCompact(0, "USD")).toBe("$0");
+  });
+});
+
+describe("formatRR", () => {
+  it("reads risk first, with at most two decimals", () => {
+    expect(formatRR(2)).toBe("1:2");
+    expect(formatRR("2.50")).toBe("1:2.5");
+    expect(formatRR(1.3333)).toBe("1:1.33");
+  });
+
+  it("shows a dash for no plan", () => {
+    expect(formatRR(null)).toBe("—");
+    expect(formatRR(undefined)).toBe("—");
+    expect(formatRR(0)).toBe("—");
   });
 });

@@ -27,7 +27,7 @@ import {
   EmptyState,
   Tip,
 } from "@/components/ui";
-import { formatInZone, formatPrice } from "@/lib/metrics/formatters";
+import { formatInZone, formatPrice, formatRR } from "@/lib/metrics/formatters";
 import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import {
@@ -330,7 +330,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                             {row.entryPrice !== null
                               ? formatPrice(Number(row.entryPrice), row.digits)
                               : row.plannedRR !== null
-                                ? `1:${Number(row.plannedRR)}`
+                                ? formatRR(row.plannedRR)
                                 : null}
                           </span>
                         </div>
@@ -354,7 +354,7 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                         ) : (
                           // An R-mode trade has no prices; its plan is the R:R.
                           <span className="text-ink-3">
-                            {row.plannedRR !== null ? `R:R 1:${Number(row.plannedRR)}` : "—"}
+                            {row.plannedRR !== null ? `R:R ${formatRR(row.plannedRR)}` : "—"}
                           </span>
                         )}
                       </Td>

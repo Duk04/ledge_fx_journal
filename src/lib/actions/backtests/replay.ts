@@ -17,7 +17,8 @@ import { toJournalTrade } from "@/lib/backtest";
 import type { SimTrade } from "@/lib/backtest/types";
 import { simTradeSchema } from "@/lib/backtest/sim-trade-schema";
 import { BACKTEST_ACCOUNT_CURRENCY } from "@/lib/backtest/run-setup";
-import { MAX_BARS, MIN_BARS, TIMEFRAMES, fillSchema, labelFor } from "./shared";
+import { MAX_BARS, MIN_BARS, fillSchema, labelFor } from "./shared";
+import { TIMEFRAMES } from "@/lib/timeframes";
 import { failT, failZod, tr } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
 

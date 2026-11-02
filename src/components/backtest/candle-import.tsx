@@ -31,15 +31,12 @@ import {
 import { parseCandleCsv, type ParseCandleCsvResult } from "@/lib/candles/parse";
 import { importCandles, type ImportReport } from "@/lib/actions/candles";
 import type { ActionResult } from "@/lib/actions/result";
+import { TIMEFRAMES } from "@/lib/timeframes";
 
 export interface InstrumentOption {
   symbol: string;
   displayName: string;
 }
-
-// Codes only: their "M1 — 1 minute" labels are translated, so they live in
-// messages under backtest.import.timeframes.
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"] as const;
 
 /** UTC+2/+3 covers the large majority of MT5 brokers (most run on Eastern
  * European or Moscow server time); "Custom" is there for the rest rather
@@ -175,6 +172,8 @@ export function CandleImportPanel({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                {/* TIMEFRAMES are codes only; the "M1 — 1 minute" labels are
+                    translated, under backtest.import.timeframes. */}
                 {TIMEFRAMES.map((tf) => (
                   <SelectItem key={tf} value={tf}>
                     {t(`import.timeframes.${tf}`)}

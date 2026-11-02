@@ -17,7 +17,7 @@ import {
   Pips,
   RValue,
 } from "@/components/ui";
-import { formatDuration, formatInZone, formatPrice, formatR } from "@/lib/metrics/formatters";
+import { formatDuration, formatInZone, formatPrice, formatR, formatRR } from "@/lib/metrics/formatters";
 import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
@@ -189,10 +189,7 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
               <div className="my-1 h-px bg-line" />
               {rMode ? (
                 <>
-                  <FactRow
-                    label={t("facts.plannedRR")}
-                    value={trade.plannedRR !== null ? `1:${Number(trade.plannedRR)}` : "—"}
-                  />
+                  <FactRow label={t("facts.plannedRR")} value={formatRR(trade.plannedRR)} />
                   <FactRow
                     label={t("facts.riskAmount")}
                     value={<Money value={trade.riskAmount} currency={trade.currency} />}
@@ -250,10 +247,7 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
               />
               {rMode ? null : (
                 <>
-                  <FactRow
-                    label={t("facts.plannedRR")}
-                    value={trade.recomputed.plannedRR ? `${Number(trade.recomputed.plannedRR).toFixed(2)}:1` : "—"}
-                  />
+                  <FactRow label={t("facts.plannedRR")} value={formatRR(trade.recomputed.plannedRR)} />
                   <FactRow
                     label={t("facts.mae")}
                     value={
