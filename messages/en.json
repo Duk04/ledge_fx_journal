@@ -1947,7 +1947,9 @@
         "htf": "Toggle the second chart"
       },
       "downloading": "Downloading bars…",
-      "noDataSetup": "No market data yet. Add OANDA_API_TOKEN to download it automatically (Backtest → Data explains how), or import a CSV there."
+      "noDataSetup": "No market data yet. Add OANDA_API_TOKEN to download it automatically (Backtest → Data explains how), or import a CSV there.",
+      "saveNetworkError": "The connection dropped before it was saved.",
+      "unsavedTrades": "{count, plural, one {A trade was} other {# trades were}} not saved and won't appear in the results. Finish again to see the results without {count, plural, one {it} other {them}}."
     },
     "chart": {
       "entry": "entry",

@@ -84,13 +84,25 @@ export function ReplaySession({
   // text re-renders — mutating a ref alone does not.
   const inFlight = React.useRef<Set<Promise<unknown>>>(new Set());
   const [pendingSaves, setPendingSaves] = React.useState(0);
+  // Trades whose save failed, refused or lost in transit: finishing would
+  // navigate to results that silently lack them.
+  const failedSaves = React.useRef(0);
 
   const handleTradeClosed = React.useCallback(
     (trade: SimTrade) => {
       setPendingSaves((n) => n + 1);
       const p = recordReplayTrade(runId, trade)
         .then((res) => {
-          if (!res.ok) toast({ title: t("replay.couldNotSaveTrade"), description: res.formError, tone: "loss" });
+          if (res.ok) return;
+          failedSaves.current += 1;
+          toast({ title: t("replay.couldNotSaveTrade"), description: res.formError, tone: "loss" });
+        })
+        // A rejected call (the network, not the action) must resolve this
+        // promise too: handleSaveToJournal races the set, and a rejection
+        // there threw out of it with the button left disabled.
+        .catch(() => {
+          failedSaves.current += 1;
+          toast({ title: t("replay.couldNotSaveTrade"), description: t("replay.saveNetworkError"), tone: "loss" });
         })
         .finally(() => {
           inFlight.current.delete(p);
@@ -430,6 +442,11 @@ export function ReplaySession({
       await Promise.race(inFlight.current);
     }
     setFinishing(false);
+    if (failedSaves.current > 0) {
+      toast({ title: t("replay.unsavedTrades", { count: failedSaves.current }), tone: "warn" });
+      failedSaves.current = 0;
+      return;
+    }
     router.push(`/backtest/runs/${runId}`);
   }
 
