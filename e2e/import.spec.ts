@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { MT4_DETAILED } from "../src/lib/statements/fixtures";
+import { MT4_DETAILED } from "../test/fixtures/statements";
 import { register } from "./helpers";
 
 // The statement import end to end: preview writes nothing, import writes the
