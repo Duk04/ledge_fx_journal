@@ -1,7 +1,8 @@
 import "server-only";
 import type { TradingAccount } from "@prisma/client";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
-import { requireAccountAccess, requireOwner } from "@/lib/session";
+import { requireAccountAccess, requireOwner, type CurrentUser } from "@/lib/session";
+import { failT, type ErrorKey } from "@/i18n/server-t";
 import { fail, type ActionFailure, type ActionResult } from "./result";
 
 /**
@@ -70,16 +71,24 @@ export async function guardNotFound<T>(body: () => Promise<ActionResult<T>>): Pr
 }
 
 /**
- * Requires the instance owner, returning a failure result rather than
- * throwing. `what` completes the sentence "Only the instance owner can …",
- * so the message names the actual operation instead of saying "forbidden".
+ * The instance owner, or a ready-made failure result — `accountOrFailure`'s
+ * shape, for the writes to shared reference data (Instrument, Candle) that
+ * AGENTS.md gates on `requireOwner()`.
+ *
+ *     const owner = await ownerOrFailure("ownerOnlyImportCandles");
+ *     if ("failure" in owner) return owner.failure;
+ *
+ * `message` names the operation that was refused, in the reader's language,
+ * rather than a bare "forbidden". This replaced four hand-written copies of
+ * the same try/catch — and a callback-style `withOwner` that nothing called —
+ * one of which was simply missing from `importCandles`, letting any member
+ * overwrite every user's bars.
  */
-export async function withOwner<T>(what: string, body: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
+export async function ownerOrFailure(message: ErrorKey): Promise<{ user: CurrentUser } | { failure: ActionFailure }> {
   try {
-    await requireOwner();
+    return { user: await requireOwner() };
   } catch (err) {
-    if (err instanceof ForbiddenError) return fail(`Only the instance owner can ${what}.`);
+    if (err instanceof ForbiddenError) return { failure: await failT(message) };
     throw err;
   }
-  return body();
 }

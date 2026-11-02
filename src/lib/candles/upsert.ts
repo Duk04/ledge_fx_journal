@@ -29,11 +29,12 @@ import type { ParsedBar } from "@/lib/candles/parse";
  * component to pull this in, and `src/lib/candles/` is where it belongs
  * anyway: `parse.ts` and `aggregate.ts` are already here.
  *
- * Deliberately NOT adding `requireUser()` here: `importCandles` authenticates
- * before it ever gets this far, and a second check inside an internal helper
- * creates exactly the "which one is authoritative?" ambiguity this codebase
- * avoids elsewhere. The rule is that the action authenticates; this is not an
- * action.
+ * Deliberately NOT adding an auth check here: `importCandles` requires the
+ * instance OWNER before it ever gets this far (signed in is not enough — the
+ * table is shared, and this upsert replaces bars), and a second check inside
+ * an internal helper creates exactly the "which one is authoritative?"
+ * ambiguity this codebase avoids elsewhere. The rule is that the action
+ * authorizes; this is not an action.
  */
 const UPSERT_BATCH_SIZE = 1000;
 

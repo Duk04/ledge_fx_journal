@@ -88,7 +88,7 @@ export default async function BacktestDataPage() {
         canWrite={owner}
       />
 
-      <CandleImportPanel instruments={instruments} />
+      <CandleImportPanel instruments={instruments} canWrite={owner} />
     </Page>
   );
 }

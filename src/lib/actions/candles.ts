@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import type { CandleSource, Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { fail, ok, type ActionResult } from "./result";
-import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
+import { ok, type ActionResult } from "./result";
+import { ownerOrFailure } from "./guard";
 import { parseCandleCsv } from "@/lib/candles/parse";
 import { upsertCandles } from "@/lib/candles/upsert";
 import { failT, tr } from "@/i18n/server-t";
@@ -53,7 +53,13 @@ function revalidateDataPage() {
  * see docs/BACKTEST-DATA.md.
  */
 export async function importCandles(formData: FormData): Promise<ActionResult<ImportReport>> {
-  const user = await requireUser();
+  // OWNER ONLY, like every write to the shared table (deleteCandles below,
+  // downloadCandles in market-data.ts). An import is an upsert — it REPLACES
+  // bars already stored — so a member's CSV would rewrite the prices every
+  // other user's replays, backtests, trade charts and MAE/MFE read.
+  const owner = await ownerOrFailure("ownerOnlyImportCandles");
+  if ("failure" in owner) return owner.failure;
+  const { user } = owner;
 
   const file = formData.get("file");
   if (!(file instanceof File)) return failT("chooseCsv");
@@ -76,11 +82,11 @@ export async function importCandles(formData: FormData): Promise<ActionResult<Im
 
   const tzOffsetMinutes = Number(formData.get("tzOffsetMinutes"));
   if (!Number.isFinite(tzOffsetMinutes)) {
-    return fail("A timezone offset is required — see the hint next to that field.");
+    return failT("tzOffsetRequired");
   }
 
   const instrument = await prisma.instrument.findUnique({ where: { symbol } });
-  if (!instrument) return { ok: false, formError: `"${symbol}" is not a known instrument.` };
+  if (!instrument) return failT("unknownInstrument", { symbol });
 
   const text = await file.text();
   const parsed = parseCandleCsv(text, { tzOffsetMinutes });
@@ -146,14 +152,8 @@ export async function deleteCandles(input: {
   from?: Date;
   to?: Date;
 }): Promise<ActionResult> {
-  try {
-    await requireOwner();
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return failT("ownerOnlyMarketData");
-    }
-    throw err;
-  }
+  const owner = await ownerOrFailure("ownerOnlyMarketData");
+  if ("failure" in owner) return owner.failure;
 
   const { symbol, timeframe, from, to } = input;
   if (!symbol || !TIMEFRAMES.includes(timeframe)) {

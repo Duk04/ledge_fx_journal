@@ -151,6 +151,13 @@ import has to be an **upsert**, not an insert:
   statement, which is how `importCandles` reports accurate
   inserted/updated counts back to the UI.
 
+**Owner only.** Because the import replaces bars that are already stored, it
+is a write to data every user reads, and `importCandles` requires the
+instance owner exactly as `deleteCandles` and the OANDA download do. A
+member sees the import panel disabled, with the reason, instead of a button
+that fails on submit. It was once gated on "signed in" alone, which let any
+member rewrite the prices behind everyone's replays, backtests and MAE/MFE.
+
 **Upload size**: Next.js Server Actions cap the request body at 1MB by
 default. `next.config.ts` raises `experimental.serverActions.bodySizeLimit`
 to `"30mb"`, so the 25MB cap enforced inside `importCandles` — this module's

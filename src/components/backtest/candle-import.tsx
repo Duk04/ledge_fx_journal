@@ -59,7 +59,16 @@ function formatOffsetLabel(minutes: number): string {
   return `UTC${sign}${h}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
 }
 
-export function CandleImportPanel({ instruments }: { instruments: InstrumentOption[] }) {
+export function CandleImportPanel({
+  instruments,
+  canWrite,
+}: {
+  instruments: InstrumentOption[];
+  /** Bars are shared by every user, so only the instance owner may write
+   * them (actions/candles.ts). Everyone else sees the panel disabled, with
+   * the reason, rather than a control that fails on submit. */
+  canWrite: boolean;
+}) {
   const t = useTranslations("backtest");
   const { toast } = useToast();
 
@@ -143,7 +152,7 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
     }
   }
 
-  const canImport = Boolean(file && symbol && timeframe && Number.isFinite(tzOffsetMinutes) && !pending);
+  const canImport = Boolean(canWrite && file && symbol && timeframe && Number.isFinite(tzOffsetMinutes) && !pending);
 
   return (
     <Panel>
@@ -219,7 +228,12 @@ export function CandleImportPanel({ instruments }: { instruments: InstrumentOpti
       </PanelBody>
       <PanelFooter>
         <span className="text-xs text-ink-3">{file ? file.name : t("import.noFile")}</span>
-        <Button variant="primary" onClick={handleImport} disabled={!canImport}>
+        <Button
+          variant="primary"
+          onClick={handleImport}
+          disabled={!canImport}
+          title={canWrite ? undefined : t("import.ownerOnly")}
+        >
           {pending ? t("import.importing") : t("import.import")}
         </Button>
       </PanelFooter>

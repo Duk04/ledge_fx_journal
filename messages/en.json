@@ -1472,7 +1472,10 @@
     "downloadEmpty": "OANDA has no bars for that range (a weekend or holiday, or before its history starts).",
     "oandaFailed": "OANDA refused the download: {message}",
     "checklistItemNotFound": "That checklist item was not found.",
-    "checklistFull": "A checklist holds {max} items at most."
+    "checklistFull": "A checklist holds {max} items at most.",
+    "ownerOnlyImportCandles": "Only the instance owner can import shared market data.",
+    "tzOffsetRequired": "A timezone offset is required — see the hint next to that field.",
+    "unknownInstrument": "\"{symbol}\" is not a known instrument."
   },
   "validation": {
     "mustBeNumber": "Must be a number",
@@ -1754,7 +1757,8 @@
       "volume": "Volume",
       "noValidRows": "No valid rows were found — check the format and timezone offset.",
       "summary": "{inserted} inserted, {updated} updated.",
-      "summaryWithSkipped": "{inserted} inserted, {updated} updated, {skipped} skipped."
+      "summaryWithSkipped": "{inserted} inserted, {updated} updated, {skipped} skipped.",
+      "ownerOnly": "Only the instance owner can import shared market data."
     },
     "strategies": {
       "title": "Strategies",

@@ -69,24 +69,17 @@ const UNAUTHENTICATED_BY_DESIGN = new Set([
 /**
  * Calling any of these counts as authenticating.
  *
- * The first five are the DAL's own entry points. The last three live in
+ * The first three are the DAL's own entry points. The last two live in
  * `./guard` and exist only to convert what those throw into the
  * action-result convention — `accountOrFailure` calls
- * `requireAccountAccess`, `withOwner` calls `requireOwner`. They are listed
- * explicitly rather than discovered, because this test reads source text and
- * does not follow imports across modules; a shared helper added to
- * `guard.ts` has to be named here too.
+ * `requireAccountAccess`, `ownerOrFailure` calls `requireOwner`. They are
+ * listed explicitly rather than discovered, because this test reads source
+ * text and does not follow imports across modules; a shared helper added to
+ * `guard.ts` has to be named here too — but only one that authenticates.
+ * `guardNotFound` used to be listed and does not: it only converts a
+ * NotFoundError, so an action wrapped in it with no session check passed.
  */
-const AUTH_FNS = [
-  "requireUser",
-  "requireOwner",
-  "requireRole",
-  "requireVerifiedUser",
-  "requireAccountAccess",
-  "accountOrFailure",
-  "withOwner",
-  "guardNotFound",
-];
+const AUTH_FNS = ["requireUser", "requireOwner", "requireAccountAccess", "accountOrFailure", "ownerOrFailure"];
 
 /** Every top-level function in `source`, as name -> body text. */
 function topLevelFunctions(source: string): Map<string, string> {
