@@ -1497,7 +1497,8 @@
     "unsupportedImageType": "Unsupported file type. Accepted formats: {formats}.",
     "attachmentNoFile": "This attachment has no file.",
     "storedFileMissing": "The stored file is missing.",
-    "statementImportFailed": "Importing failed, and nothing was imported. Try again, or import a shorter statement."
+    "statementImportFailed": "Importing failed, and nothing was imported. Try again, or import a shorter statement.",
+    "cancelledNoFills": "A cancelled trade has no fills to change."
   },
   "validation": {
     "mustBeNumber": "Must be a number",
@@ -1993,6 +1994,13 @@
       "NEW_YORK": "New York",
       "OVERLAP": "London / New York overlap",
       "OFFHOURS": "Outside the main sessions"
+    },
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "notFound": {
+      "title": "That page doesn't exist",
+      "description": "The link may be out of date, or the address mistyped.",
+      "back": "Back to the dashboard"
     }
   },
   "email": {

@@ -2,7 +2,7 @@ import "server-only";
 import type { TradingAccount } from "@prisma/client";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { requireAccountAccess, requireOwner, type CurrentUser } from "@/lib/session";
-import { failT, type ErrorKey } from "@/i18n/server-t";
+import { failT, tr, type ErrorKey } from "@/i18n/server-t";
 import { fail, type ActionFailure, type ActionResult } from "./result";
 
 /**
@@ -42,17 +42,18 @@ import { fail, type ActionFailure, type ActionResult } from "./result";
 export async function accountOrFailure(
   accountId: string,
   /**
-   * Overrides the message. `requireAccountAccess` throws
-   * `Trading account "<id>" was not found.`, which is right for a log and
-   * clumsy in a form — the id is noise to whoever is reading it. Pass
-   * something plainer where the message is shown to a person.
+   * Overrides the message. The default is `errors.accountNotFound` in the
+   * reader's language — never `requireAccountAccess`'s own message, which
+   * names the id in English and is meant for a log.
    */
   message?: string,
 ): Promise<{ account: TradingAccount } | { failure: ActionFailure }> {
   try {
     return { account: await requireAccountAccess(accountId) };
   } catch (err) {
-    if (err instanceof NotFoundError) return { failure: fail(message ?? err.message) };
+    // Not err.message: that names the id, in English, for a log — the
+    // reader gets a sentence in their own language.
+    if (err instanceof NotFoundError) return { failure: fail(message ?? (await tr("accountNotFound"))) };
     throw err;
   }
 }

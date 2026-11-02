@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 
 type Tone = "neutral" | "profit" | "loss" | "warn";
@@ -68,6 +69,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void }) {
+  const t = useTranslations("ui");
   const [paused, setPaused] = React.useState(false);
   const remaining = React.useRef(DURATION);
   // Set on mount rather than at render time: reading the clock during render
@@ -128,7 +130,7 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Dismiss"
+          aria-label={t("dismiss")}
           className="grid size-5 shrink-0 place-items-center self-start rounded-inner text-ink-3 hover:bg-hover hover:text-ink"
         >
           <svg viewBox="0 0 8 8" className="size-2" aria-hidden>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 
 export const Dialog = DialogPrimitive.Root;
@@ -38,6 +39,7 @@ export function DialogContent({
   variant?: Variant;
   showClose?: boolean;
 }) {
+  const t = useTranslations("ui");
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -82,14 +84,16 @@ export function DialogContent({
               "transition-[background-color,color] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
               "hover:bg-hover hover:text-ink",
             )}
-            aria-label="Close"
+            aria-label={t("close")}
           >
             <X className="size-4" aria-hidden />
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>
       {/* One-off keyframes: Tailwind's arbitrary `animate-[...]` values still need the
-          @keyframes body defined somewhere, and globals.css is off-limits. The global
+          @keyframes body defined somewhere. (A comment here once called globals.css
+          "off-limits"; it is where tokens live — AGENTS.md — and these could move
+          there.) The global
           reduced-motion rule in globals.css already zeroes animation-duration for
           everyone, so nothing extra is needed here for that. */}
       <style>{`
