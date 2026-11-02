@@ -236,6 +236,9 @@ export async function registerUser(formData: FormData): Promise<AuthResult | und
     email,
     ownerEmails: env.AUTH_OWNER_EMAILS,
     isFirstUser: (await prisma.user.count()) === 0,
+    // A password sign-up proves nothing about the mailbox (roles.ts).
+    provedMailbox: false,
+    instanceCanProve: authFeatures.google || authFeatures.resend,
   });
 
   const user = await prisma.user.create({

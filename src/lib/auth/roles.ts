@@ -37,12 +37,25 @@ export function canWriteSharedData(role: UserRole): boolean {
  * This used to be a hardcoded `role: "OWNER"` in `registerUser`, on top of a
  * column that also defaulted to OWNER — so with open registration every
  * stranger who signed up became an instance owner.
+ *
+ * A NAMED ADDRESS IS NOT PROOF OF THE MAILBOX. `AUTH_OWNER_EMAILS` says who
+ * should own the instance; a password sign-up for that address proves only
+ * that someone typed it. So where the instance can prove a mailbox (Google,
+ * or magic-link email), a named address becomes OWNER only through a sign-in
+ * that did — otherwise a stranger who registered `ops@…` with a password
+ * before the operator did would own the instance. An instance with no way to
+ * prove one takes the operator's list at its word, as it always has.
  */
 export function resolveInitialRole(params: {
   email: string;
   ownerEmails: readonly string[];
   isFirstUser: boolean;
+  /** This sign-in proved control of the address (OAuth or a magic link). */
+  provedMailbox: boolean;
+  /** The instance offers a way to prove one at all (Google or magic link). */
+  instanceCanProve: boolean;
 }): UserRole {
   const named = params.ownerEmails.includes(params.email.trim().toLowerCase());
-  return named || params.isFirstUser ? "OWNER" : "MEMBER";
+  const trusted = params.provedMailbox || !params.instanceCanProve;
+  return (named && trusted) || params.isFirstUser ? "OWNER" : "MEMBER";
 }

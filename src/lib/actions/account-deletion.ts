@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { auth, signOut } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
+import { checkThrottle, recordAttempt } from "@/lib/auth/throttle";
 import { attachmentOwnedBy, deleteStoredFiles, storedFiles } from "./attachment-owner";
 import { failT, tr } from "@/i18n/server-t";
 import type { ActionResult } from "./result";
@@ -49,8 +50,15 @@ export async function deleteMyAccount(formData: FormData): Promise<ActionResult>
   }
 
   if (row.passwordHash) {
+    // The same lockout as the sign-in form, on the same bucket: this box is
+    // a password oracle for whoever holds the session — the stolen-cookie
+    // case this check exists for — and bcrypt on every try is a CPU lever.
+    const gate = await checkThrottle([{ policy: "PASSWORD_LOGIN_EMAIL", kind: "PASSWORD_LOGIN", email: row.email }]);
+    if (!gate.allowed) return { ok: false, fieldErrors: { password: [gate.message] } };
+
     const password = String(formData.get("password") ?? "");
     if (!password || !(await bcrypt.compare(password, row.passwordHash))) {
+      await recordAttempt({ kind: "PASSWORD_LOGIN", email: row.email, success: false, userId: user.id });
       return { ok: false, fieldErrors: { password: [await tr("deleteWrongPassword")] } };
     }
   } else {

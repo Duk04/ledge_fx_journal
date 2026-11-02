@@ -235,7 +235,12 @@ Who becomes OWNER — `resolveInitialRole()` in `src/lib/auth/roles.ts`, applied
 by both sign-up paths so the route someone registered through cannot decide
 their privileges:
 
-- an address listed in `AUTH_OWNER_EMAILS`;
+- an address listed in `AUTH_OWNER_EMAILS` — but, where the instance can
+  prove a mailbox (Google or magic-link email is configured), only through a
+  sign-in that did prove it. A password sign-up for a listed address proves
+  only that someone typed it; before this rule, a stranger who registered
+  the operator's address first became OWNER. On an instance with no way to
+  prove a mailbox, the list is trusted as before;
 - otherwise, the very first account on the instance;
 - otherwise `MEMBER`.
 
@@ -243,9 +248,11 @@ The `auth_hardening` migration demotes everyone and promotes the oldest row,
 which is right for an existing database but fragile if one is ever reset —
 `AUTH_OWNER_EMAILS` is the durable statement.
 
-Rendering: use `isOwner()` (non-throwing) to hide or disable a control.
-`requireOwner()` throws `ForbiddenError`, which action modules convert to
-`{ ok: false, formError }` the same way they already convert `NotFoundError`.
+Rendering: check `canWriteSharedData(user.role)` to hide or disable a
+control. `requireOwner()` throws `ForbiddenError`; actions call
+`ownerOrFailure()` (`src/lib/actions/guard.ts`), which converts it to a
+translated `{ ok: false, formError }` the way `accountOrFailure()` converts
+`NotFoundError`.
 
 ## The scoping rule
 
@@ -331,7 +338,9 @@ Settings → Profile → Delete account (`lib/actions/account-deletion.ts`). The
 
 - **The account's email, typed back.** This makes the deletion deliberate.
 - **Proof beyond the session:**
-  - the password, for an account that has one;
+  - the password, for an account that has one — throttled on the same
+    per-email bucket as the sign-in form, since otherwise this box would let
+    whoever holds the session guess the password at full speed;
   - otherwise a sign-in within the last ten minutes, read from the token's `authAt`.
 
   A session alone is what a borrowed laptop or a stolen cookie has.

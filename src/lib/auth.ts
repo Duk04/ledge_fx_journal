@@ -174,7 +174,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * issued. Two jobs, both of which need Prisma and so cannot live in the
      * edge-safe config.
      */
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       if (!user?.id) return false;
 
       const row = await prisma.user.findUnique({
@@ -194,6 +194,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: row.email ?? "",
         ownerEmails: env.AUTH_OWNER_EMAILS,
         isFirstUser: (await prisma.user.count()) === 1,
+        // Google and a magic link prove the mailbox; a password does not.
+        provedMailbox: account?.provider !== undefined && account.provider !== "credentials",
+        instanceCanProve: authFeatures.google || authFeatures.resend,
       });
 
       if (intended !== row.role && intended === "OWNER") {
