@@ -1496,7 +1496,8 @@
     "missingFile": "Missing file.",
     "unsupportedImageType": "Unsupported file type. Accepted formats: {formats}.",
     "attachmentNoFile": "This attachment has no file.",
-    "storedFileMissing": "The stored file is missing."
+    "storedFileMissing": "The stored file is missing.",
+    "statementImportFailed": "Importing failed, and nothing was imported. Try again, or import a shorter statement."
   },
   "validation": {
     "mustBeNumber": "Must be a number",

@@ -4,9 +4,7 @@ import bcrypt from "bcryptjs";
 import { auth, signOut } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { getStorage } from "@/lib/storage";
-import { attachmentOwnedBy } from "./attachment-owner";
-import { reportError } from "@/lib/report";
+import { attachmentOwnedBy, deleteStoredFiles, storedFiles } from "./attachment-owner";
 import { failT, tr } from "@/i18n/server-t";
 import type { ActionResult } from "./result";
 
@@ -69,22 +67,11 @@ export async function deleteMyAccount(formData: FormData): Promise<ActionResult>
     if (otherOwners === 0 && otherUsers > 0) return failT("deleteLastOwner");
   }
 
-  const blobs = await prisma.attachment.findMany({
-    // Through either owner — a trade's account or a journal day — or a
-    // journal screenshot's file outlives its user.
-    where: { ...attachmentOwnedBy(user.id), storageKey: { not: null } },
-    select: { storageKey: true },
-  });
+  // Through either owner — a trade's account or a journal day — or a
+  // journal screenshot's file outlives its user.
+  const files = await storedFiles(attachmentOwnedBy(user.id));
   await prisma.user.delete({ where: { id: user.id } });
-
-  const storage = getStorage();
-  for (const { storageKey } of blobs) {
-    try {
-      await storage.deleteObject(storageKey!);
-    } catch (err) {
-      reportError(err, { where: "deleteMyAccount", storageKey: storageKey! });
-    }
-  }
+  await deleteStoredFiles(files, "deleteMyAccount");
 
   // The user row is gone, so the DAL already rejects this token; signing out
   // clears the cookie too, and lands on a sentence saying what happened.

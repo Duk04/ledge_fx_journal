@@ -3,6 +3,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { AttachmentTarget } from "@/lib/attachment-target";
 import { fromEntryDate, isJournalDate, toEntryDate } from "@/lib/journal-date";
+import { reportError } from "@/lib/report";
+import { getStorage } from "@/lib/storage";
 
 /**
  * Who an attachment belongs to, in one place. An attachment hangs off a trade
@@ -84,4 +86,34 @@ export async function resolveAttachmentOwner(
     scope: `journal/${target.journalDate}`,
     path: `/journal/${target.journalDate}`,
   };
+}
+
+/**
+ * The uploaded files under the attachments matching `where`. Read BEFORE the
+ * rows go: deleting a trade, an import or a user cascades the attachment rows
+ * away, and with them the only record of where their bytes are.
+ */
+export async function storedFiles(where: Prisma.AttachmentWhereInput): Promise<string[]> {
+  const rows = await prisma.attachment.findMany({
+    where: { AND: [where, { storageKey: { not: null } }] },
+    select: { storageKey: true },
+  });
+  return rows.map((r) => r.storageKey!);
+}
+
+/**
+ * Best-effort removal of files whose rows are already gone. A failure here
+ * must not fail the request that deleted them — the rows are what the user
+ * sees — but it should not vanish either, so it is reported.
+ */
+export async function deleteStoredFiles(keys: string[], where: string): Promise<void> {
+  if (keys.length === 0) return;
+  const storage = getStorage();
+  for (const key of keys) {
+    try {
+      await storage.deleteObject(key);
+    } catch (err) {
+      reportError(err, { where, storageKey: key });
+    }
+  }
 }

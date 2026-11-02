@@ -279,3 +279,35 @@ describe("duplicateTrade (price mode)", () => {
     expect(row.marketSession).not.toBeNull();
   });
 });
+
+describe("closeTrade, clicked twice", () => {
+  it("exits the lots once and reports the second as a failure, not a throw", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const account = await createAccount(user.id);
+    signInAs(user.id);
+    const created = await createTrade(
+      account.id,
+      buildFormData(
+        defaultFormValues({
+          entryMode: "PRICE",
+          symbol: "EURUSD",
+          direction: "LONG",
+          status: "OPEN",
+          openedAt: "2026-03-04T13:30:00.000Z",
+          entryPrice: "1.10000",
+          volumeLots: "1",
+        }),
+      ),
+    );
+    if (!created.ok) throw new Error(JSON.stringify(created));
+
+    const close = () =>
+      closeTrade(account.id, created.id, { exitPrice: "1.101", closedAt: "2026-03-04T15:00:00.000Z" });
+    const results = await Promise.all([close(), close()]);
+
+    expect(results.map((r) => r.ok).sort()).toEqual([false, true]);
+    const exits = await prisma.execution.count({ where: { tradeId: created.id, kind: "EXIT" } });
+    expect(exits).toBe(1);
+  });
+});

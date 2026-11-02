@@ -157,7 +157,15 @@ export async function deleteAccount(accountId: string): Promise<ActionResult> {
   const found = await accountOrFailure(accountId, await tr("accountNotFound"));
   if ("failure" in found) return found.failure;
 
-  const tradeCount = await prisma.trade.count({ where: { accountId } });
+  // The count and the delete in one transaction, with the account row
+  // locked: a trade saved between them would otherwise cascade away with an
+  // account that was "empty" a moment before.
+  const tradeCount = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM accounts WHERE id = ${found.account.id} FOR UPDATE`;
+    const count = await tx.trade.count({ where: { accountId: found.account.id } });
+    if (count === 0) await tx.tradingAccount.delete({ where: { id: found.account.id } });
+    return count;
+  });
   if (tradeCount > 0) {
     return {
       ok: false,
@@ -165,7 +173,6 @@ export async function deleteAccount(accountId: string): Promise<ActionResult> {
     };
   }
 
-  await prisma.tradingAccount.delete({ where: { id: accountId } });
   revalidateAccounts();
   return ok();
 }

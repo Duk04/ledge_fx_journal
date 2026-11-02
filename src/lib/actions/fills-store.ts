@@ -1,6 +1,6 @@
 import "server-only";
 import { Prisma, type Execution, type ExecutionKind, type Instrument } from "@prisma/client";
-import { aggregateFills, simpleFills, type Fill } from "@/lib/metrics/fills";
+import { aggregateFills, simpleFills, validateFills, type Fill } from "@/lib/metrics/fills";
 import { derivedColumns, priceTradeInput } from "@/lib/trade-service";
 
 /**
@@ -70,6 +70,33 @@ export function columnsFromFills(
     status: agg.status,
     ...derivedColumns(priceTradeInput(next, instrument, accountCurrency)),
   };
+}
+
+/**
+ * Thrown inside a fills transaction when, under the row lock, the change no
+ * longer fits the trade's fills — another write to them landed first. The
+ * transaction rolls back and the action reports the message as a failure.
+ */
+export class FillsChanged extends Error {}
+
+/**
+ * Locks the trade's row until the transaction ends and returns its
+ * executions as they are now. Two writes to one trade's fills — a double-clicked Close, an
+ * exit added in two tabs — then run one after the other, and the second is
+ * validated against what the first wrote rather than against the snapshot
+ * both read before either began. Without it, both passed validation, and the
+ * second either over-closed the position or threw out of the action from
+ * `aggregateFills`.
+ */
+export async function lockExecutions(tx: Tx, tradeId: string): Promise<Execution[]> {
+  await tx.$queryRaw`SELECT id FROM trades WHERE id = ${tradeId} FOR UPDATE`;
+  return tx.execution.findMany({ where: { tradeId } });
+}
+
+/** Validates `next` under the lock; throws FillsChanged to roll back. */
+export function assertFills(next: Fill[]): void {
+  const problems = validateFills(next);
+  if (problems.length) throw new FillsChanged(problems[0].message);
 }
 
 /**

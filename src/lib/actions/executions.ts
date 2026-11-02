@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { validateFills } from "@/lib/metrics/fills";
 import { accountOrFailure } from "./guard";
-import { syncTradeFromFills, toFill } from "./fills-store";
+import { FillsChanged, assertFills, lockExecutions, syncTradeFromFills, toFill } from "./fills-store";
 import { fail, ok, type ActionResult } from "./result";
 import { failT, failZod, tr } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
@@ -64,18 +64,25 @@ export async function addExecution(
   const problems = validateFills([...found.trade.executions.map(toFill), parsed.data]);
   if (problems.length) return fail(problems[0].message);
 
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.execution.create({
-      data: {
-        tradeId,
-        kind: parsed.data.kind,
-        executedAt: parsed.data.executedAt,
-        price: parsed.data.price.toString(),
-        volumeLots: parsed.data.volumeLots.toString(),
-      },
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      assertFills([...(await lockExecutions(tx, tradeId)).map(toFill), parsed.data]);
+      await tx.execution.create({
+        data: {
+          tradeId,
+          kind: parsed.data.kind,
+          executedAt: parsed.data.executedAt,
+          price: parsed.data.price.toString(),
+          volumeLots: parsed.data.volumeLots.toString(),
+        },
+      });
+      return syncTradeFromFills(tx, tradeId, found.account.currency);
     });
-    return syncTradeFromFills(tx, tradeId, found.account.currency);
-  });
+  } catch (err) {
+    if (err instanceof FillsChanged) return fail(err.message);
+    throw err;
+  }
 
   revalidate(tradeId);
   return ok({ status: updated.status === "CLOSED" ? "CLOSED" : "OPEN" });
@@ -98,10 +105,24 @@ export async function deleteExecution(
     return fail(problems[0].code === "NO_ENTRY" ? await tr("onlyEntryFill") : problems[0].message);
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.execution.delete({ where: { id: executionId } });
-    return syncTradeFromFills(tx, tradeId, found.account.currency);
-  });
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const current = await lockExecutions(tx, tradeId);
+      // Re-checked under the lock: removed in another tab meanwhile, or the
+      // fills left behind would no longer describe a position.
+      if (!current.some((e) => e.id === executionId)) throw new FillsChanged(await tr("fillNotFound"));
+      const rest = validateFills(current.filter((e) => e.id !== executionId).map(toFill));
+      if (rest.length) {
+        throw new FillsChanged(rest[0].code === "NO_ENTRY" ? await tr("onlyEntryFill") : rest[0].message);
+      }
+      await tx.execution.delete({ where: { id: executionId } });
+      return syncTradeFromFills(tx, tradeId, found.account.currency);
+    });
+  } catch (err) {
+    if (err instanceof FillsChanged) return fail(err.message);
+    throw err;
+  }
 
   revalidate(tradeId);
   return ok({ status: updated.status === "CLOSED" ? "CLOSED" : "OPEN" });

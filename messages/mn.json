@@ -1496,7 +1496,8 @@
     "missingFile": "Файл алга.",
     "unsupportedImageType": "Дэмжигдээгүй файлын төрөл. Зөвшөөрөгдөх формат: {formats}.",
     "attachmentNoFile": "Энэ хавсралтад файл алга.",
-    "storedFileMissing": "Хадгалсан файл олдсонгүй."
+    "storedFileMissing": "Хадгалсан файл олдсонгүй.",
+    "statementImportFailed": "Импорт амжилтгүй боллоо, юу ч импортлогдсонгүй. Дахин оролдох эсвэл богино statement импортлоно уу."
   },
   "validation": {
     "mustBeNumber": "Тоо байх ёстой",

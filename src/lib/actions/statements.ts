@@ -5,6 +5,7 @@ import type { Instrument, MarketSession } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { accountOrFailure } from "./guard";
+import { deleteStoredFiles, storedFiles } from "./attachment-owner";
 import { syncTradeFromFills, toFill } from "./fills-store";
 import { aggregateFills } from "@/lib/metrics/fills";
 import { fail, ok, type ActionResult } from "./result";
@@ -17,6 +18,9 @@ import {
   type StatementSource,
 } from "@/lib/statements";
 import { failT, tr } from "@/i18n/server-t";
+
+/** Headroom for a long statement on a remote database (see importStatement). */
+const STATEMENT_TX = { timeout: 120_000, maxWait: 10_000 };
 
 /**
  * Broker statement import. docs/IMPORT.md is the overview; the parsing and
@@ -194,119 +198,130 @@ export async function importStatement(accountId: string, formData: FormData): Pr
   const cash = plan.balanceEvents.filter((b) => b.status === "new");
   if (creates.length + closes.length + cash.length === 0) return failT("nothingNewToImport");
 
-  const importRow = await prisma.$transaction(async (tx) => {
-    for (const [brokerSymbol, symbol] of submittedAliases) {
-      await tx.symbolAlias.upsert({
-        where: { userId_brokerSymbol: { userId: user.id, brokerSymbol } },
-        create: { userId: user.id, brokerSymbol, symbol },
-        update: { symbol },
+  // One transaction for the whole statement, so a failure at any row leaves
+  // nothing behind. It is row by row — a few round trips per position — so a
+  // long statement against a remote database outlives Prisma's 5-second
+  // default; the timeout is raised as restore.ts does, and a failure is a
+  // result, not a throw (actions never throw).
+  let importRow: { id: string };
+  try {
+    importRow = await prisma.$transaction(async (tx) => {
+      for (const [brokerSymbol, symbol] of submittedAliases) {
+        await tx.symbolAlias.upsert({
+          where: { userId_brokerSymbol: { userId: user.id, brokerSymbol } },
+          create: { userId: user.id, brokerSymbol, symbol },
+          update: { symbol },
+        });
+      }
+
+      const row = await tx.tradeImport.create({
+        data: {
+          userId: user.id,
+          accountId: account.id,
+          source: parsed.source,
+          fileName: file.name || null,
+          tzMode: tz.mode,
+          tzOffsetMinutes: tz.mode === "fixed" ? tz.offsetMinutes : null,
+          tradesCreated: creates.length,
+          tradesSkipped: report.counts.unmapped + parsed.skipped,
+          balanceEvents: cash.length,
+        },
       });
-    }
 
-    const row = await tx.tradeImport.create({
-      data: {
-        userId: user.id,
-        accountId: account.id,
-        source: parsed.source,
-        fileName: file.name || null,
-        tzMode: tz.mode,
-        tzOffsetMinutes: tz.mode === "fixed" ? tz.offsetMinutes : null,
-        tradesCreated: creates.length,
-        tradesSkipped: report.counts.unmapped + parsed.skipped,
-        balanceEvents: cash.length,
-      },
-    });
+      // One create per position rather than createMany: each needs its
+      // executions, and createMany returns no ids to hang them on. Statements
+      // are hundreds of rows, not hundreds of thousands.
+      for (const { position: p, symbol, reconciliation, derived } of creates) {
+        const created = await tx.trade.createMany({
+          skipDuplicates: true,
+          data: [
+            {
+              accountId: account.id,
+              symbol: symbol!,
+              direction: p.direction,
+              status: p.closedAt === null ? "OPEN" : "CLOSED",
+              openedAt: new Date(p.openedAt),
+              closedAt: p.closedAt === null ? null : new Date(p.closedAt),
+              entryPrice: p.entryPrice,
+              exitPrice: p.exitPrice,
+              stopLoss: p.stopLoss,
+              initialStopLoss: p.stopLoss,
+              takeProfit: p.takeProfit,
+              volumeLots: p.volumeLots,
+              commission: p.commission,
+              swap: p.swap,
+              conversionRate: reconciliation?.conversionRate ?? null,
+              brokerProfit: p.brokerProfit,
+              externalTicket: p.ticket,
+              importId: row.id,
+              ...(derived as unknown as Derived),
+            },
+          ],
+        });
+        // skipDuplicates: a concurrent import of the same ticket wins the race
+        // and this row is silently skipped — so are its fills.
+        if (created.count === 0) continue;
+        const trade = await tx.trade.findUniqueOrThrow({
+          where: { accountId_externalTicket: { accountId: account.id, externalTicket: p.ticket } },
+          select: { id: true },
+        });
+        await tx.execution.createMany({
+          data: p.fills.map((f) => ({
+            tradeId: trade.id,
+            kind: f.kind,
+            executedAt: new Date(f.at),
+            price: f.price,
+            volumeLots: f.volumeLots,
+          })),
+        });
+      }
 
-    // One create per position rather than createMany: each needs its
-    // executions, and createMany returns no ids to hang them on. Statements
-    // are hundreds of rows, not hundreds of thousands.
-    for (const { position: p, symbol, reconciliation, derived } of creates) {
-      const created = await tx.trade.createMany({
-        skipDuplicates: true,
-        data: [
-          {
-            accountId: account.id,
-            symbol: symbol!,
-            direction: p.direction,
-            status: p.closedAt === null ? "OPEN" : "CLOSED",
-            openedAt: new Date(p.openedAt),
-            closedAt: p.closedAt === null ? null : new Date(p.closedAt),
-            entryPrice: p.entryPrice,
-            exitPrice: p.exitPrice,
-            stopLoss: p.stopLoss,
-            initialStopLoss: p.stopLoss,
-            takeProfit: p.takeProfit,
-            volumeLots: p.volumeLots,
+      for (const { position: p, reconciliation, existingId } of closes) {
+        // Broker facts first, then the exit as a fill for whatever is still
+        // open, then re-derive everything from the fills.
+        await tx.trade.update({
+          where: { id: existingId!, accountId: account.id },
+          data: {
             commission: p.commission,
             swap: p.swap,
             conversionRate: reconciliation?.conversionRate ?? null,
             brokerProfit: p.brokerProfit,
-            externalTicket: p.ticket,
-            importId: row.id,
-            ...(derived as unknown as Derived),
           },
-        ],
-      });
-      // skipDuplicates: a concurrent import of the same ticket wins the race
-      // and this row is silently skipped — so are its fills.
-      if (created.count === 0) continue;
-      const trade = await tx.trade.findUniqueOrThrow({
-        where: { accountId_externalTicket: { accountId: account.id, externalTicket: p.ticket } },
-        select: { id: true },
-      });
-      await tx.execution.createMany({
-        data: p.fills.map((f) => ({
-          tradeId: trade.id,
-          kind: f.kind,
-          executedAt: new Date(f.at),
-          price: f.price,
-          volumeLots: f.volumeLots,
-        })),
-      });
-    }
+        });
+        const fills = await tx.execution.findMany({ where: { tradeId: existingId! } });
+        const open = aggregateFills(fills.map(toFill));
+        await tx.execution.create({
+          data: {
+            tradeId: existingId!,
+            kind: "EXIT",
+            executedAt: new Date(p.closedAt!),
+            price: p.exitPrice!,
+            volumeLots: open.volumeLots.minus(open.exitedLots).toString(),
+          },
+        });
+        await syncTradeFromFills(tx, existingId!, account.currency);
+      }
 
-    for (const { position: p, reconciliation, existingId } of closes) {
-      // Broker facts first, then the exit as a fill for whatever is still
-      // open, then re-derive everything from the fills.
-      await tx.trade.update({
-        where: { id: existingId!, accountId: account.id },
-        data: {
-          commission: p.commission,
-          swap: p.swap,
-          conversionRate: reconciliation?.conversionRate ?? null,
-          brokerProfit: p.brokerProfit,
-        },
-      });
-      const fills = await tx.execution.findMany({ where: { tradeId: existingId! } });
-      const open = aggregateFills(fills.map(toFill));
-      await tx.execution.create({
-        data: {
-          tradeId: existingId!,
-          kind: "EXIT",
-          executedAt: new Date(p.closedAt!),
-          price: p.exitPrice!,
-          volumeLots: open.volumeLots.minus(open.exitedLots).toString(),
-        },
-      });
-      await syncTradeFromFills(tx, existingId!, account.currency);
-    }
-
-    if (cash.length) {
-      await tx.balanceEvent.createMany({
-        skipDuplicates: true,
-        data: cash.map(({ event }) => ({
-          accountId: account.id,
-          kind: Number(event.amount) >= 0 ? "DEPOSIT" : "WITHDRAWAL",
-          amount: event.amount,
-          occurredAt: new Date(event.at),
-          note: event.comment || null,
-          externalTicket: event.ticket,
-          importId: row.id,
-        })),
-      });
-    }
-    return row;
-  });
+      if (cash.length) {
+        await tx.balanceEvent.createMany({
+          skipDuplicates: true,
+          data: cash.map(({ event }) => ({
+            accountId: account.id,
+            kind: Number(event.amount) >= 0 ? "DEPOSIT" : "WITHDRAWAL",
+            amount: event.amount,
+            occurredAt: new Date(event.at),
+            note: event.comment || null,
+            externalTicket: event.ticket,
+            importId: row.id,
+          })),
+        });
+      }
+      return row;
+    }, STATEMENT_TX);
+  } catch (err) {
+    console.error("importStatement failed", err);
+    return failT("statementImportFailed");
+  }
 
   revalidatePath("/trades");
   revalidatePath("/");
@@ -325,11 +340,14 @@ export async function undoImport(importId: string): Promise<ActionResult<{ trade
   const row = await prisma.tradeImport.findFirst({ where: { id: importId, userId: user.id } });
   if (!row) return failT("importNotFound");
 
+  // Screenshots added to an imported trade since go with it.
+  const files = await storedFiles({ trade: { importId: row.id, accountId: row.accountId } });
   const [trades, cash] = await prisma.$transaction([
     prisma.trade.deleteMany({ where: { importId: row.id, accountId: row.accountId } }),
     prisma.balanceEvent.deleteMany({ where: { importId: row.id, accountId: row.accountId } }),
     prisma.tradeImport.delete({ where: { id: row.id } }),
   ]);
+  await deleteStoredFiles(files, "undoImport");
 
   revalidatePath("/trades");
   revalidatePath("/");

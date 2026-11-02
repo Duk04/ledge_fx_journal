@@ -19,7 +19,15 @@ import {
 import { derivedColumns, instrumentSpec, priceTradeInput, rTradeInput } from "@/lib/trade-service";
 import { resolveConversion } from "@/lib/conversion";
 import type { RTradeInput, TradeInput } from "@/lib/metrics/types";
-import { simpleExecutionsCreate, syncTradeFromFills, toFill } from "./fills-store";
+import {
+  FillsChanged,
+  assertFills,
+  lockExecutions,
+  simpleExecutionsCreate,
+  syncTradeFromFills,
+  toFill,
+} from "./fills-store";
+import { deleteStoredFiles, storedFiles } from "./attachment-owner";
 import { aggregateFills, fitsSimpleForm, validateFills } from "@/lib/metrics/fills";
 import { Decimal } from "decimal.js";
 import { failT, failZod, tr } from "@/i18n/server-t";
@@ -374,7 +382,10 @@ export async function deleteTrade(accountId: string, tradeId: string): Promise<T
   const existing = await prisma.trade.findFirst({ where: { id: tradeId, accountId }, select: { id: true } });
   if (!existing) return failT("tradeNotFound");
 
-  await prisma.trade.delete({ where: { id: tradeId } });
+  // The cascade takes the screenshot rows; their files go here.
+  const files = await storedFiles({ tradeId: existing.id });
+  await prisma.trade.delete({ where: { id: existing.id } });
+  await deleteStoredFiles(files, "deleteTrade");
   revalidateTradeViews();
   return ok({ id: tradeId });
 }
@@ -422,18 +433,32 @@ export async function closeTrade(
   ]);
   if (problems.length) return failFields({ closedAt: [problems[0].message] });
 
-  await prisma.$transaction(async (tx) => {
-    await tx.execution.create({
-      data: {
-        tradeId,
-        kind: "EXIT",
-        executedAt: parsed.data.closedAt,
-        price: parsed.data.exitPrice.toString(),
-        volumeLots: lots.toString(),
-      },
+  const exit = {
+    kind: "EXIT" as const,
+    executedAt: parsed.data.closedAt,
+    price: parsed.data.exitPrice,
+    volumeLots: lots,
+  };
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Re-validated under the row lock, so a double-clicked Close cannot
+      // exit the same lots twice (fills-store.ts, lockExecutions).
+      assertFills([...(await lockExecutions(tx, tradeId)).map(toFill), exit]);
+      await tx.execution.create({
+        data: {
+          tradeId,
+          kind: "EXIT",
+          executedAt: exit.executedAt,
+          price: exit.price.toString(),
+          volumeLots: lots.toString(),
+        },
+      });
+      await syncTradeFromFills(tx, tradeId, account.currency);
     });
-    await syncTradeFromFills(tx, tradeId, account.currency);
-  });
+  } catch (err) {
+    if (err instanceof FillsChanged) return failFields({ volumeLots: [err.message] });
+    throw err;
+  }
 
   revalidateTradeViews(tradeId);
   return ok({ id: tradeId });
