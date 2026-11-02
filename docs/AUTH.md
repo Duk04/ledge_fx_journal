@@ -86,8 +86,13 @@ the old cookie by hand. Clearing the cookie is still done — it is what makes
 the browser look signed out — but the revocation is what makes it true.
 
 A row is only needed until its token would have expired; `expiresAt` is issue
-time + `maxAge`, and sign-out prunes expired rows. Tokens minted before `sid`
-existed carry none, cannot be revoked individually, and age out within a week.
+time + `maxAge`, and sign-out prunes expired rows. That is true only because
+the DAL enforces the lifetime itself: `getCurrentUser()` refuses a token whose
+`authAt + maxAge` has passed. The cookie's own `exp` is no limit — Auth.js
+re-signs it with a fresh expiry whenever it is read past `updateAge` — so
+before that check, a stolen cookie kept alive by refreshing outlived its
+revocation row and authenticated again once the row was pruned. Tokens minted
+before `authAt` existed are refused outright.
 
 Still not built: a "sign out my other devices" button (the per-user stamp
 supports it) and a list of active sessions (that would need a row per

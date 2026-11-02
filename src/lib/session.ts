@@ -19,8 +19,8 @@
  * that replaces the `userId` rule is: reads are unscoped, and every WRITE is
  * gated by `requireOwner()`.
  *
- * WHERE AUTHORITY LIVES. The session cookie carries only a user id and an
- * issued-at claim. Role, timezone and verification status are read from the
+ * WHERE AUTHORITY LIVES. The session cookie carries only a user id, a
+ * sign-in time (`authAt`) and a per-sign-in id (`sid`, for revocation). Role, timezone and verification status are read from the
  * database on each render (cached per request by React's `cache`), because a
  * JWT is only rewritten on sign-in or after `updateAge` — so a role demotion
  * stashed in a token would not take effect for up to a week.
@@ -30,6 +30,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { UserRole, TradingAccount } from "@prisma/client";
 import { auth } from "@/lib/auth";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth-config";
 import { authFeatures } from "@/lib/auth-features";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -77,6 +78,16 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!id) return null;
   const sid = session?.user?.sid;
 
+  // An absolute lifetime, counted from sign-in rather than from the cookie's
+  // own expiry. Auth.js re-signs the cookie with a fresh `exp` whenever it is
+  // read past `updateAge`, so a token that keeps being used never expires by
+  // itself — and a signed-out `sid`'s RevokedSession row is pruned once
+  // `authAt + maxAge` has passed. Without this, a stolen cookie kept alive by
+  // refreshing would authenticate again the day its revocation was pruned.
+  // A token with no `authAt` predates the claim, so it is past any limit.
+  const authAt = session?.user?.authAt;
+  if (!authAt || (authAt + SESSION_MAX_AGE_SECONDS) * 1000 < Date.now()) return null;
+
   const row = await prisma.user.findUnique({
     where: { id },
     // Explicit columns, not the whole row: `passwordHash` has no business
@@ -91,19 +102,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       sessionsValidFrom: true,
       // Same query, not a second round-trip: is THIS token signed out? A
       // token minted before `sid` existed has none and cannot be matched;
-      // it ages out within the session maxAge.
+      // the absolute lifetime above retires it within the session maxAge.
       revokedSessions: sid ? { where: { sid }, select: { sid: true }, take: 1 } : false,
     },
   });
   if (!row) return null;
   if (row.revokedSessions?.length) return null;
 
-  if (row.sessionsValidFrom) {
-    const authAt = session?.user?.authAt;
-    // No `authAt` means a token issued before this claim existed, which is
-    // necessarily older than any revocation stamp — so it fails closed.
-    if (!authAt || authAt * 1000 < row.sessionsValidFrom.getTime()) return null;
-  }
+  if (row.sessionsValidFrom && authAt * 1000 < row.sessionsValidFrom.getTime()) return null;
 
   return {
     id: row.id,

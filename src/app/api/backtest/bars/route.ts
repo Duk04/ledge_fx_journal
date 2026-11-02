@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getBars, lastCloseIn } from "@/lib/queries/candles";
 import { resolveRunConversionRate, toSimInstrument } from "@/lib/backtest/run-setup";
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 
 /**
@@ -46,9 +46,10 @@ const querySchema = z.object({
 export async function GET(request: NextRequest) {
   // Not `requireUser()`: that redirects, which turns an unauthenticated fetch
   // into a 307 pointing at an HTML login page. A fetch caller wants a status
-  // code it can branch on.
-  const session = await getSession();
-  if (!session?.user?.id) {
+  // code it can branch on. `getCurrentUser()` and not the bare session: only
+  // the DAL honours sign-out, "sign out everywhere" and a deleted account.
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -12,16 +12,15 @@
  *
  * Session strategy: **JWT**, not database sessions.
  *
- * Auth.js v5's Credentials provider refuses to run under the database
- * session strategy at all — when an `adapter` is configured, the
- * Credentials provider requires `session.strategy === "jwt"` (mixing them
- * throws at startup). Since this app needs both a Credentials-based dev
- * login and adapter-backed OAuth account linking (Google/Resend), the only
- * combination Auth.js actually supports is: keep the adapter (so OAuth
- * accounts link to `User` rows and `AuthAccount`/`VerificationToken` work
- * as documented) but use JWT-encoded session cookies instead of rows in
- * the `Session` table. See docs/AUTH.md for the trade-off this implies
- * (no server-side session revocation list) and why it was accepted.
+ * Auth.js v5's Credentials provider does not support the database session
+ * strategy, and this app needs both password sign-in and adapter-backed
+ * OAuth account linking (Google/Resend). So: keep the adapter (OAuth
+ * accounts link to `User` rows; `AuthAccount`/`VerificationToken` work as
+ * documented) and use JWT-encoded session cookies. Revocation is therefore
+ * done in the DAL, not by deleting a session row: a per-user
+ * `sessionsValidFrom` stamp, a per-token `RevokedSession` list, and an
+ * absolute lifetime from sign-in (src/lib/session.ts). docs/AUTH.md has the
+ * details.
  */
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import type { UserRole } from "@prisma/client";
@@ -104,7 +103,9 @@ export const authConfig: NextAuthConfig = {
      * 24-hour updateAge, and this file previously said neither — so the app's
      * actual session lifetime was not expressed anywhere in the repo, and a
      * stolen cookie was good for a month. Seven days is short enough to bound
-     * that and long enough not to be annoying.
+     * that and long enough not to be annoying. The bound is enforced by
+     * `getCurrentUser()` from the `authAt` claim, not by the cookie: a cookie
+     * read past `updateAge` is re-signed with a fresh expiry, indefinitely.
      *
      * Literals rather than env reads on purpose: this file must stay
      * importable from the Edge middleware bundle, which cannot load

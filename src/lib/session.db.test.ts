@@ -60,6 +60,17 @@ describe("getCurrentUser", () => {
     expect((await getCurrentUser())?.id).toBe(user.id);
   });
 
+  it("rejects a token older than the session lifetime, however recently it was refreshed", async () => {
+    const user = await createUser();
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+
+    signInAs(user.id, eightDaysAgo);
+    expect(await getCurrentUser()).toBeNull();
+
+    signInAs(user.id, new Date(Date.now() - 6 * 24 * 60 * 60 * 1000));
+    expect((await getCurrentUser())?.id).toBe(user.id);
+  });
+
   it("returns null for a session whose user no longer exists", async () => {
     signInAs("11111111-1111-1111-1111-111111111111");
     expect(await getCurrentUser()).toBeNull();
