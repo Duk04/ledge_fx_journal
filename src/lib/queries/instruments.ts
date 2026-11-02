@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
  * `Instrument` has no `userId` — one row per symbol, shared by every account
  * on the instance (see the scoping-rule exceptions in `src/lib/session.ts`).
  * Reads are therefore unscoped by design; WRITES are owner-only and live in
- * `src/app/(app)/settings/actions.ts`.
+ * `src/lib/actions/settings.ts`.
  *
  * This module exists so pages stop reaching past the query layer into Prisma.
  * The `isActive` list was duplicated in three places — two backtest pages and

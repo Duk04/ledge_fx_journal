@@ -85,9 +85,10 @@ const eslintConfig = defineConfig([
    *
    * SCOPE, and why it is narrower than it first looks:
    *
-   * - Only `.tsx` files. A colocated `actions.ts` (as under `settings/`) is a
-   *   server action, which is a legitimate `db` caller — the rule is about
-   *   what RENDERS, not about which directory a file sits in.
+   * - Only `.tsx` files: the rule is about what RENDERS. Server actions are
+   *   legitimate `db` callers, and they live in `src/lib/actions/` — not
+   *   colocated under `app/` (AGENTS.md, "Layers"; Settings' actions were the
+   *   last to move).
    *
    * - Only `db.ts`, not `queries/*`. `import/no-restricted-paths` (2.32) does
    *   not distinguish a type import from a value one, and 29 component files

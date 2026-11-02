@@ -18,8 +18,8 @@ import {
   SegmentedItem,
   useToast,
 } from "@/components/ui";
-import { updateProfile } from "@/app/(app)/settings/actions";
-import { IANA_TIMEZONES } from "./timezones";
+import { updateProfile } from "@/lib/actions/settings";
+import { IANA_TIMEZONES } from "@/lib/timezones";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";

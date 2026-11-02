@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import * as React from "react";
 import { Pencil, Check, X, RotateCcw } from "lucide-react";
 import { DataTable, Th, Td, Button, useToast, NumberInput, Input, Badge } from "@/components/ui";
-import { updateInstrument, resetInstrumentsToDefaults } from "@/app/(app)/settings/actions";
+import { updateInstrument, resetInstrumentsToDefaults } from "@/lib/actions/settings";
 import type { InstrumentRow } from "@/lib/queries/settings";
 
 /**
@@ -13,7 +13,7 @@ import type { InstrumentRow } from "@/lib/queries/settings";
  * down. Members see the table read-only with an explanation, rather than
  * edit controls that fail on submit — `Instrument` is one shared table
  * feeding every user's P&L, so writes are owner-only (see
- * app/(app)/settings/actions.ts).
+ * lib/actions/settings.ts).
  */
 export function InstrumentsTab({
   initialInstruments,

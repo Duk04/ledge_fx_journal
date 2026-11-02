@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import * as React from "react";
 import { Download, FileJson, RefreshCw, Upload } from "lucide-react";
 import { Panel, PanelHeader, PanelBody, Button, useToast } from "@/components/ui";
-import { recomputeDerivedColumns } from "@/app/(app)/settings/actions";
+import { recomputeDerivedColumns } from "@/lib/actions/settings";
 import { restoreFromExport, type RestoreSummary } from "@/lib/actions/restore";
 
 export function DataTab() {

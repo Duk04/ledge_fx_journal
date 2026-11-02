@@ -4,19 +4,21 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { failFields, fieldErrorsFrom, ok, type ActionResult } from "@/lib/actions/result";
-import { ownerOrFailure } from "@/lib/actions/guard";
+import { failFields, fieldErrorsFrom, ok, type ActionResult } from "./result";
+import { ownerOrFailure } from "./guard";
 import { derivedColumns, tradeInput } from "@/lib/trade-service";
 import { seedInstruments } from "@/lib/instruments";
-import { IANA_TIMEZONES } from "@/components/settings/timezones";
+import { IANA_TIMEZONES } from "@/lib/timezones";
 import { failT, failZod, tr } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
 
 /**
- * Server actions for the Profile / Instruments / Data tabs. Tags have their
- * own file (`src/lib/actions/tags.ts`) since Tag CRUD is substantial enough
- * to stand on its own; everything else in Settings lives here, colocated
- * with the route that's its only caller.
+ * Server actions for the Profile, Instruments and Data tabs: the profile
+ * fields, the shared instrument specs, and the derived-column recompute. The
+ * rest of Settings has its own module — tags, notifications, locale, restore
+ * and account deletion. This file used to sit under `app/(app)/settings/`,
+ * "colocated with its only caller", which put a Prisma caller in the app
+ * layer and had components importing back from `@/app` (AGENTS.md, "Layers").
  */
 
 // ---------------------------------------------------------------------------
