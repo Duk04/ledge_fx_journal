@@ -25,6 +25,7 @@ import {
   DropdownTrigger,
 } from "@/components/ui/dropdown";
 import type { TagOption } from "@/lib/queries/trades";
+import { RANGE_OPTIONS } from "@/lib/range";
 
 // Radix's single-select ToggleGroup treats "" as its own internal
 // "nothing selected" sentinel, so an "All" item can't use "" as its value
@@ -42,7 +43,9 @@ const OUTCOME_OPTIONS = [
   { value: "OPEN", labelKey: "open" },
 ] as const;
 
-const RANGE_OPTIONS = ["7d", "30d", "90d", "ytd", "all"] as const;
+// The same vocabulary the list resolves (lib/trade-list-query.ts via
+// lib/range.ts), not a second copy of it.
+const RANGE_VALUES = RANGE_OPTIONS.map((o) => o.value);
 
 /** Query-param keys this bar owns. Kept in one place so "does setting this
  * filter clear the page number" and "is anything set at all" agree. */
@@ -189,7 +192,7 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
         }
         aria-label={t("filters.dateRange")}
       >
-        {RANGE_OPTIONS.map((value) => (
+        {RANGE_VALUES.map((value) => (
           <SegmentedItem key={value} value={value}>
             {t(`filters.range.${value}`)}
           </SegmentedItem>

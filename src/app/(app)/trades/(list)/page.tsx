@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Plus, Upload } from "lucide-react";
-import { subDays, startOfYear, endOfDay } from "date-fns";
-import type { Direction } from "@prisma/client";
 import { Page } from "@/components/shell/page";
 import { Panel, PanelBody, PanelFooter, SectionHead } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
@@ -22,49 +20,13 @@ import {
   listTagsForUser,
   tradeStats,
   TRADE_SORT_FIELDS,
-  type TradeFilters,
-  type TradeOutcomeFilter,
   type TradeSortField,
 } from "@/lib/queries/trades";
+import { first, parseTradeListQuery, type SearchParams } from "@/lib/trade-list-query";
 import { TradeFilterBar } from "@/components/trades/filter-bar";
 import { TradePaginationBar } from "@/components/trades/pagination-bar";
 import { SortLink } from "@/components/trades/sort-link";
 import { TradeRowMenu } from "@/components/trades/row-menu";
-
-type SearchParams = Record<string, string | string[] | undefined>;
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
-function csv(v: string | string[] | undefined): string[] {
-  const s = first(v);
-  return s ? s.split(",").filter(Boolean) : [];
-}
-
-/** "7d"/"30d"/"90d"/"ytd"/"all" are resolved relative to *now*, on every
- * request — a saved "last 7 days" link should always mean the last 7 days
- * from whenever it's opened, not a frozen absolute range. Only "custom"
- * carries explicit dates in the URL. */
-function resolveDateRange(range: string, fromStr?: string, toStr?: string): { from?: Date; to?: Date } {
-  if (range === "custom") {
-    const from = fromStr ? new Date(fromStr) : undefined;
-    const to = toStr ? endOfDay(new Date(toStr)) : undefined;
-    return { from, to };
-  }
-  const now = new Date();
-  switch (range) {
-    case "7d":
-      return { from: subDays(now, 7) };
-    case "30d":
-      return { from: subDays(now, 30) };
-    case "90d":
-      return { from: subDays(now, 90) };
-    case "ytd":
-      return { from: startOfYear(now) };
-    default:
-      return {};
-  }
-}
 
 function toSearchParams(sp: SearchParams): URLSearchParams {
   const params = new URLSearchParams();
@@ -75,8 +37,6 @@ function toSearchParams(sp: SearchParams): URLSearchParams {
   }
   return params;
 }
-
-const PAGE_SIZES = [25, 50, 100];
 
 export default async function TradesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
@@ -99,30 +59,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
 
   const account = await requireAccountAccess(activeAccountId);
 
-  // -------------------------------------------------------------- filters
-  const q = first(sp.q);
-  const symbols = csv(sp.symbols);
-  const directions = csv(sp.directions) as Direction[];
-  const outcome = first(sp.outcome) as TradeOutcomeFilter | undefined;
-  const tagIds = csv(sp.tags);
-  const range = first(sp.range) ?? "all";
-  const followedPlanParam = first(sp.followedPlan);
-  const { from, to } = resolveDateRange(range, first(sp.from), first(sp.to));
-
-  const filters: TradeFilters = {
-    q,
-    symbols: symbols.length ? symbols : undefined,
-    directions: directions.length ? directions : undefined,
-    outcomes: outcome ? [outcome] : undefined,
-    tagIds: tagIds.length ? tagIds : undefined,
-    from,
-    to,
-    followedPlan: followedPlanParam === "yes" ? true : followedPlanParam === "no" ? false : undefined,
-  };
-
-  const filtersActive = Boolean(
-    q || symbols.length || directions.length || outcome || tagIds.length || range !== "all" || followedPlanParam,
-  );
+  // ----------------------------------------------------- filters + paging
+  // Parsed in the user's timezone, unknown values dropped (lib/trade-list-query.ts).
+  const { filters, filtersActive, page, pageSize } = parseTradeListQuery(sp, user.timezone);
 
   // ------------------------------------------------------------------ sort
   const sortFieldParam = first(sp.sort);
@@ -130,11 +69,6 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
     ? (sortFieldParam as TradeSortField)
     : "openedAt";
   const sortDirection: "asc" | "desc" = first(sp.dir) === "asc" ? "asc" : "desc";
-
-  // -------------------------------------------------------------- paging
-  const page = Math.max(1, Number(first(sp.page)) || 1);
-  const pageSizeParam = Number(first(sp.pageSize));
-  const pageSize = PAGE_SIZES.includes(pageSizeParam) ? pageSizeParam : 50;
 
   const [{ rows, total, scale }, stats, symbolOptions, tagOptions] = await Promise.all([
     listTrades({
