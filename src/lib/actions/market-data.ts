@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import type { Timeframe } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { ForbiddenError, requireOwner } from "@/lib/session";
 import {
   MAX_DOWNLOAD_BARS,
   OANDA_INSTRUMENTS,
@@ -15,6 +14,7 @@ import {
 import { insertMissingCandles } from "@/lib/candles/upsert";
 import { failT, tr } from "@/i18n/server-t";
 import { fail, ok, type ActionResult } from "./result";
+import { ownerOrFailure } from "./guard";
 
 const TIMEFRAMES: readonly Timeframe[] = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -40,12 +40,8 @@ export async function downloadCandles(input: {
   from: string;
   to: string;
 }): Promise<ActionResult<DownloadReport>> {
-  try {
-    await requireOwner();
-  } catch (err) {
-    if (err instanceof ForbiddenError) return failT("ownerOnlyDownload");
-    throw err;
-  }
+  const owner = await ownerOrFailure("ownerOnlyDownload");
+  if ("failure" in owner) return owner.failure;
   const token = env.OANDA_API_TOKEN;
   if (!token) return failT("oandaNotConfigured");
 
@@ -84,10 +80,9 @@ export async function downloadCandles(input: {
   if (bars.length === 0) return failT("downloadEmpty");
 
   const { inserted, existing } = await insertMissingCandles(symbol, timeframe, "API", bars);
-  const user = await requireOwner();
   await prisma.candleImport.create({
     data: {
-      userId: user.id,
+      userId: owner.user.id,
       symbol,
       timeframe,
       source: "API",

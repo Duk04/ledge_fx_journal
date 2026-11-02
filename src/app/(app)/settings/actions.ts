@@ -2,13 +2,14 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { ForbiddenError, requireOwner, requireUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { failFields, fieldErrorsFrom, ok, type ActionResult } from "@/lib/actions/result";
+import { ownerOrFailure } from "@/lib/actions/guard";
 import { derivedColumns, tradeInput } from "@/lib/trade-service";
 import { seedInstruments } from "@/lib/instruments";
 import { IANA_TIMEZONES } from "@/components/settings/timezones";
-import { type ErrorKey, failT, failZod, tr } from "@/i18n/server-t";
+import { failT, failZod, tr } from "@/i18n/server-t";
 import { vmsg } from "@/i18n/encoded";
 
 /**
@@ -74,20 +75,6 @@ export async function updateProfile(input: z.input<typeof profileSchema>): Promi
 // offering a control that 403s on submit.
 // ---------------------------------------------------------------------------
 
-/** Shared wrapper: converts requireOwner()'s throw into the action-result
- * convention, with a message naming the actual reason. */
-async function ownerOrError(message: ErrorKey): Promise<ActionResult | null> {
-  try {
-    await requireOwner();
-    return null;
-  } catch (err) {
-    if (err instanceof ForbiddenError) {
-      return { ok: false, formError: await tr(message) };
-    }
-    throw err;
-  }
-}
-
 const instrumentSchema = z.object({
   pipSize: z.coerce.number({ message: vmsg("enterPipSize") }).positive(vmsg("greaterThanZero")),
   contractSize: z.coerce.number({ message: vmsg("enterContractSize") }).positive(vmsg("greaterThanZero")),
@@ -107,8 +94,8 @@ export async function updateInstrument(symbol: string, input: z.input<typeof ins
   const parsed = instrumentSchema.safeParse(input);
   if (!parsed.success) return failZod(fieldErrorsFrom(parsed.error));
 
-  const denied = await ownerOrError("ownerOnlyInstruments");
-  if (denied) return denied;
+  const owner = await ownerOrFailure("ownerOnlyInstruments");
+  if ("failure" in owner) return owner.failure;
 
   const existing = await prisma.instrument.findUnique({ where: { symbol } });
   if (!existing) return failT("instrumentNotFound");
@@ -129,8 +116,8 @@ export async function updateInstrument(symbol: string, input: z.input<typeof ins
 
 /** Restores every instrument's contract fields from `src/lib/instruments.ts`. */
 export async function resetInstrumentsToDefaults(): Promise<ActionResult> {
-  const denied = await ownerOrError("ownerOnlyResetInstruments");
-  if (denied) return denied;
+  const owner = await ownerOrFailure("ownerOnlyResetInstruments");
+  if ("failure" in owner) return owner.failure;
 
   for (const inst of seedInstruments) {
     await prisma.instrument
