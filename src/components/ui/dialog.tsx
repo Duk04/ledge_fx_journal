@@ -95,10 +95,16 @@ export function DialogContent({
           "off-limits"; it is where tokens live — AGENTS.md — and these could move
           there.) The global
           reduced-motion rule in globals.css already zeroes animation-duration for
-          everyone, so nothing extra is needed here for that. */}
+          everyone, so nothing extra is needed here for that.
+
+          dialog-in moves 2px and nothing else. The dialog is centred by the
+          `translate` PROPERTY (what Tailwind's -translate-x-1/2 sets); the
+          keyframes used to repeat that -50%/-50% as a `transform`, and the two
+          add up — so for the length of the animation every centred dialog sat
+          half its own size up and left of centre, then jumped into place. */}
       <style>{`
         @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes dialog-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 2px)) } to { opacity: 1; transform: translate(-50%, -50%) } }
+        @keyframes dialog-in { from { opacity: 0; transform: translateY(2px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes sheet-in { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
         @keyframes drawer-in { from { opacity: 0; transform: translateX(-12px) } to { opacity: 1; transform: translateX(0) } }
       `}</style>
