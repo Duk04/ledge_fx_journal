@@ -6,7 +6,19 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "@/components/ui";
 
-export function TradePaginationBar({ page, pageSize, total }: { page: number; pageSize: number; total: number }) {
+export function TradePaginationBar({
+  page,
+  pageSize,
+  total,
+  sizes = true,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  /** False where the page size is not the reader's to pick — the Days view
+   * pages by day, a fixed number of them. */
+  sizes?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -25,7 +37,7 @@ export function TradePaginationBar({ page, pageSize, total }: { page: number; pa
       pageSize={pageSize}
       total={total}
       onPage={(next) => go({ page: String(next) })}
-      onPageSize={(size) => go({ pageSize: String(size), page: "1" })}
+      onPageSize={sizes ? (size) => go({ pageSize: String(size), page: "1" }) : undefined}
     />
   );
 }

@@ -55,7 +55,9 @@ type PendingUpload = {
   file: File;
 };
 
-function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): string | null {
+/** Where an attachment's image is served from: our own ownership-checked
+ * route for an uploaded file, the link itself for one added by URL. */
+export function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): string | null {
   if (a.storageKey) return `/api/attachments/${a.id}`;
   return a.externalUrl;
 }

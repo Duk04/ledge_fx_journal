@@ -124,7 +124,8 @@ export interface WeekdayStat {
   netPnl: Decimal;
 }
 
-function localDateKey(at: Date, timeZone: string): string {
+/** "YYYY-MM-DD" of an instant, as the calendar reads in `timeZone`. */
+export function localDateKey(at: Date, timeZone: string): string {
   const z = new TZDate(at, timeZone);
   return `${z.getFullYear()}-${String(z.getMonth() + 1).padStart(2, "0")}-${String(z.getDate()).padStart(2, "0")}`;
 }

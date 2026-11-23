@@ -10,7 +10,7 @@ import { buildFormData, defaultFormValues } from "@/components/trades/trade-form
 import { createTrade } from "@/lib/actions/trades";
 import { signInAs } from "../../../test/db/auth";
 import { createAccount, createUser, ensureInstruments } from "../../../test/db/factories";
-import { listTrades, type TradeFilters } from "./trades";
+import { listTradeDays, listTrades, type TradeFilters } from "./trades";
 
 async function setup() {
   await ensureInstruments("EURUSD");
@@ -117,5 +117,79 @@ describe("listTrades — day", () => {
     await prisma.trade.update({ where: { id: cancelled }, data: { status: "CANCELLED" } });
 
     expect(await ids(user.id, account.id, { day: day("2026-03-02") })).toEqual([]);
+  });
+});
+
+describe("listTradeDays", () => {
+  it("groups by close day, newest first, with each day's own result", async () => {
+    const { user, account } = await setup();
+    // Tuesday: one opened Monday and held overnight, one intraday.
+    const overnight = await trade(account.id, "2026-03-02T20:00:00.000Z", "2026-03-03T09:00:00.000Z");
+    const intraday = await trade(account.id, "2026-03-03T13:30:00.000Z", "2026-03-03T15:00:00.000Z");
+    const monday = await trade(account.id, "2026-03-02T08:00:00.000Z", "2026-03-02T09:00:00.000Z");
+
+    const { days, totalDays, total } = await listTradeDays({
+      userId: user.id,
+      accountId: account.id,
+      timezone: "UTC",
+    });
+
+    expect(days.map((d) => [d.date, d.trades.map((t) => t.id)])).toEqual([
+      ["2026-03-03", [overnight, intraday]],
+      ["2026-03-02", [monday]],
+    ]);
+    // Each is +20 pips on 1 lot of EURUSD: $200, no costs.
+    expect(days.map((d) => [d.netPnl, d.wins, d.losses])).toEqual([
+      ["400", 2, 0],
+      ["200", 1, 0],
+    ]);
+    expect([totalDays, total]).toEqual([2, 3]);
+  });
+
+  it("pages by day, so a day is never split across two pages", async () => {
+    const { user, account } = await setup();
+    for (const d of ["02", "03", "04"]) {
+      await trade(account.id, `2026-03-${d}T08:00:00.000Z`, `2026-03-${d}T09:00:00.000Z`);
+      await trade(account.id, `2026-03-${d}T10:00:00.000Z`, `2026-03-${d}T11:00:00.000Z`);
+    }
+    const args = { userId: user.id, accountId: account.id, timezone: "UTC", daysPerPage: 2 };
+
+    const first = await listTradeDays({ ...args, page: 1 });
+    const second = await listTradeDays({ ...args, page: 2 });
+
+    expect(first.days.map((d) => [d.date, d.trades.length])).toEqual([
+      ["2026-03-04", 2],
+      ["2026-03-03", 2],
+    ]);
+    expect(second.days.map((d) => [d.date, d.trades.length])).toEqual([["2026-03-02", 2]]);
+    expect(first.totalDays).toBe(3);
+  });
+
+  it("applies the list's filters, and leaves a cancelled order off every day", async () => {
+    const { user, account } = await setup();
+    const kept = await trade(account.id, "2026-03-02T08:00:00.000Z", "2026-03-02T09:00:00.000Z");
+    await trade(account.id, "2026-03-03T08:00:00.000Z", "2026-03-03T09:00:00.000Z");
+    const cancelled = await trade(account.id, "2026-03-02T20:00:00.000Z");
+    await prisma.trade.update({ where: { id: cancelled }, data: { status: "CANCELLED" } });
+
+    const { days, total } = await listTradeDays({
+      userId: user.id,
+      accountId: account.id,
+      timezone: "UTC",
+      filters: { day: day("2026-03-02") },
+    });
+    expect(days.map((d) => d.trades.map((t) => t.id))).toEqual([[kept]]);
+    // The header's count is the table view's, which this filter already
+    // keeps cancelled orders out of.
+    expect(total).toBe(1);
+  });
+
+  it("does not show another user's trades", async () => {
+    const { account } = await setup();
+    await trade(account.id, "2026-03-02T08:00:00.000Z", "2026-03-02T09:00:00.000Z");
+    const stranger = await createUser();
+
+    const { days } = await listTradeDays({ userId: stranger.id, accountId: account.id, timezone: "UTC" });
+    expect(days).toEqual([]);
   });
 });

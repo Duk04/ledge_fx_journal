@@ -174,8 +174,9 @@ export default async function OverviewPage({
               currency={stats.currency}
               today={today}
               // To the day's trades, not the journal's day page: the calendar
-              // here is a way into the trades. A day with none has nowhere to go.
-              dayHref={(day) => (day.tradeCount > 0 ? `/trades?day=${day.date}` : null)}
+              // here is a way into the trades — in the list's Days view, which
+              // leads with their screenshots. A day with none has nowhere to go.
+              dayHref={(day) => (day.tradeCount > 0 ? `/trades?view=days&day=${day.date}` : null)}
             />
           </Panel>
 

@@ -23,10 +23,11 @@ optional; an absent param means "no filter" / the stated default.
 | `shots` | `none` | — (any) | Only trades with no screenshot attached. The bar's "No screenshot" button. |
 | `import` | a `TradeImport` id (uuid) | — | Only the trades that import **created** — where a finished import lands. A position a later import only closed stays with the import that opened it. No control sets it; the bar shows a chip to remove it. Anything that is not a uuid is dropped. |
 | `day` | `YYYY-MM-DD` | — | One calendar day in the user's timezone, **as the month calendar counts it**: the day a trade closed, or the day it opened while still open; never a cancelled order. Set by the Overview's calendar cells, removed with a chip. Not the same as `range=custom` on one day, which goes by open time and would put an overnight trade on the day before. |
+| `view` | `days` | — (table) | The same filters as days instead of a table — see "The Days view". Not a filter: the bar's "Clear" keeps it. Switching view drops `page`. |
 | `sort` | `openedAt`, `closedAt`, `netPnl`, `rMultiple`, `pips`, `symbol`, `volumeLots` | `openedAt` | Every value here is a real Prisma field name on `Trade`, so the query layer maps it straight into `orderBy` with no translation table to keep in sync. |
 | `dir` | `asc`, `desc` | `desc` | |
-| `page` | 1-based integer | `1` | Reset to `1` whenever any filter or sort changes — a stale page number after narrowing a filter would silently show "no rows" instead of the match. |
-| `pageSize` | `25`, `50`, `100` | `50` | |
+| `page` | 1-based integer | `1` | Reset to `1` whenever any filter or sort changes — a stale page number after narrowing a filter would silently show "no rows" instead of the match. In the Days view a page is ten days, not N trades. |
+| `pageSize` | `25`, `50`, `100` | `50` | Table view only. |
 
 Any filter change (via the filter bar) or sort change (via a column header)
 clears `page` for the reason above. Pagination itself only ever touches
@@ -36,6 +37,27 @@ This contract is why `page.tsx` is a Server Component that reads
 `searchParams` directly rather than fetching client-side: the URL is the
 single source of truth, so the same link always renders the same table for
 every viewer, and a reload never loses the view you were looking at.
+
+## The Days view
+
+`/trades?view=days` shows the filtered trades as one panel per day, newest
+first: the date, the day's net P&L and win/loss count in the header, and each
+trade as a card that leads with its chart screenshot, then its note. A trade
+without a screenshot shows a slot that opens the screenshot dialog. The
+Overview's calendar cells link here with `&day=`.
+
+- **A trade is on the day it closed** — or the day it opened, while open —
+  in the user's timezone; a cancelled order is on no day.
+  `groupByTradeDay()` (`src/lib/metrics/trade-days.ts`) is that rule, the
+  same one the month calendar and the `day` filter use.
+- **Paged by day, not by trade.** `listTradeDays()` groups every matching
+  trade first (a few columns each) and loads in full only the trades of the
+  ten days on the page. Cutting the table's pages of fifty trades into days
+  would split a day across two pages, each half printing its own "day total".
+- **A day's totals are over the filtered trades.** Filter to one symbol and
+  each day shows that symbol's result, not the whole day's.
+- **This view shows the pictures; the table shows a count.** They are the
+  originals, loaded lazily (see "Screenshots").
 
 ## The derived-columns rule
 
@@ -156,7 +178,7 @@ Every trade can carry chart screenshots. Each one is tagged **Before**, **After*
   - On the detail page it is the first panel, above the chart and the numbers, with the trade's note directly under it.
   - On the edit page the uploader sits beside the form, not inside it. Each change saves on its own and does not wait for the form's Save.
 - **From the trade list**, every row has a screenshot cell: a camera, and the count once there is one. It opens one dialog (`trade-shots.tsx`) holding that trade's uploader and note, with Previous / Next to walk the rows on the page. This is how a batch of imported trades gets its screenshots: import, land on `/trades?import=…`, open the first row, paste, Next.
-  - The list shows a count, not thumbnails. There are no resized copies: `GET /api/attachments/[id]` serves the original, up to 8MB, through an ownership check, and fifty of those per page is not a list.
+  - The table shows a count, not thumbnails. There are no resized copies: `GET /api/attachments/[id]` serves the original, up to 8MB, through an ownership check, and fifty of those per page is not a list. The Days view is where the pictures are shown, because there seeing the chart is the purpose.
   - The dialog walks a snapshot of the rows taken when it opened, and keeps what each trade's uploader and note report, so stepping back shows what was just added. `trade-shots.tsx` says why both matter.
 - **One uploader per page.** Its paste listener is on the document, so two mounted at once would each upload the same pasted image. The list's dialog re-keys a single instance per trade for that reason.
 

@@ -58,7 +58,8 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
 - **Screenshots on every trade** — drag/drop, file picker, or paste a chart
   screenshot straight from the clipboard; before/after tagging and captions;
   added from the trade list too, one dialog walking a batch of imported
-  trades with a line of notes each;
+  trades with a line of notes each; and a Days view of the list that groups
+  trades by day and leads with each one's chart;
   stored locally on disk or in an S3-compatible bucket depending on
   configuration. See `docs/PWA.md`'s sibling concerns and `src/lib/storage.ts`.
 - **A daily journal** — a pre-market plan and an end-of-day review per

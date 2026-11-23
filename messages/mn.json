@@ -561,6 +561,11 @@
         "position": "{total}-с {n}",
         "openTrade": "Арилжааг нээх",
         "done": "Болсон"
+      },
+      "view": {
+        "label": "Харагдац",
+        "table": "Хүснэгт",
+        "days": "Өдрөөр"
       }
     },
     "filters": {
@@ -816,6 +821,11 @@
       "saving": "Хадгалж байна…",
       "saved": "Хадгалагдлаа",
       "couldNotSave": "Тэмдэглэлийг хадгалж чадсангүй."
+    },
+    "days": {
+      "summary": "{count} арилжаа · {wins} ашиг · {losses} алдагдал",
+      "openShot": "Зургийг томоор харах",
+      "moreShots": "Өөр {count} зураг"
     }
   },
   "playbooks": {

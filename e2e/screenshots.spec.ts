@@ -56,6 +56,21 @@ test("screenshots picked while logging a trade upload with it, and more can be a
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Note", { exact: true })).toHaveValue("Entered on the retest.");
+
+  // The list's Days view groups trades by day and leads with the chart.
+  await page.goto("/trades");
+  await page.getByRole("radiogroup", { name: "View" }).getByRole("radio", { name: "Days" }).click();
+  await expect(page).toHaveURL(/view=days/);
+  await expect(page.getByText(/^1 trade ·/)).toBeVisible();
+  await expect(page.getByText("Entered on the retest.")).toBeVisible();
+  await expect(page.locator('img[src^="/api/attachments/"]')).toHaveCount(3);
+  // A picture opens full size, in a dialog of its own.
+  await page.getByRole("button", { name: "Open screenshot full size" }).first().click();
+  await expect(page.getByRole("dialog").locator('img[src^="/api/attachments/"]')).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  // The choice of view is in the URL, so it survives a reload.
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Days" })).toHaveAttribute("data-state", "on");
 });
 
 // docs/JOURNAL.md "Screenshots on a journal day": a chart pasted while the plan

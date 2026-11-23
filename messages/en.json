@@ -561,6 +561,11 @@
         "position": "{n} of {total}",
         "openTrade": "Open trade",
         "done": "Done"
+      },
+      "view": {
+        "label": "View",
+        "table": "Table",
+        "days": "Days"
       }
     },
     "filters": {
@@ -816,6 +821,11 @@
       "saving": "Saving…",
       "saved": "Saved",
       "couldNotSave": "Could not save the note."
+    },
+    "days": {
+      "summary": "{count, plural, one {# trade} other {# trades}} · {wins} won · {losses} lost",
+      "openShot": "Open screenshot full size",
+      "moreShots": "{count, plural, one {# more screenshot} other {# more screenshots}}"
     }
   },
   "playbooks": {

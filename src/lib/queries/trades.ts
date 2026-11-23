@@ -5,6 +5,7 @@ import { fitsSimpleForm } from "@/lib/metrics/fills";
 import type { AttachmentKind, Direction, MarketSession, Prisma, TradeEntryMode } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeAnyTrade, summarize, BREAKEVEN_EPSILON_STR } from "@/lib/metrics";
+import { groupByTradeDay } from "@/lib/metrics/trade-days";
 import type { Summary } from "@/lib/metrics/types";
 import { toNum, toPlain } from "@/lib/decimal-bridge";
 import { instrumentSpec, toTradeRow, tradeInput } from "@/lib/trade-service";
@@ -262,6 +263,103 @@ export async function listTrades(params: {
     rows: trades.map(serializeListRow),
     total,
     scale: roundRScale(maxAbsR),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// listTradeDays
+// ---------------------------------------------------------------------------
+
+export interface TradeDayGroup {
+  /** "YYYY-MM-DD" in the user's timezone. */
+  date: string;
+  /** Net P&L of the day's closed trades. */
+  netPnl: string;
+  wins: number;
+  losses: number;
+  /** In the order they happened. */
+  trades: TradeListRow[];
+}
+
+export interface ListTradeDaysResult {
+  days: TradeDayGroup[];
+  /** Days with a trade across the whole filtered set — what paging counts. */
+  totalDays: number;
+  /** Trades the filters match, cancelled included: the list header's count,
+   * the same number the table view reports. */
+  total: number;
+}
+
+/**
+ * The trade list as days: the same filters as `listTrades`, grouped by the
+ * day each trade closed (lib/metrics/trade-days.ts has the rule) and PAGED BY
+ * DAY, newest first.
+ *
+ * Paging by day is the point. Cutting the table's pages of fifty trades into
+ * days would split a day across two pages, and each half would print its own
+ * "day total" — a number that looks right and is not. So the grouping runs
+ * over every matching trade first, on a few columns, and only the trades of
+ * the days on this page are loaded in full.
+ *
+ * A day's totals are over the trades the filters let through: filter to one
+ * symbol and each day shows that symbol's result, not the day's.
+ */
+export async function listTradeDays(params: {
+  userId: string;
+  accountId: string;
+  timezone: string;
+  filters?: TradeFilters;
+  page?: number;
+  daysPerPage?: number;
+}): Promise<ListTradeDaysResult> {
+  const page = Math.max(1, params.page ?? 1);
+  const daysPerPage = params.daysPerPage ?? 10;
+  const where = buildWhere(params.userId, params.accountId, params.filters ?? {});
+
+  const [light, total] = await Promise.all([
+    prisma.trade.findMany({
+      // A cancelled order never filled; it belongs to no day (the calendar
+      // leaves it out the same way).
+      where: { AND: [where, { status: { not: "CANCELLED" } }] },
+      select: {
+        id: true,
+        netPnl: true,
+        rMultiple: true,
+        openedAt: true,
+        closedAt: true,
+        holdingMinutes: true,
+        status: true,
+      },
+    }),
+    prisma.trade.count({ where }),
+  ]);
+
+  const groups = groupByTradeDay(
+    light.map((t) => ({ ...toTradeRow(t), id: t.id })),
+    params.timezone,
+  );
+  const onPage = groups.slice((page - 1) * daysPerPage, page * daysPerPage);
+
+  const full = await prisma.trade.findMany({
+    where: {
+      id: { in: onPage.flatMap((d) => d.rows.map((r) => r.id)) },
+      accountId: params.accountId,
+      account: { userId: params.userId },
+    },
+    include: LIST_INCLUDE,
+  });
+  const byId = new Map(full.map((t) => [t.id, serializeListRow(t)]));
+
+  return {
+    days: onPage.map((d) => ({
+      date: d.date,
+      netPnl: toPlain(d.netPnl) ?? "0",
+      wins: d.wins,
+      losses: d.losses,
+      trades: d.rows.map((r) => byId.get(r.id)).filter((t): t is TradeListRow => t !== undefined),
+    })),
+    totalDays: groups.length,
+    total,
   };
 }
 

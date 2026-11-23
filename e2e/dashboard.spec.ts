@@ -33,11 +33,14 @@ test("the overview shows the cards, the charts and a calendar that pages without
 
   // A day with trades leads to exactly those trades: the list counts a day
   // the way the calendar cell does (by close date), so the two numbers match.
-  const dayCell = page.locator('a[href^="/trades?day=2026-08-"]').first();
+  const dayCell = page.locator('a[href^="/trades?view=days&day=2026-08-"]').first();
   const inCell = Number(/(\d+) trades?/.exec(await dayCell.innerText())![1]);
   await dayCell.click();
-  await expect(page).toHaveURL(/\/trades\?day=2026-08-\d\d$/);
+  await expect(page).toHaveURL(/\/trades\?view=days&day=2026-08-\d\d$/);
   await expect(page.getByText(new RegExp(`^${inCell} trades? in view`))).toBeVisible();
+  // One day, as a panel of its own, saying the same count again.
+  await expect(page.getByRole("heading", { name: /August \d+, 2026/ })).toHaveCount(1);
+  await expect(page.getByText(new RegExp(`^${inCell} trades? ·`))).toBeVisible();
   await page.goto("/?range=all&month=2026-08");
 
   await page.getByRole("link", { name: "Previous month" }).click();

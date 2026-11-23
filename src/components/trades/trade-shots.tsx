@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Camera, ChevronLeft, ChevronRight } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ImagePlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import {
@@ -13,13 +13,14 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogTitle,
   DirectionBadge,
   Money,
   Tip,
 } from "@/components/ui";
 import { formatInZone } from "@/lib/metrics/formatters";
 import type { TradeListRow } from "@/lib/queries/trades";
-import { AttachmentUploader, type AttachmentView } from "./attachment-uploader";
+import { AttachmentUploader, srcFor, type AttachmentView } from "./attachment-uploader";
 import { TradeNotesField } from "./trade-notes-field";
 
 /**
@@ -223,5 +224,100 @@ export function ShotCell({ tradeId, count }: { tradeId: string; count: number })
         {n > 0 ? <span className="mono text-2xs">{n}</span> : null}
       </button>
     </Tip>
+  );
+}
+
+/**
+ * A trade's screenshots, large, for the list's Days view: the newest one
+ * across the card, any others as a strip under it, each opening full size.
+ *
+ * These are the originals — there are no resized copies to serve instead —
+ * which is why the table view shows a count and only this view, where seeing
+ * the chart is the purpose, shows pictures. They load lazily, so a long page
+ * of days fetches what is scrolled to.
+ */
+export function ShotGallery({ attachments }: { attachments: AttachmentView[] }) {
+  const t = useTranslations("trades");
+  const [openId, setOpenId] = React.useState<string | null>(null);
+  const shown = attachments.filter((a) => srcFor(a) !== null);
+  if (shown.length === 0) return null;
+  const [first, ...rest] = shown;
+  const open = shown.find((a) => a.id === openId);
+
+  const image = (a: AttachmentView, className: string) => (
+    <button
+      key={a.id}
+      type="button"
+      aria-label={t("days.openShot")}
+      onClick={() => setOpenId(a.id)}
+      className={cn(
+        "block cursor-zoom-in overflow-hidden rounded-control border border-line bg-panel-sunken",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+        className,
+      )}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- attachment bytes come from our own authenticated route or an arbitrary https URL, neither of which next/image can optimise */}
+      <img
+        src={srcFor(a)!}
+        alt={a.caption ?? t("attachments.alt")}
+        loading="lazy"
+        decoding="async"
+        className="size-full object-cover"
+      />
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      {image(first, "aspect-video w-full")}
+      {rest.length > 0 ? (
+        <div className="flex flex-wrap gap-2" aria-label={t("days.moreShots", { count: rest.length })}>
+          {rest.map((a) => image(a, "aspect-video h-14"))}
+        </div>
+      ) : null}
+
+      <Dialog open={open !== undefined} onOpenChange={(next) => !next && setOpenId(null)}>
+        {open ? (
+          <DialogContent size="lg" className="max-h-[90vh]" aria-describedby={undefined}>
+            <DialogTitle className="sr-only">{open.caption ?? t("attachments.alt")}</DialogTitle>
+            {/* eslint-disable-next-line @next/next/no-img-element -- a full-size view of an attachment whose dimensions are unknown until it loads, served from our own authenticated route or an arbitrary https URL. next/image can optimise neither. */}
+            <img
+              src={srcFor(open)!}
+              alt={open.caption ?? t("attachments.alt")}
+              className="max-h-[85vh] w-full object-contain"
+            />
+            {open.caption ? (
+              <p className="border-t border-line bg-panel-sunken px-4 py-2 text-xs text-ink-2">{open.caption}</p>
+            ) : null}
+          </DialogContent>
+        ) : null}
+      </Dialog>
+    </div>
+  );
+}
+
+/** Where a trade's screenshot would be, in the Days view, when it has none:
+ * the same dialog the camera cell opens, offered at the size of the gap. */
+export function ShotPlaceholder({ tradeId }: { tradeId: string }) {
+  const t = useTranslations("trades.list.shots");
+  const dialog = React.useContext(Context);
+  // Something added in the dialog shows here once the page behind it has
+  // refreshed; until then the camera cell's count is what says so.
+  if ((dialog?.countOf(tradeId) ?? 0) > 0) return null;
+  return (
+    <button
+      type="button"
+      disabled={!dialog}
+      onClick={() => dialog?.open(tradeId)}
+      className={cn(
+        "flex h-20 w-full items-center justify-center gap-2 rounded-control border border-dashed border-line-strong",
+        "bg-panel-sunken text-xs text-ink-3",
+        "transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-hover hover:text-ink-2",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+      )}
+    >
+      <ImagePlus className="size-4" aria-hidden />
+      {t("open", { count: 0 })}
+    </button>
   );
 }

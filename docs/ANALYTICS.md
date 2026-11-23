@@ -51,7 +51,8 @@ open. A brand-new account gets one panel — import a statement, or log a trade
   cut the first day in half and let those numbers drift by the hour.
 - **The calendar pages on its own** with `?month`, starting on the current
   month; `?range` survives paging and `?month` survives a range change. A day
-  with trades links to `/trades?day=YYYY-MM-DD` (docs/TRADES.md).
+  with trades links to `/trades?view=days&day=YYYY-MM-DD`, that day in the
+  trade list's Days view (docs/TRADES.md).
 - **Holding-time buckets** are cut by `groupByDuration()`
   (`src/lib/metrics/duration.ts`), shared with Analytics' Timing table — which
   buckets trades OPENED in the range, while these bars bucket trades CLOSED

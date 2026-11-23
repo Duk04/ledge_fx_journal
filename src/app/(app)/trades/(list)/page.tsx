@@ -18,6 +18,7 @@ import {
 import { requireAccountAccess, requireUser } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import {
+  listTradeDays,
   listTrades,
   listSymbols,
   listTagsForUser,
@@ -29,6 +30,8 @@ import { first, parseTradeListQuery, type SearchParams } from "@/lib/trade-list-
 import { TradeFilterBar } from "@/components/trades/filter-bar";
 import { TradePaginationBar } from "@/components/trades/pagination-bar";
 import { TradeTable } from "@/components/trades/trade-table";
+import { TradeDays } from "@/components/trades/trade-days";
+import { TradeViewSwitch, type TradeListView } from "@/components/trades/view-switch";
 import { TradeShotsProvider } from "@/components/trades/trade-shots";
 import { uploadsAvailable } from "@/lib/storage";
 
@@ -74,19 +77,44 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
     : "openedAt";
   const sortDirection: "asc" | "desc" = first(sp.dir) === "asc" ? "asc" : "desc";
 
-  const [{ rows, total, scale }, stats, symbolOptions, tagOptions] = await Promise.all([
-    listTrades({
-      userId: user.id,
-      accountId: account.id,
-      filters,
-      sort: { field: sortField, direction: sortDirection },
-      page,
-      pageSize,
-    }),
+  // ------------------------------------------------------------------ view
+  // The same filters, shown two ways: a sortable table paged by trade, or
+  // days (newest first, paged by day) that lead with each trade's screenshot.
+  const view: TradeListView = first(sp.view) === "days" ? "days" : "table";
+  const DAYS_PER_PAGE = 10;
+
+  const [list, dayList, stats, symbolOptions, tagOptions] = await Promise.all([
+    view === "table"
+      ? listTrades({
+          userId: user.id,
+          accountId: account.id,
+          filters,
+          sort: { field: sortField, direction: sortDirection },
+          page,
+          pageSize,
+        })
+      : null,
+    view === "days"
+      ? listTradeDays({
+          userId: user.id,
+          accountId: account.id,
+          timezone: user.timezone,
+          filters,
+          page,
+          daysPerPage: DAYS_PER_PAGE,
+        })
+      : null,
     tradeStats(user.id, account.id, filters),
     listSymbols(user.id),
     listTagsForUser(user.id),
   ]);
+  const total = list?.total ?? dayList?.total ?? 0;
+  const rows = list?.rows ?? [];
+  const scale = list?.scale ?? 1;
+  const days = dayList?.days ?? [];
+  // Every trade on the page, in reading order: what the screenshot dialog's
+  // Previous / Next walks.
+  const shotRows = view === "days" ? days.flatMap((d) => d.trades) : rows;
 
   function buildSortHref(field: TradeSortField, direction: "asc" | "desc"): string {
     const params = toSearchParams(sp);
@@ -116,11 +144,14 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           </>
         }
         actions={
-          <Button asChild variant="default" size="sm">
-            <Link href="/trades/import">
-              <Upload aria-hidden /> {t("import.title")}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <TradeViewSwitch value={view} />
+            <Button asChild variant="default" size="sm">
+              <Link href="/trades/import">
+                <Upload aria-hidden /> {t("import.title")}
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -169,37 +200,46 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
 
       <TradeFilterBar symbols={symbolOptions} tags={tagOptions} />
 
-      <Panel flush>
-        {noTradesAtAll ? (
-          <PanelBody>
-            <EmptyState title={t("list.emptyTitle")} description={t("list.emptyDescription")} />
-            <div className="flex justify-center pb-4">
-              <Button asChild variant="primary" size="sm">
-                <Link href="/trades/new">
-                  <Plus /> {t("list.logFirst")}
-                </Link>
-              </Button>
-            </div>
-          </PanelBody>
-        ) : noTradesMatchFilters ? (
-          <PanelBody>
-            <EmptyState title={t("list.noMatchTitle")} description={t("list.noMatchDescription")} />
-            <div className="flex justify-center pb-4">
-              <Button asChild variant="default" size="sm">
-                <Link href="/trades">{t("list.clearFilters")}</Link>
-              </Button>
-            </div>
-          </PanelBody>
-        ) : (
-          <>
-            {/* Owns the one screenshot dialog the table's cells open. */}
-            <TradeShotsProvider
-              rows={rows}
-              accountId={account.id}
-              currency={account.currency}
-              timezone={user.timezone}
-              uploadsEnabled={uploadsAvailable()}
-            >
+      {noTradesAtAll || noTradesMatchFilters ? (
+        <Panel flush>
+          {noTradesAtAll ? (
+            <PanelBody>
+              <EmptyState title={t("list.emptyTitle")} description={t("list.emptyDescription")} />
+              <div className="flex justify-center pb-4">
+                <Button asChild variant="primary" size="sm">
+                  <Link href="/trades/new">
+                    <Plus /> {t("list.logFirst")}
+                  </Link>
+                </Button>
+              </div>
+            </PanelBody>
+          ) : noTradesMatchFilters ? (
+            <PanelBody>
+              <EmptyState title={t("list.noMatchTitle")} description={t("list.noMatchDescription")} />
+              <div className="flex justify-center pb-4">
+                <Button asChild variant="default" size="sm">
+                  <Link href="/trades">{t("list.clearFilters")}</Link>
+                </Button>
+              </div>
+            </PanelBody>
+          ) : null}
+        </Panel>
+      ) : (
+        // Owns the one screenshot dialog both views' cells open.
+        <TradeShotsProvider
+          rows={shotRows}
+          accountId={account.id}
+          currency={account.currency}
+          timezone={user.timezone}
+          uploadsEnabled={uploadsAvailable()}
+        >
+          {view === "days" ? (
+            <>
+              <TradeDays days={days} currency={account.currency} timezone={user.timezone} />
+              <TradePaginationBar page={page} pageSize={DAYS_PER_PAGE} total={dayList?.totalDays ?? 0} sizes={false} />
+            </>
+          ) : (
+            <Panel flush>
               <TradeTable
                 rows={rows}
                 scale={scale}
@@ -210,13 +250,13 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
                 sortDirection={sortDirection}
                 buildSortHref={buildSortHref}
               />
-            </TradeShotsProvider>
-            <PanelFooter>
-              <TradePaginationBar page={page} pageSize={pageSize} total={total} />
-            </PanelFooter>
-          </>
-        )}
-      </Panel>
+              <PanelFooter>
+                <TradePaginationBar page={page} pageSize={pageSize} total={total} />
+              </PanelFooter>
+            </Panel>
+          )}
+        </TradeShotsProvider>
+      )}
     </Page>
   );
 }
