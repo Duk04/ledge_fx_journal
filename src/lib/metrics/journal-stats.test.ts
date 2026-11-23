@@ -3,10 +3,12 @@ import { Decimal } from "decimal.js";
 import {
   bestAndWorst,
   bestDay,
+  cumulativePnl,
   dailyBalance,
   dayWinRate,
   directionSplit,
   durationsByOutcome,
+  totalLots,
   weekdayHighlights,
   weekdayStats,
   type JournalRow,
@@ -23,6 +25,7 @@ function row(id: string, netPnl: number | null, closedAt: string | null, extra: 
     direction: "LONG",
     entryPrice: null,
     exitPrice: null,
+    volumeLots: null,
     netPnl: n,
     rMultiple: null,
     outcome: n === null ? "OPEN" : n.gt(0) ? "WIN" : n.lt(0) ? "LOSS" : "BREAKEVEN",
@@ -123,5 +126,65 @@ describe("dailyBalance", () => {
       ["2026-09-01", 10000],
       ["2026-09-09", 10050],
     ]);
+  });
+});
+
+describe("cumulativePnl", () => {
+  it("is the running total of the days, in order", () => {
+    const points = cumulativePnl([day("2026-09-08", 100.1), day("2026-09-09", -40.2), day("2026-09-11", 15)], null);
+    // Decimal sums: 100.1 − 40.2 is 59.9, not the float's 59.89999999999999.
+    expect(points.map((p) => [p.date, p.cumulative.toString()])).toEqual([
+      ["2026-09-08", "100.1"],
+      ["2026-09-09", "59.9"],
+      ["2026-09-11", "74.9"],
+    ]);
+  });
+
+  it("opens at zero on the range's first day when that is before the first trade", () => {
+    const points = cumulativePnl([day("2026-09-09", 50)], "2026-09-01");
+    expect(points.map((p) => [p.date, p.cumulative.toNumber()])).toEqual([
+      ["2026-09-01", 0],
+      ["2026-09-09", 50],
+    ]);
+  });
+
+  it("adds no opening point on a day that already has one", () => {
+    // Otherwise the first day would be drawn twice: once at zero, once at its close.
+    expect(cumulativePnl([day("2026-09-01", 50)], "2026-09-01")).toHaveLength(1);
+  });
+
+  it("is just the opening point for a range with no trades", () => {
+    expect(cumulativePnl([], "2026-09-01").map((p) => p.cumulative.toNumber())).toEqual([0]);
+    expect(cumulativePnl([], null)).toEqual([]);
+  });
+});
+
+describe("totalLots", () => {
+  const lots = (v: string) => ({ volumeLots: new Decimal(v) });
+
+  it("sums the sizes exactly", () => {
+    const total = totalLots([
+      row("a", 10, "2026-09-09T02:00:00Z", lots("0.1")),
+      row("b", -5, "2026-09-09T03:00:00Z", lots("0.2")),
+    ])!;
+    // 0.1 + 0.2 in floats is 0.30000000000000004.
+    expect(total.lots.toString()).toBe("0.3");
+    expect(total.sized).toBe(2);
+  });
+
+  it("leaves a trade with no size out, and says how many it covered", () => {
+    // An R-mode trade has no lot size. It is not zero lots.
+    const total = totalLots([row("a", 10, "2026-09-09T02:00:00Z", lots("2")), row("r", 30, "2026-09-09T03:00:00Z")])!;
+    expect(total.lots.toString()).toBe("2");
+    expect(total.sized).toBe(1);
+  });
+
+  it("is null, not zero, when no trade in the range was sized", () => {
+    expect(totalLots([row("r", 30, "2026-09-09T03:00:00Z")])).toBeNull();
+    expect(totalLots([])).toBeNull();
+  });
+
+  it("counts closed trades only", () => {
+    expect(totalLots([row("o", null, null, lots("5"))])).toBeNull();
   });
 });

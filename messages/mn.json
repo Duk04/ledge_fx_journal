@@ -1,7 +1,6 @@
 {
   "nav": {
     "desk": "Ширээ",
-    "review": "Дүн шинжилгээ",
     "setup": "Тохиргоо",
     "overview": "Тойм",
     "trades": "Арилжаа",
@@ -13,7 +12,8 @@
     "backtest": "Бэктест",
     "accounts": "Данс",
     "settings": "Тохиргоо",
-    "stats": "Статистик"
+    "import": "Импорт",
+    "more": "Бусад хэрэгсэл"
   },
   "shell": {
     "openNavigation": "Цэс нээх",
@@ -373,8 +373,7 @@
         "screenshots": "Дэлгэцийн зураг",
         "facts": "Баримт",
         "tags": "Шошго",
-        "discipline": "Сахилга бат",
-        "notes": "Тэмдэглэл"
+        "discipline": "Сахилга бат"
       },
       "facts": {
         "opened": "Нээсэн",
@@ -406,7 +405,6 @@
         "emotion": "Сэтгэл хөдлөл",
         "confidence": "Итгэл"
       },
-      "noNotes": "Энэ арилжаанд тэмдэглэл алга.",
       "notFound": {
         "title": "Ийм арилжаа олдсонгүй",
         "description": "Устгагдсан эсвэл өөр дансанд хамаарах байж магадгүй.",
@@ -510,7 +508,8 @@
       "tags": "Шошго",
       "status": "Төлөв",
       "actions": "Үйлдэл",
-      "tryAgain": "Дахин оролдох"
+      "tryAgain": "Дахин оролдох",
+      "screenshots": "Дэлгэцийн зураг"
     },
     "list": {
       "title": "Арилжаа",
@@ -553,6 +552,15 @@
         "deleteFailed": "Арилжааг устгаж чадсангүй",
         "confirmTitle": "Энэ арилжааг устгах уу?",
         "confirmDescription": "Арилжаа болон хавсралтуудыг бүрмөсөн устгана. Буцаах боломжгүй."
+      },
+      "shots": {
+        "open": "{count, plural, =0 {Дэлгэцийн зураг нэмэх} other {# дэлгэцийн зураг}}",
+        "title": "{symbol} · дэлгэцийн зураг ба тэмдэглэл",
+        "previous": "Өмнөх арилжаа",
+        "next": "Дараагийн арилжаа",
+        "position": "{total}-с {n}",
+        "openTrade": "Арилжааг нээх",
+        "done": "Болсон"
       }
     },
     "filters": {
@@ -580,7 +588,11 @@
       "fromDate": "Эхлэх огноо",
       "toDate": "Дуусах огноо",
       "clear": "Цэвэрлэх",
-      "nothingToFilter": "Шүүх зүйл одоогоор алга."
+      "nothingToFilter": "Шүүх зүйл одоогоор алга.",
+      "noScreenshot": "Зураггүй",
+      "importChip": "Нэг импортын арилжаа",
+      "dayChip": "{date} өдөр",
+      "removeFilter": "Шүүлтүүр хасах: {label}"
     },
     "import": {
       "title": "Хуулга импортлох",
@@ -615,7 +627,7 @@
       "importTrades": "{count} арилжаа импортлох",
       "importTradesAndCash": "{count} арилжаа, {events} мөнгөн гүйлгээ импортлох",
       "recent": "Сүүлийн импортууд",
-      "recentCaption": "Буцаавал тухайн импортын үүсгэсэн арилжаа, мөнгөн гүйлгээг устгана",
+      "recentCaption": "Буцаавал тухайн импортын үүсгэсэн арилжаа, мөнгөн гүйлгээг, тэдгээр арилжаанд нэмсэн дэлгэцийн зураг, тэмдэглэлийн хамт устгана",
       "when": "Хэзээ",
       "file": "Файл",
       "timeReading": "Цагийн тохиргоо",
@@ -643,7 +655,8 @@
       "chooseFile": "Хуулгын файл сонгох",
       "replaceFile": "солихын тулд дарах эсвэл чирч оруулах",
       "dropPrompt": "Хуулгаа энд чирч оруулах эсвэл дарж сонгоно уу",
-      "formats": "MT4 Detailed Statement (.htm), MT5 Report (.html) эсвэл CSV — 10MB хүртэл"
+      "formats": "MT4 Detailed Statement (.htm), MT5 Report (.html) эсвэл CSV — 10MB хүртэл",
+      "viewTrades": "Арилжааг харах"
     },
     "form": {
       "offlineTitle": "Та офлайн байна",
@@ -684,8 +697,8 @@
       "playbookHint": "Энэ арилжааны сетап. Дүрмүүдийг нь арилжааны хуудаснаас шалгана уу.",
       "tags": "Шошго",
       "noTags": "Шошго алга байна.",
-      "advancedTitle": "Сахилга бат ба тэмдэглэл",
-      "advancedSubtitle": "Заавал биш — зардал, сэтгэл зүй, тайлбар",
+      "advancedTitle": "Дэлгэрэнгүй",
+      "advancedSubtitle": "Заавал биш — playbook, шошго, зардал, сэтгэл зүй",
       "mae": "Хамгийн муу үнэ (MAE)",
       "maeHint": "Нээлттэй байх үед үнэ таны эсрэг хамгийн хол очсон түвшин.",
       "mfe": "Хамгийн сайн үнэ (MFE)",
@@ -796,6 +809,13 @@
         "OTHER": "БУСАД"
       },
       "journalAlt": "Journal-ын screenshot"
+    },
+    "notes": {
+      "label": "Тэмдэглэл",
+      "placeholder": "Яагаад орсон, юу харсан.",
+      "saving": "Хадгалж байна…",
+      "saved": "Хадгалагдлаа",
+      "couldNotSave": "Тэмдэглэлийг хадгалж чадсангүй."
     }
   },
   "playbooks": {
@@ -1047,7 +1067,17 @@
       "tradeLineR": "{direction} {symbol} · {r}",
       "balance": "Дансны өдрийн үлдэгдэл",
       "balanceHelp": "Арилжаа эсвэл мөнгөн гүйлгээ хийсэн өдөр бүрийн эцсийн үлдэгдэл.",
-      "balanceLabel": "{count} өдрийн хугацаанд үлдэгдэл {start}-ээс {end} болсон"
+      "balanceLabel": "{count} өдрийн хугацаанд үлдэгдэл {start}-ээс {end} болсон",
+      "totalLots": "Нийт лот",
+      "totalLotsHelp": "Хүрээнд хаагдсан арилжааны лотын нийлбэр. R-ээр бүртгэсэн арилжаа хэмжээгүй тул орохгүй.",
+      "totalLotsDetail": "{total} арилжааны {sized} нь хэмжээтэй",
+      "cumulative": "Хуримтлагдсан P&L",
+      "cumulativeHelp": "Хаагдсан арилжааны P&L-ийн өдөр өдрөөр өссөн дүн.",
+      "cumulativeLabel": "{count} өдрийн дараа хуримтлагдсан P&L {end} болсон",
+      "durationCount": "Арилжааны тоо, хугацаагаар",
+      "durationWinRate": "Ашигтай арилжааны хувь, хугацаагаар",
+      "durationWinDetail": "{decided}-с {wins}",
+      "durationEmpty": "Энэ хүрээнд хугацаатай хаагдсан арилжаа алга."
     },
     "checklist": {
       "title": "Өдрийн checklist",
@@ -1075,7 +1105,8 @@
       "breakdowns": "Задаргаа",
       "distribution": "Тархалт",
       "timing": "Цаг хугацаа",
-      "periods": "Үеүд"
+      "periods": "Үеүд",
+      "equity": "Эквити"
     },
     "breakdowns": {
       "symbol": "Символ",
@@ -1237,7 +1268,9 @@
       "discipline": "Сахилга бат",
       "recentTrades": "Сүүлийн арилжаанууд",
       "last10": "Сүүлийн 10",
-      "dailyPnl": "Өдрийн ашиг/алдагдал"
+      "dailyPnl": "Өдрийн ашиг/алдагдал",
+      "allTrades": "Бүх арилжаа",
+      "durationCaption": "Хаагдсан арилжаа, барьсан хугацаагаар"
     },
     "overviewError": {
       "title": "Тоймыг ачаалж чадсангүй",

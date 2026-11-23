@@ -100,7 +100,12 @@ export function StatementImport({
     setPreview(null);
     setFile(null);
     setAliases({});
-    router.refresh();
+    // Straight to the trades this import created: the next thing to do with
+    // them is put a screenshot on each. An import that only closed positions
+    // created none — they still belong to the import that opened them — so
+    // there is no list to go to and the page just refreshes.
+    if (result.counts.new > 0 && result.importId) router.push(`/trades?import=${result.importId}`);
+    else router.refresh();
   }
 
   function mapSymbol(brokerSymbol: string, symbol: string) {
@@ -218,9 +223,16 @@ export function StatementImport({
                     ) : null}
                   </Td>
                   <Td numeric>
-                    <Button variant="ghost" size="sm" onClick={() => handleUndo(r.id)}>
-                      {t("undo")}
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      {r.tradesRemaining > 0 ? (
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/trades?import=${r.id}`}>{t("viewTrades")}</Link>
+                        </Button>
+                      ) : null}
+                      <Button variant="ghost" size="sm" onClick={() => handleUndo(r.id)}>
+                        {t("undo")}
+                      </Button>
+                    </div>
                   </Td>
                 </tr>
               ))}

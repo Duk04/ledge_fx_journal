@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 import type { AttachmentKind } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
-import { resolveAttachmentOwner } from "@/lib/actions/attachment-owner";
+import { resolveAttachmentOwner, revalidateAttachmentViews } from "@/lib/actions/attachment-owner";
 import { tr } from "@/i18n/server-t";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -113,7 +112,7 @@ export async function POST(request: Request) {
     },
   });
 
-  revalidatePath(owner.path);
+  revalidateAttachmentViews(owner.path);
   return NextResponse.json(
     {
       id: row.id,

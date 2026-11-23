@@ -3,6 +3,8 @@ import { signIn } from "./helpers";
 
 test("what-if caps losses and Monte Carlo reports on the demo account", async ({ page }) => {
   await signIn(page);
+  // Simulate is under the rail's collapsed "More tools" group.
+  await page.getByRole("button", { name: "More tools" }).click();
   await page.getByRole("link", { name: "Simulate" }).click();
   await expect(page.getByRole("heading", { name: "Simulate" })).toBeVisible();
 
@@ -18,6 +20,7 @@ test("what-if caps losses and Monte Carlo reports on the demo account", async ({
 
 test("the position-size calculator sizes to the risk budget", async ({ page }) => {
   await signIn(page);
+  await page.getByRole("button", { name: "More tools" }).click();
   await page.getByRole("link", { name: "Position size" }).click();
   await page.getByLabel("Risk", { exact: true }).fill("1");
   await page.getByLabel("Balance").fill("10000");

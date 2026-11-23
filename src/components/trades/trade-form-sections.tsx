@@ -3,8 +3,9 @@
 /**
  * Pieces of the trade form (trade-form.tsx), split out so the form reads as
  * its shape: the plan in R or in prices — the two modes share nothing but
- * their place on the page — and the collapsible "Discipline & notes" panel.
- * Each takes the form instance and registers its own fields.
+ * their place on the page — and the collapsible "Details" panel, which holds
+ * everything a trade can be logged without. Each takes the form instance and
+ * registers its own fields.
  */
 import * as React from "react";
 import { useTranslations } from "next-intl";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/cn";
 import {
   Field,
   FieldError,
+  FieldGroup,
   FieldHint,
   FieldLabel,
   FieldRow,
@@ -23,9 +25,18 @@ import {
   Panel,
   Segmented,
   SegmentedItem,
-  Textarea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  TagChip,
 } from "@/components/ui";
+import type { TagOption } from "@/lib/queries/trades";
 import type { TradeFormInput } from "./trade-form-values";
+
+/** Radix Select can't use "" as an item value; this stands for "no playbook". */
+const NO_PLAYBOOK = "__none__";
 
 export const RESPONSIVE_HEIGHT = "h-control-lg sm:h-control";
 
@@ -179,8 +190,10 @@ export function TradeFormPricePlan({
   );
 }
 
-/** Fields rendered inside the collapsible "Discipline & notes" panel. */
+/** Fields rendered inside the collapsible "Details" panel. */
 const ADVANCED_FIELDS = [
+  "playbookId",
+  "tagIds",
   "maePrice",
   "mfePrice",
   "commission",
@@ -188,11 +201,28 @@ const ADVANCED_FIELDS = [
   "followedPlan",
   "emotion",
   "confidence",
-  "notes",
 ] as const satisfies readonly (keyof TradeFormInput)[];
 
-/** MAE/MFE, costs and the discipline fields, folded away by default. */
-export function TradeFormAdvanced({ form, currency, rMode }: { form: Form; currency: string; rMode: boolean }) {
+/**
+ * Playbook, tags, MAE/MFE, costs and the discipline fields, folded away by
+ * default: none is needed to log a trade, and together they were what made
+ * the form look like work. The note used to be in here and is not any more —
+ * it is on the form itself, with the screenshot.
+ */
+export function TradeFormAdvanced({
+  form,
+  currency,
+  rMode,
+  tags,
+  playbooks,
+}: {
+  form: Form;
+  currency: string;
+  rMode: boolean;
+  tags: TagOption[];
+  /** The user's active playbooks, for the optional "taken as" picker. */
+  playbooks: { id: string; name: string }[];
+}) {
   const t = useTranslations("trades.form");
   const errors = form.formState.errors;
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
@@ -233,6 +263,67 @@ export function TradeFormAdvanced({ form, currency, rMode }: { form: Form; curre
       </PanelHeader>
       {panelOpen ? (
         <PanelBody id={advancedId} className="flex flex-col gap-4">
+          {playbooks.length ? (
+            <Field>
+              <FieldLabel optional>{t("playbook")}</FieldLabel>
+              <Controller
+                control={form.control}
+                name="playbookId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || NO_PLAYBOOK}
+                    onValueChange={(v) => field.onChange(v === NO_PLAYBOOK ? "" : v)}
+                  >
+                    <SelectTrigger className={RESPONSIVE_HEIGHT}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PLAYBOOK}>{t("noPlaybook")}</SelectItem>
+                      {playbooks.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldHint>{t("playbookHint")}</FieldHint>
+              <FieldError>{errors.playbookId?.message}</FieldError>
+            </Field>
+          ) : null}
+
+          <Field>
+            <FieldLabel optional>{t("tags")}</FieldLabel>
+            <Controller
+              control={form.control}
+              name="tagIds"
+              render={({ field }) => (
+                <FieldGroup className="flex flex-wrap gap-1.5">
+                  {tags.length === 0 ? <span className="text-xs text-ink-3">{t("noTags")}</span> : null}
+                  {tags.map((tag) => {
+                    const active = field.value.includes(tag.id);
+                    return (
+                      <button
+                        type="button"
+                        key={tag.id}
+                        aria-pressed={active}
+                        onClick={() =>
+                          field.onChange(active ? field.value.filter((id) => id !== tag.id) : [...field.value, tag.id])
+                        }
+                      >
+                        <TagChip
+                          name={tag.name}
+                          color={tag.color}
+                          className={cn(!active && "opacity-45", "transition-opacity")}
+                        />
+                      </button>
+                    );
+                  })}
+                </FieldGroup>
+              )}
+            />
+          </Field>
           {/* MAE / MFE are prices; an R-mode trade has none to compare. */}
           {rMode ? null : (
             <FieldRow>
@@ -311,12 +402,6 @@ export function TradeFormAdvanced({ form, currency, rMode }: { form: Form; curre
               />
             </Field>
           </FieldRow>
-
-          <Field>
-            <FieldLabel optional>{t("notes")}</FieldLabel>
-            <Textarea rows={5} placeholder={t("notesPlaceholder")} {...form.register("notes")} />
-            <FieldError>{errors.notes?.message}</FieldError>
-          </Field>
         </PanelBody>
       ) : null}
     </Panel>

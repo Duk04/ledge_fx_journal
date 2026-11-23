@@ -8,10 +8,17 @@ import type { CalendarDay, CalendarWeek } from "@/lib/queries/journal";
 
 const WEEKDAY_KEYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 
+/** Where a day cell leads; null renders the cell without a link. */
+export type DayHref = (day: CalendarDay) => string | null;
+
+const journalDayHref: DayHref = (day) => `/journal/${day.date}`;
+
 /**
  * Plain CSS grid, Monday-first, with a weekly total at the end of each row.
- * Each day cell is a link to that day's journal page — clicking any day,
- * trades or not, always lands on a ready-to-fill form (see docs/JOURNAL.md).
+ * By default each day cell is a link to that day's journal page — clicking
+ * any day, trades or not, always lands on a ready-to-fill form (see
+ * docs/JOURNAL.md). The Overview passes its own `dayHref`, to the day's
+ * trades.
  *
  * A day with closed trades is tinted by its result, so a month reads as a
  * pattern of green and red before a single number is read. The weekly cell
@@ -24,6 +31,7 @@ export async function CalendarGrid({
   weeks,
   currency,
   today,
+  dayHref = journalDayHref,
 }: {
   month: string; // "YYYY-MM"
   days: CalendarDay[];
@@ -31,6 +39,7 @@ export async function CalendarGrid({
   currency: string;
   /** Today's date ("YYYY-MM-DD") in the user's timezone, for the "today" ring. */
   today: string;
+  dayHref?: DayHref;
 }) {
   const tWeekday = await getTranslations("enums.weekdayShort");
   const t = await getTranslations("journal.calendar");
@@ -61,6 +70,7 @@ export async function CalendarGrid({
             index={r + 1}
             currency={currency}
             today={today}
+            dayHref={dayHref}
             weekLabel={t("week", { n: r + 1 })}
             tradeCountLabel={(count) => t("tradeCount", { count })}
           />
@@ -76,6 +86,7 @@ function WeekRow({
   index,
   currency,
   today,
+  dayHref,
   weekLabel,
   tradeCountLabel,
 }: {
@@ -84,6 +95,7 @@ function WeekRow({
   index: number;
   currency: string;
   today: string;
+  dayHref: DayHref;
   weekLabel: string;
   tradeCountLabel: (count: number) => string;
 }) {
@@ -92,7 +104,7 @@ function WeekRow({
     <>
       {row.map((day, i) =>
         day ? (
-          <DayCell key={day.date} day={day} currency={currency} isToday={day.date === today} />
+          <DayCell key={day.date} day={day} currency={currency} isToday={day.date === today} href={dayHref(day)} />
         ) : (
           <div
             key={`pad-${index}-${i}`}
@@ -114,28 +126,36 @@ function WeekRow({
   );
 }
 
-async function DayCell({ day, currency, isToday }: { day: CalendarDay; currency: string; isToday: boolean }) {
+async function DayCell({
+  day,
+  currency,
+  isToday,
+  href,
+}: {
+  day: CalendarDay;
+  currency: string;
+  isToday: boolean;
+  href: string | null;
+}) {
   const t = await getTranslations("journal.calendar");
   const dayNum = Number(day.date.slice(-2));
   const hasTrades = day.tradeCount > 0;
   const netPnl = day.netPnl !== null ? Number(day.netPnl) : null;
 
-  return (
-    <Link
-      href={`/journal/${day.date}`}
-      className={cn(
-        "group relative flex min-h-[5.5rem] flex-col gap-1 border-r border-b border-line-faint p-1.5",
-        "transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-hover",
-        // Days with an entry but no trades get their own quiet highlight —
-        // that distinction (entry-only vs. nothing at all) is the point of
-        // this whole view.
-        !hasTrades && day.hasEntry && "bg-brand-weak",
-        !hasTrades && !day.hasEntry && "bg-panel-sunken",
-        // Tinted by the day's result; a day of only open trades stays plain.
-        hasTrades && (netPnl ?? 0) > 0.005 && "bg-profit-weak",
-        hasTrades && (netPnl ?? 0) < -0.005 && "bg-loss-weak",
-      )}
-    >
+  const className = cn(
+    "group relative flex min-h-[5.5rem] flex-col gap-1 border-r border-b border-line-faint p-1.5",
+    // Days with an entry but no trades get their own quiet highlight —
+    // that distinction (entry-only vs. nothing at all) is the point of
+    // this whole view.
+    !hasTrades && day.hasEntry && "bg-brand-weak",
+    !hasTrades && !day.hasEntry && "bg-panel-sunken",
+    // Tinted by the day's result; a day of only open trades stays plain.
+    hasTrades && (netPnl ?? 0) > 0.005 && "bg-profit-weak",
+    hasTrades && (netPnl ?? 0) < -0.005 && "bg-loss-weak",
+  );
+
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <span
           className={cn(
@@ -187,6 +207,19 @@ async function DayCell({ day, currency, isToday }: { day: CalendarDay; currency:
       ) : day.hasEntry ? (
         <span className="mt-auto text-2xs font-medium text-brand">{t("entryNoTrades")}</span>
       ) : null}
+    </>
+  );
+
+  // A cell with nowhere to go is a plain box: no link, and no hover that
+  // promises one.
+  return href ? (
+    <Link
+      href={href}
+      className={cn(className, "transition-colors duration-[var(--dur-fast)] ease-[var(--ease-out)] hover:bg-hover")}
+    >
+      {content}
     </Link>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }

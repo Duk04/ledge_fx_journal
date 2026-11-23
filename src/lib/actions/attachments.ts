@@ -1,13 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { fieldErrorsFrom, ok, type ActionResult } from "./result";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
 import type { AttachmentTarget } from "@/lib/attachment-target";
-import { findOwnedAttachment, resolveAttachmentOwner } from "./attachment-owner";
+import { findOwnedAttachment, resolveAttachmentOwner, revalidateAttachmentViews } from "./attachment-owner";
 import { vmsg } from "@/i18n/encoded";
 import { failT, failZod } from "@/i18n/server-t";
 
@@ -67,7 +66,7 @@ export async function addExternalLink(
     },
   });
 
-  revalidatePath(owner.path);
+  revalidateAttachmentViews(owner.path);
   return { ok: true, id: row.id };
 }
 
@@ -96,7 +95,7 @@ export async function setCaption(attachmentId: string, caption: string | null): 
     data: { caption: value ? value : null },
   });
 
-  revalidatePath(attachment.path);
+  revalidateAttachmentViews(attachment.path);
   return ok();
 }
 
@@ -124,7 +123,7 @@ export async function setAttachmentKind(
 
   await prisma.attachment.update({ where: { id: attachment.id }, data: { kind: parsed.data.kind } });
 
-  revalidatePath(attachment.path);
+  revalidateAttachmentViews(attachment.path);
   return ok();
 }
 
@@ -144,6 +143,6 @@ export async function deleteAttachment(attachmentId: string): Promise<ActionResu
   }
   await prisma.attachment.delete({ where: { id: attachment.id } });
 
-  revalidatePath(attachment.path);
+  revalidateAttachmentViews(attachment.path);
   return ok();
 }

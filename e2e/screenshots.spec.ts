@@ -48,6 +48,14 @@ test("screenshots picked while logging a trade upload with it, and more can be a
   // The saved trade takes more.
   await page.locator('input[type="file"]').setInputFiles({ name: "later.png", mimeType: "image/png", buffer: PNG });
   await expect(page.locator('img[src^="/api/attachments/"]')).toHaveCount(3);
+
+  // And a note, written right there: it saves when the field is left.
+  const note = page.getByLabel("Note", { exact: true });
+  await note.fill("Entered on the retest.");
+  await note.blur();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Note", { exact: true })).toHaveValue("Entered on the retest.");
 });
 
 // docs/JOURNAL.md "Screenshots on a journal day": a chart pasted while the plan

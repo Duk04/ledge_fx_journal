@@ -29,6 +29,8 @@ import { first, parseTradeListQuery, type SearchParams } from "@/lib/trade-list-
 import { TradeFilterBar } from "@/components/trades/filter-bar";
 import { TradePaginationBar } from "@/components/trades/pagination-bar";
 import { TradeTable } from "@/components/trades/trade-table";
+import { TradeShotsProvider } from "@/components/trades/trade-shots";
+import { uploadsAvailable } from "@/lib/storage";
 
 function toSearchParams(sp: SearchParams): URLSearchParams {
   const params = new URLSearchParams();
@@ -190,16 +192,25 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
           </PanelBody>
         ) : (
           <>
-            <TradeTable
+            {/* Owns the one screenshot dialog the table's cells open. */}
+            <TradeShotsProvider
               rows={rows}
-              scale={scale}
-              currency={account.currency}
               accountId={account.id}
+              currency={account.currency}
               timezone={user.timezone}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              buildSortHref={buildSortHref}
-            />
+              uploadsEnabled={uploadsAvailable()}
+            >
+              <TradeTable
+                rows={rows}
+                scale={scale}
+                currency={account.currency}
+                accountId={account.id}
+                timezone={user.timezone}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                buildSortHref={buildSortHref}
+              />
+            </TradeShotsProvider>
             <PanelFooter>
               <TradePaginationBar page={page} pageSize={pageSize} total={total} />
             </PanelFooter>

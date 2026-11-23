@@ -70,12 +70,18 @@ function srcFor(a: Pick<AttachmentView, "id" | "storageKey" | "externalUrl">): s
  * `initialAttachments` from its own server-rendered data) and every mutation
  * (upload, caption, kind, delete) updates local state immediately rather
  * than waiting on a round trip through the parent's server component.
+ *
+ * ONE PER PAGE. The paste listener is on the document, so two mounted at once
+ * would each upload the same pasted image. The trade list's dialog
+ * (trade-shots.tsx) walks many trades with a single instance, re-keyed per
+ * trade, and reads this one's state back through `onStateChange`.
  */
 export function AttachmentUploader({
   target,
   initialAttachments,
   uploadsEnabled = true,
   defaultKind,
+  onStateChange,
 }: {
   /** A saved trade, or a journal day — whose entry the first upload creates. */
   target: AttachmentTarget;
@@ -87,6 +93,10 @@ export function AttachmentUploader({
   /** False without durable storage (lib/storage.ts uploadsAvailable): the
    * drop zone and paste are off, linking an image still works. */
   uploadsEnabled?: boolean;
+  /** Told the attachments as they now stand, and whether an upload is still
+   * in flight — for a parent that will unmount this and must hand the same
+   * list back as `initialAttachments` when it mounts it again. */
+  onStateChange?: (state: { attachments: AttachmentView[]; uploading: boolean }) => void;
 }) {
   const t = useTranslations("trades.attachments");
   const { toast } = useToast();
@@ -111,6 +121,15 @@ export function AttachmentUploader({
   React.useEffect(() => {
     defaultKindRef.current = defaultKind;
   }, [defaultKind]);
+
+  const onStateChangeRef = React.useRef(onStateChange);
+  React.useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
+  const uploading = uploads.some((u) => u.status === "uploading");
+  React.useEffect(() => {
+    onStateChangeRef.current?.({ attachments, uploading });
+  }, [attachments, uploading]);
 
   const upload = React.useCallback(
     (file: File, tempId: string = crypto.randomUUID()) => {
@@ -215,10 +234,16 @@ export function AttachmentUploader({
   async function onCaptionBlur(id: string, value: string) {
     const original = attachments.find((a) => a.id === id)?.caption ?? "";
     if (value === original) return;
-    const result = await setCaption(id, value.trim() ? value.trim() : null);
+    const caption = value.trim() ? value.trim() : null;
+    const result = await setCaption(id, caption);
     if (!result.ok) {
       toast({ title: t("captionFailed"), description: result.formError, tone: "loss" });
+      return;
     }
+    // Kept in the list too, not only in the tile's own input: a parent
+    // remounting this from `onStateChange` would otherwise bring the old
+    // caption back.
+    setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, caption } : a)));
   }
 
   async function onAddLink(formData: FormData) {

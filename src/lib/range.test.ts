@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RANGE_OPTIONS, isRangeKey, resolveJournalRange, resolveRange } from "./range";
+import { RANGE_OPTIONS, isRangeKey, resolveJournalRange, resolveRange, resolveRangeDays } from "./range";
 
 /**
  * `resolveRange` takes `now` as a parameter, which is what makes this
@@ -182,5 +182,55 @@ describe("resolveJournalRange", () => {
   it("returns plain Dates, not TZDates", () => {
     const r = resolveJournalRange({}, TZ, now);
     expect(r.window.from.constructor).toBe(Date);
+  });
+});
+
+describe("resolveRangeDays", () => {
+  // 2026-10-17 01:00 in Ulaanbaatar is still the 16th in UTC.
+  const now = new Date("2026-10-16T17:00:00Z");
+  const TZ = "Asia/Ulaanbaatar";
+
+  it("starts 7D at local midnight six days before today, so today is the seventh day", () => {
+    const r = resolveRangeDays("7d", TZ, now);
+    expect(r.key).toBe("7d");
+    expect(r.fromDate).toBe("2026-10-11");
+    // Midnight on the 11th in UTC+8.
+    expect(r.from?.toISOString()).toBe("2026-10-10T16:00:00.000Z");
+  });
+
+  it("does not move during the day, unlike the rolling window", () => {
+    // The whole point: a per-day figure must not change between breakfast
+    // and lunch because the window's first day lost its morning.
+    const later = new Date(now.getTime() + 10 * 3_600_000);
+    expect(resolveRangeDays("30d", TZ, later).from?.getTime()).toBe(resolveRangeDays("30d", TZ, now).from?.getTime());
+    expect(resolveRange("30d", TZ, later).from?.getTime()).not.toBe(resolveRange("30d", TZ, now).from?.getTime());
+  });
+
+  it.each([
+    ["30d", "2026-09-18"],
+    ["90d", "2026-07-20"],
+    ["ytd", "2026-01-01"],
+  ])("%s opens on %s", (range, fromDate) => {
+    expect(resolveRangeDays(range, TZ, now).fromDate).toBe(fromDate);
+  });
+
+  it("agrees with resolveRange about where the year starts", () => {
+    expect(resolveRangeDays("ytd", TZ, now).from?.getTime()).toBe(resolveRange("ytd", TZ, now).from?.getTime());
+  });
+
+  it("is unbounded for all, with no opening day", () => {
+    expect(resolveRangeDays("all", TZ, now)).toEqual({ key: "all", from: null, fromDate: null });
+  });
+
+  it("falls back to 30d for a missing or unrecognised value", () => {
+    for (const value of [undefined, "nonsense", "ALL"]) {
+      expect(resolveRangeDays(value, TZ, now).key, String(value)).toBe("30d");
+    }
+  });
+
+  it("returns a plain Date, not a TZDate", () => {
+    const { from } = resolveRangeDays("7d", TZ, now);
+    expect(from?.constructor).toBe(Date);
+    expect(JSON.parse(JSON.stringify({ from }))).toEqual({ from: "2026-10-10T16:00:00.000Z" });
   });
 });

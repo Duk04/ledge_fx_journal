@@ -5,19 +5,22 @@ import { Button, ButtonGroup } from "@/components/ui";
 import { shiftMonth } from "./date-utils";
 
 /** Month navigation via plain links (`?month=YYYY-MM`) — no client state
- * needed. `keep` carries the stats range (`from`/`to`) so paging the
- * calendar does not reset the cards above it. */
+ * needed. `keep` carries the page's other params (the journal's `from`/`to`,
+ * the Overview's `range`) so paging the calendar does not reset the cards
+ * above it. `basePath` is the page the calendar is on. */
 export async function MonthNav({
   month,
   currentMonth,
   keep = {},
+  basePath = "/journal",
 }: {
   month: string;
   currentMonth: string;
   keep?: Record<string, string>;
+  basePath?: string;
 }) {
   const t = await getTranslations("journal.nav");
-  const href = (m: string) => `/journal?${new URLSearchParams({ ...keep, month: m }).toString()}`;
+  const href = (m: string) => `${basePath}?${new URLSearchParams({ ...keep, month: m }).toString()}`;
   return (
     <div className="flex items-center gap-2">
       <ButtonGroup>

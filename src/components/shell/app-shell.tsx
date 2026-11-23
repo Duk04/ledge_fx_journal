@@ -5,7 +5,7 @@ import { signOutAction } from "@/lib/actions/auth";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, User } from "lucide-react";
+import { ChevronDown, Ellipsis, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Button,
@@ -22,15 +22,16 @@ import {
   DropdownTrigger,
 } from "@/components/ui";
 import { CommandPalette, ShortcutsDialog } from "./command-palette";
-import { MOBILE_NAV, NAV_GROUPS, isActive } from "./nav-items";
+import { MOBILE_NAV, NAV_GROUPS, activeHref } from "./nav-items";
 import { AccountSwitcher, type AccountOption } from "./account-switcher";
 import { ThemeToggle } from "./theme-toggle";
 import { useStoredState } from "@/lib/use-stored-state";
 
 const RAIL_KEY = "ledger.rail";
+const MORE_KEY = "ledger.nav.more";
 
-/** The rail is either collapsed ("1") or not ("0"). */
-function isRailValue(v: string): v is "0" | "1" {
+/** A remembered on/off: the rail collapsed ("1") or not, "More tools" open ("1") or not. */
+function isFlag(v: string): v is "0" | "1" {
   return v === "0" || v === "1";
 }
 
@@ -49,8 +50,14 @@ export function AppShell({
   const router = useRouter();
   const t = useTranslations("shell");
   const tNav = useTranslations("nav");
-  const [rail, setRail] = useStoredState(RAIL_KEY, "0" as const, isRailValue);
+  const [rail, setRail] = useStoredState(RAIL_KEY, "0" as const, isFlag);
   const collapsed = rail === "1";
+  // "More tools" starts closed and remembers being opened. Like the rail it
+  // is client-only state, so a remembered-open group renders closed on the
+  // server and opens on hydration.
+  const [more, setMore] = useStoredState(MORE_KEY, "0" as const, isFlag);
+  const current = activeHref(pathname);
+  const navId = React.useId();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const navButtonRef = React.useRef<HTMLButtonElement>(null);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -80,6 +87,68 @@ export function AppShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [router]);
+
+  /** The nav groups, for the rail (`where` "rail") and the phone drawer. */
+  function renderGroups(where: "rail" | "drawer", iconsOnly: boolean, onNavigate?: () => void) {
+    return NAV_GROUPS.map((group) => {
+      // On a page inside the group it is simply open, with a plain heading:
+      // a toggle that could not close it would be a control that does nothing.
+      const holdsCurrent = group.items.some((i) => i.href === current);
+      const toggles = group.collapsible && !holdsCurrent;
+      const open = !group.collapsible || holdsCurrent || more === "1";
+      const listId = `${navId}-${where}-${group.label}`;
+      const toggle = () => setMore(open ? "0" : "1");
+
+      return (
+        <div key={group.label} className="flex flex-col gap-0.5">
+          {toggles && iconsOnly ? (
+            <Tip label={tNav(group.label)}>
+              <button
+                type="button"
+                onClick={toggle}
+                aria-expanded={open}
+                aria-controls={listId}
+                aria-label={tNav(group.label)}
+                className="flex h-8 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <Ellipsis className="size-4" />
+              </button>
+            </Tip>
+          ) : toggles ? (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-expanded={open}
+              aria-controls={listId}
+              className="label flex h-7 items-center justify-between rounded-control px-2 text-left hover:bg-hover hover:text-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              {tNav(group.label)}
+              <ChevronDown
+                aria-hidden
+                className={cn("size-3.5 transition-transform duration-[var(--dur-fast)]", open && "rotate-180")}
+              />
+            </button>
+          ) : !iconsOnly ? (
+            <span className="label px-2 pb-1">{tNav(group.label)}</span>
+          ) : null}
+          {open ? (
+            <div id={listId} className="flex flex-col gap-0.5">
+              {group.items.map((item) => (
+                <RailLink
+                  key={item.href}
+                  {...item}
+                  label={tNav(item.label)}
+                  collapsed={iconsOnly}
+                  onNavigate={onNavigate}
+                  active={item.href === current}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      );
+    });
+  }
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
@@ -169,20 +238,7 @@ export function AppShell({
             collapsed ? "w-rail-collapsed" : "w-rail",
           )}
         >
-          {NAV_GROUPS.map((group) => (
-            <div key={tNav(group.label)} className="flex flex-col gap-0.5">
-              {!collapsed ? <span className="label px-2 pb-1">{tNav(group.label)}</span> : null}
-              {group.items.map((item) => (
-                <RailLink
-                  key={item.href}
-                  {...item}
-                  label={tNav(item.label)}
-                  collapsed={collapsed}
-                  active={isActive(pathname, item.href, "exact" in item ? item.exact : false)}
-                />
-              ))}
-            </div>
-          ))}
+          {renderGroups("rail", collapsed)}
 
           <div className="flex-1" />
 
@@ -220,20 +276,7 @@ export function AppShell({
           >
             <DialogTitle className="sr-only">{t("navigation")}</DialogTitle>
             <nav aria-label={t("main")} className="flex flex-col gap-4 overflow-y-auto px-2 py-3">
-              {NAV_GROUPS.map((group) => (
-                <div key={tNav(group.label)} className="flex flex-col gap-0.5">
-                  <span className="label px-2 pb-1">{tNav(group.label)}</span>
-                  {group.items.map((item) => (
-                    <RailLink
-                      key={item.href}
-                      {...item}
-                      label={tNav(item.label)}
-                      onNavigate={() => setMobileOpen(false)}
-                      active={isActive(pathname, item.href, "exact" in item ? item.exact : false)}
-                    />
-                  ))}
-                </div>
-              ))}
+              {renderGroups("drawer", false, () => setMobileOpen(false))}
             </nav>
           </DialogContent>
         </Dialog>
@@ -250,7 +293,7 @@ export function AppShell({
         className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-start border-t border-line bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm lg:hidden"
       >
         {MOBILE_NAV.map((item) => {
-          const active = isActive(pathname, item.href, "exact" in item ? item.exact : false);
+          const active = item.href === current;
           return (
             <Link
               key={item.href}

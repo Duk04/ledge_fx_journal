@@ -12,8 +12,11 @@ import { RANGE_OPTIONS, type RangeKey } from "@/lib/range";
  * `useSearchParams`, so this never needs its own Suspense boundary) and
  * writes the new one straight into the URL — both pages read `range` back
  * out of `searchParams` on the next render.
+ *
+ * `keep` is whatever else the page holds in its URL and a range change must
+ * not drop — on the Overview, the month its calendar is turned to.
  */
-export function RangeControl({ value }: { value: RangeKey }) {
+export function RangeControl({ value, keep }: { value: RangeKey; keep?: Record<string, string> }) {
   const t = useTranslations("dashboard.range");
   const router = useRouter();
   const pathname = usePathname();
@@ -27,7 +30,8 @@ export function RangeControl({ value }: { value: RangeKey }) {
       value={value}
       onValueChange={(next) => {
         if (!next) return;
-        startTransition(() => router.replace(`${pathname}?range=${next}`, { scroll: false }));
+        const query = new URLSearchParams({ ...keep, range: next }).toString();
+        startTransition(() => router.replace(`${pathname}?${query}`, { scroll: false }));
       }}
       aria-label={t("ariaLabel")}
       aria-busy={pending || undefined}

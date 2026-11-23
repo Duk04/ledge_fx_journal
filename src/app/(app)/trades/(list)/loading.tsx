@@ -39,11 +39,12 @@ export default async function TradesLoading() {
               <Th numeric>{t("r")}</Th>
               <Th>{t("r")}</Th>
               <Th>{t("tags")}</Th>
+              <Th aria-label={t("screenshots")} />
               <Th aria-label={t("actions")} />
             </tr>
           </thead>
           <tbody>
-            <SkeletonRows rows={10} cols={11} />
+            <SkeletonRows rows={10} cols={12} />
           </tbody>
         </DataTable>
         <PanelFooter>

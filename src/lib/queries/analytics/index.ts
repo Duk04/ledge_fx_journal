@@ -49,7 +49,7 @@ export { periods } from "./periods";
 export type { ExcursionStats, MonthCell, PeriodComparison, PeriodsData, YearRow } from "./periods";
 
 export { journalStats } from "./journal-stats";
-export type { JournalStats, JournalTradeCard } from "./journal-stats";
+export type { DurationBucket, JournalStats, JournalTradeCard } from "./journal-stats";
 
 export { simulationInputs } from "./simulation";
 export type { SimulationInputs } from "./simulation";

@@ -1,7 +1,6 @@
 {
   "nav": {
     "desk": "Desk",
-    "review": "Review",
     "setup": "Setup",
     "overview": "Overview",
     "trades": "Trades",
@@ -13,7 +12,8 @@
     "backtest": "Backtest",
     "accounts": "Accounts",
     "settings": "Settings",
-    "stats": "Stats"
+    "import": "Import",
+    "more": "More tools"
   },
   "shell": {
     "openNavigation": "Open navigation",
@@ -373,8 +373,7 @@
         "screenshots": "Screenshots",
         "facts": "Facts",
         "tags": "Tags",
-        "discipline": "Discipline",
-        "notes": "Notes"
+        "discipline": "Discipline"
       },
       "facts": {
         "opened": "Opened",
@@ -406,7 +405,6 @@
         "emotion": "Emotion",
         "confidence": "Confidence"
       },
-      "noNotes": "No notes on this trade.",
       "notFound": {
         "title": "That trade isn't here",
         "description": "It may have been deleted, or it belongs to a different account.",
@@ -510,7 +508,8 @@
       "tags": "Tags",
       "status": "Status",
       "actions": "Actions",
-      "tryAgain": "Try again"
+      "tryAgain": "Try again",
+      "screenshots": "Screenshots"
     },
     "list": {
       "title": "Trades",
@@ -553,6 +552,15 @@
         "deleteFailed": "Couldn't delete trade",
         "confirmTitle": "Delete this trade?",
         "confirmDescription": "This removes the trade and its attachments permanently. This can't be undone."
+      },
+      "shots": {
+        "open": "{count, plural, =0 {Add a screenshot} one {# screenshot} other {# screenshots}}",
+        "title": "{symbol} · screenshot and note",
+        "previous": "Previous trade",
+        "next": "Next trade",
+        "position": "{n} of {total}",
+        "openTrade": "Open trade",
+        "done": "Done"
       }
     },
     "filters": {
@@ -580,7 +588,11 @@
       "fromDate": "From date",
       "toDate": "To date",
       "clear": "Clear",
-      "nothingToFilter": "Nothing to filter by yet."
+      "nothingToFilter": "Nothing to filter by yet.",
+      "noScreenshot": "No screenshot",
+      "importChip": "From one import",
+      "dayChip": "Day {date}",
+      "removeFilter": "Remove filter: {label}"
     },
     "import": {
       "title": "Import statement",
@@ -615,7 +627,7 @@
       "importTrades": "Import {count, plural, one {# trade} other {# trades}}",
       "importTradesAndCash": "Import {count, plural, one {# trade} other {# trades}} and {events} cash movement(s)",
       "recent": "Recent imports",
-      "recentCaption": "Undo removes the trades and cash movements an import created",
+      "recentCaption": "Undo removes the trades and cash movements an import created, with any screenshots and notes added to those trades",
       "when": "When",
       "file": "File",
       "timeReading": "Time reading",
@@ -643,7 +655,8 @@
       "chooseFile": "Choose a statement file",
       "replaceFile": "click or drop to replace",
       "dropPrompt": "Drop a statement here, or click to choose one",
-      "formats": "MT4 Detailed Statement (.htm), MT5 Report (.html), or a CSV — up to 10MB"
+      "formats": "MT4 Detailed Statement (.htm), MT5 Report (.html), or a CSV — up to 10MB",
+      "viewTrades": "View trades"
     },
     "form": {
       "offlineTitle": "You're offline",
@@ -684,8 +697,8 @@
       "playbookHint": "The setup this trade was. Check its rules on the trade page.",
       "tags": "Tags",
       "noTags": "No tags yet.",
-      "advancedTitle": "Discipline & notes",
-      "advancedSubtitle": "Optional — costs, mindset, and a write-up",
+      "advancedTitle": "Details",
+      "advancedSubtitle": "Optional — playbook, tags, costs, mindset",
       "mae": "Worst price (MAE)",
       "maeHint": "The furthest price went against you while open.",
       "mfe": "Best price (MFE)",
@@ -796,6 +809,13 @@
         "OTHER": "OTHER"
       },
       "journalAlt": "Journal screenshot"
+    },
+    "notes": {
+      "label": "Note",
+      "placeholder": "Why you took it, what you saw.",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "couldNotSave": "Could not save the note."
     }
   },
   "playbooks": {
@@ -1047,7 +1067,17 @@
       "tradeLineR": "{direction} {symbol} · {r}",
       "balance": "Daily account balance",
       "balanceHelp": "Balance at the end of each day with a trade or cash movement.",
-      "balanceLabel": "Balance from {start} to {end} over {count, plural, one {# day} other {# days}}"
+      "balanceLabel": "Balance from {start} to {end} over {count, plural, one {# day} other {# days}}",
+      "totalLots": "Total lots",
+      "totalLotsHelp": "Lots of every trade closed in the range. Trades logged in R carry no size and are left out.",
+      "totalLotsDetail": "{sized} of {total} trades have a size",
+      "cumulative": "Cumulative P&L",
+      "cumulativeHelp": "Running total of closed-trade P&L, day by day.",
+      "cumulativeLabel": "Cumulative P&L ends at {end} after {count, plural, one {# day} other {# days}}",
+      "durationCount": "Trades by duration",
+      "durationWinRate": "Win rate by duration",
+      "durationWinDetail": "{wins} of {decided}",
+      "durationEmpty": "No closed trades with a duration in this range."
     },
     "checklist": {
       "title": "Daily checklist",
@@ -1075,7 +1105,8 @@
       "breakdowns": "Breakdowns",
       "distribution": "Distribution",
       "timing": "Timing",
-      "periods": "Periods"
+      "periods": "Periods",
+      "equity": "Equity"
     },
     "breakdowns": {
       "symbol": "Symbol",
@@ -1237,7 +1268,9 @@
       "discipline": "Discipline",
       "recentTrades": "Recent trades",
       "last10": "Last 10",
-      "dailyPnl": "Daily P&L"
+      "dailyPnl": "Daily P&L",
+      "allTrades": "All trades",
+      "durationCaption": "Closed trades, by how long they were held"
     },
     "overviewError": {
       "title": "Couldn't load the overview",

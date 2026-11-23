@@ -100,14 +100,16 @@ calendar.
   (`src/lib/queries/analytics/journal-stats.ts`) takes trades whose
   `closedAt` falls in the range — the same rule the calendar cells below use,
   so a card, the chart and a day cell always agree. This is deliberately not
-  the Overview's activity window (docs/ANALYTICS.md); a trade's money
-  belongs to the day it was realised.
+  the Analytics reports' activity window (docs/ANALYTICS.md); a trade's money
+  belongs to the day it was realised. The Overview shows the same cards and
+  chart from the same query, over its own range picker.
 - **The cards** are computed in `src/lib/metrics/journal-stats.ts`, whose
   header lists the judgement calls: scratch days count toward neither green
   nor red, "best day % of total profit" divides by net P&L and is blank when
   that is not positive, and weekday cards rank only weekdays that traded.
-  "Average R" sits where a lot total would: trades are logged in R and carry
-  no size.
+  "Total lots" is shown when any trade in the range has a size — imported
+  ones do — and says how many it covers when some do not; a range of only
+  R-logged trades, which carry no size, shows "Average R" in its place.
 - **The balance chart** plots the balance at the end of each local day that
   had a trade close or a cash movement, opening at the balance the account
   had at the start of the range (the full-history equity curve, not the
@@ -116,7 +118,9 @@ calendar.
   a weekly total per row (`monthView().weeks`, summed in decimal). The
   calendar pages by `?month` and keeps the range; without `?month` it shows
   the month the range ends in. Cancelled trades are not counted on a day —
-  they used to be, inflating the badge.
+  they used to be, inflating the badge. A day cell links to that day's
+  journal page here; `CalendarGrid` takes a `dayHref` so the Overview's copy
+  can link to the day's trades instead.
 
 ## The autosave contract
 

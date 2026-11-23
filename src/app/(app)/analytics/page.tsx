@@ -12,8 +12,9 @@ import {
   TabsContent,
   Stat,
   StatRow,
+  Label2,
 } from "@/components/ui";
-import { formatMoney, formatR } from "@/lib/metrics/formatters";
+import { formatMoney, formatPercent, formatR } from "@/lib/metrics/formatters";
 import { RangeControl } from "@/components/dashboard/range-control";
 import { BreakdownTable } from "@/components/dashboard/breakdown-table";
 import { InsightSentence } from "@/components/dashboard/insight-sentence";
@@ -22,6 +23,10 @@ import { RHistogram } from "@/components/charts/r-histogram";
 import { SessionHeatmap } from "@/components/charts/session-heatmap";
 import { HourOfDayChart } from "@/components/charts/hour-of-day-chart";
 import { PeriodsView } from "@/components/dashboard/periods-view";
+import { PnlRows } from "@/components/dashboard/pnl-rows";
+import { DisciplinePanel } from "@/components/dashboard/discipline-panel";
+import { EquityChart } from "@/components/charts/equity-chart";
+import { DrawdownChart } from "@/components/charts/drawdown-chart";
 import { requireUser, requireAccountAccess } from "@/lib/session";
 import { resolveActiveAccountId } from "@/lib/active-account";
 import {
@@ -41,7 +46,7 @@ function toneOf(n: number | null): "profit" | "loss" | "neutral" {
   return n > 0 ? "profit" : "loss";
 }
 
-const TABS = ["breakdowns", "distribution", "timing", "periods"] as const;
+const TABS = ["breakdowns", "distribution", "timing", "periods", "equity"] as const;
 
 export default async function AnalyticsPage({
   searchParams,
@@ -74,6 +79,7 @@ export default async function AnalyticsPage({
   ]);
 
   const t = await getTranslations("analytics");
+  const tOv = await getTranslations("dashboard.overview");
   const currency = ov.currency;
   const s = ov.summary;
 
@@ -87,6 +93,7 @@ export default async function AnalyticsPage({
           <TabsTrigger value="distribution">{t("tabs.distribution")}</TabsTrigger>
           <TabsTrigger value="timing">{t("tabs.timing")}</TabsTrigger>
           <TabsTrigger value="periods">{t("tabs.periods")}</TabsTrigger>
+          <TabsTrigger value="equity">{t("tabs.equity")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="breakdowns" className="flex flex-col gap-4 pt-4">
@@ -224,6 +231,86 @@ export default async function AnalyticsPage({
 
         <TabsContent value="periods" className="flex flex-col gap-4 pt-4">
           <PeriodsView data={pd} currency={currency} />
+        </TabsContent>
+
+        {/* What the Overview showed before it became the day-by-day page:
+            the activity-window summary (trades OPENED in the range, unlike
+            the Overview's close-date cards), the per-trade equity curve with
+            its drawdown, and the discipline figures. Labels are still the
+            Overview's own, since these are the same panels moved. */}
+        <TabsContent value="equity" className="flex flex-col gap-4 pt-4">
+          <StatRow>
+            <Stat
+              label={tOv("netPnl")}
+              size="lg"
+              value={`${s.netPnl > 0.005 ? "+" : ""}${formatMoney(s.netPnl, currency)}`}
+              tone={toneOf(s.netPnl)}
+            />
+            <Stat
+              label={tOv("winRate")}
+              value={formatPercent(s.winRate)}
+              hint={
+                s.breakevenWinRate !== null
+                  ? tOv("breakevenHint", { pct: formatPercent(s.breakevenWinRate, 0) })
+                  : tOv("notEnoughClosed")
+              }
+            />
+            <Stat label={tOv("profitFactor")} value={s.profitFactor === null ? "—" : s.profitFactor.toFixed(2)} />
+            <Stat label={tOv("expectancyR")} value={formatR(s.expectancyR)} tone={toneOf(s.expectancyR)} />
+            <Stat
+              label={tOv("maxDrawdown")}
+              value={ov.maxDrawdown ? formatPercent(ov.maxDrawdown.pct / 100) : "—"}
+              hint={ov.maxDrawdown ? formatMoney(ov.maxDrawdown.amount, currency) : undefined}
+              tone={ov.maxDrawdown && ov.maxDrawdown.amount > 0 ? "loss" : "neutral"}
+            />
+            <Stat
+              label={tOv("currentStreak")}
+              value={
+                ov.streak.current === 0
+                  ? "—"
+                  : ov.streak.current > 0
+                    ? tOv("streakWin", { count: ov.streak.current })
+                    : tOv("streakLoss", { count: Math.abs(ov.streak.current) })
+              }
+              hint={tOv("longest", { win: ov.streak.longestWin, loss: ov.streak.longestLoss })}
+              tone={ov.streak.current > 0 ? "profit" : ov.streak.current < 0 ? "loss" : "neutral"}
+            />
+          </StatRow>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <Panel className="lg:col-span-8">
+              <PanelHeader title={tOv("equity")} caption={currency} />
+              <PanelBody className="h-56">
+                <EquityChart
+                  data={ov.equity}
+                  startBalance={ov.equityStartBalance}
+                  currency={currency}
+                  showXAxis={false}
+                />
+              </PanelBody>
+              <div className="border-t border-line px-3 pt-2 pb-1">
+                <Label2>{tOv("drawdown")}</Label2>
+              </div>
+              <div className="h-24 px-1 pb-2">
+                <DrawdownChart data={ov.drawdown} currency={currency} />
+              </div>
+            </Panel>
+
+            <div className="flex flex-col gap-4 lg:col-span-4">
+              <Panel>
+                <PanelHeader title={tOv("pnl")} />
+                <PanelBody padded={false}>
+                  <PnlRows currency={currency} todayPnl={ov.todayPnl} weekPnl={ov.weekPnl} monthPnl={ov.monthPnl} />
+                </PanelBody>
+              </Panel>
+              <Panel>
+                <PanelHeader title={tOv("discipline")} />
+                <PanelBody padded={false}>
+                  <DisciplinePanel discipline={ov.discipline} />
+                </PanelBody>
+              </Panel>
+            </div>
+          </div>
         </TabsContent>
       </UrlTabs>
     </Page>

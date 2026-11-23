@@ -51,6 +51,36 @@ export function resolveRange(range: string | undefined, timezone: string, now: D
   return { from: new Date(now.getTime() - days * 86_400_000), to: null };
 }
 
+/**
+ * The same range keys, cut on LOCAL DAY boundaries: "7D" is today and the six
+ * days before it, from that first day's midnight in `timezone`.
+ *
+ * The Overview's figures are per day — day win %, best day, the daily bars,
+ * the end-of-day balance line. Fed `resolveRange`'s rolling window they would
+ * count the part of the first day after "this time of day, N days ago", so a
+ * red morning N days back would drop out of "day win %" at lunchtime and the
+ * numbers would drift by the hour. `resolveRange` stays what it is for the
+ * reports that ask about activity rather than days.
+ *
+ * `fromDate` is that first day as "YYYY-MM-DD", for the charts that open their
+ * line on it. Like `resolveRange`, `from` is a plain Date, never a TZDate.
+ */
+export function resolveRangeDays(
+  range: string | undefined,
+  timezone: string,
+  now: Date = new Date(),
+): { key: RangeKey; from: Date | null; fromDate: string | null } {
+  const key: RangeKey = isRangeKey(range) ? range : "30d";
+  if (key === "all") return { key, from: null, fromDate: null };
+  const today = new TZDate(now, timezone);
+  const days = key === "7d" ? 7 : key === "90d" ? 90 : 30;
+  const first =
+    key === "ytd"
+      ? TZDate.tz(timezone, today.getFullYear(), 0, 1)
+      : TZDate.tz(timezone, today.getFullYear(), today.getMonth(), today.getDate() - (days - 1));
+  return { key, from: new Date(first.getTime()), fromDate: ymd(first) };
+}
+
 // ---------------------------------------------------------------------------
 // The journal's calendar ranges (docs/JOURNAL.md, "Stats")
 // ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ import { requireUser } from "@/lib/session";
 import { getTrade } from "@/lib/queries/trades";
 import { PriceLadder } from "@/components/trades/price-ladder";
 import { AttachmentUploader } from "@/components/trades/attachment-uploader";
+import { TradeNotesField } from "@/components/trades/trade-notes-field";
 import { uploadsAvailable } from "@/lib/storage";
 import { TradeDetailActions } from "@/components/trades/detail-actions";
 import { ExecutionsPanel } from "@/components/trades/executions-panel";
@@ -105,6 +106,31 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
 
       <Grid>
         <div className="flex flex-col gap-4 lg:col-span-7">
+          {/* First, above the chart and the numbers: the screenshot and the
+              note are what the trader adds to a trade, and for an imported
+              one they are all there is to add. */}
+          <Panel>
+            <PanelHeader title={t("panels.screenshots")} />
+            <PanelBody>
+              <AttachmentUploader
+                target={{ tradeId: trade.id }}
+                initialAttachments={trade.attachments}
+                uploadsEnabled={uploadsAvailable()}
+              />
+            </PanelBody>
+          </Panel>
+
+          <Panel>
+            <PanelBody>
+              <TradeNotesField
+                accountId={trade.accountId}
+                tradeId={trade.id}
+                initialNotes={trade.notes ?? ""}
+                rows={4}
+              />
+            </PanelBody>
+          </Panel>
+
           {chart ? (
             <Panel>
               <PanelHeader
@@ -159,17 +185,6 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
               />
             </>
           ) : null}
-
-          <Panel>
-            <PanelHeader title={t("panels.screenshots")} />
-            <PanelBody>
-              <AttachmentUploader
-                target={{ tradeId: trade.id }}
-                initialAttachments={trade.attachments}
-                uploadsEnabled={uploadsAvailable()}
-              />
-            </PanelBody>
-          </Panel>
         </div>
 
         <div className="flex flex-col gap-4 lg:col-span-5">
@@ -325,17 +340,6 @@ export default async function TradeDetailPage({ params }: { params: Promise<{ id
                 label={t("discipline.confidence")}
                 value={trade.confidence !== null ? `${trade.confidence} / 5` : "—"}
               />
-            </PanelBody>
-          </Panel>
-
-          <Panel>
-            <PanelHeader title={t("panels.notes")} />
-            <PanelBody>
-              {trade.notes ? (
-                <p className="whitespace-pre-wrap text-sm text-ink-2">{trade.notes}</p>
-              ) : (
-                <p className="text-xs text-ink-3">{t("noNotes")}</p>
-              )}
             </PanelBody>
           </Panel>
         </div>

@@ -50,7 +50,20 @@ const RANGE_VALUES = RANGE_OPTIONS.map((o) => o.value);
 
 /** Query-param keys this bar owns. Kept in one place so "does setting this
  * filter clear the page number" and "is anything set at all" agree. */
-const FILTER_KEYS = ["q", "symbols", "directions", "outcome", "tags", "range", "from", "to", "followedPlan"] as const;
+const FILTER_KEYS = [
+  "q",
+  "symbols",
+  "directions",
+  "outcome",
+  "tags",
+  "range",
+  "from",
+  "to",
+  "followedPlan",
+  "shots",
+  "import",
+  "day",
+] as const;
 
 function splitCsv(value: string | null): string[] {
   return value ? value.split(",").filter(Boolean) : [];
@@ -74,6 +87,12 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
       from: searchParams.get("from") ?? "",
       to: searchParams.get("to") ?? "",
       followedPlan: searchParams.get("followedPlan") ?? ANY_PLAN,
+      // "none" = only trades with no screenshot yet.
+      shots: searchParams.get("shots") === "none" ? "none" : "",
+      // These two have no control of their own: a link sets them (the import
+      // page, the Overview's calendar) and the chips below take them off.
+      import: searchParams.get("import") ?? "",
+      day: searchParams.get("day") ?? "",
     }),
     [searchParams],
   );
@@ -211,6 +230,21 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
         <SegmentedItem value="no">{t("filters.broke")}</SegmentedItem>
       </Segmented>
 
+      <Button
+        variant="default"
+        size="md"
+        aria-pressed={current.shots === "none"}
+        className={cn(current.shots === "none" && "border-brand-line text-brand")}
+        onClick={() => update({ shots: current.shots === "none" ? null : "none" })}
+      >
+        {t("filters.noScreenshot")}
+      </Button>
+
+      {current.import ? <FilterChip label={t("filters.importChip")} onRemove={() => update({ import: null })} /> : null}
+      {current.day ? (
+        <FilterChip label={t("filters.dayChip", { date: current.day })} onRemove={() => update({ day: null })} />
+      ) : null}
+
       {current.range === "custom" ? (
         <div className="flex items-center gap-1">
           <input
@@ -249,6 +283,22 @@ export function TradeFilterBar({ symbols, tags }: { symbols: string[]; tags: Tag
         </Button>
       ) : null}
     </div>
+  );
+}
+
+/** A filter that is on but has no control here to turn it off with. */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  const t = useTranslations("trades.filters");
+  return (
+    <Button
+      variant="default"
+      size="md"
+      className="border-brand-line text-brand"
+      aria-label={t("removeFilter", { label })}
+      onClick={onRemove}
+    >
+      {label} <X aria-hidden />
+    </Button>
   );
 }
 

@@ -40,8 +40,13 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
 
   const commands: Command[] = [
     ...ACTIONS.map((a) => ({ id: a.id, label: t(a.key), hint: t("action"), href: a.href, keywords: a.keywords })),
+    // Every group, collapsed in the rail or not: this is how the tools under
+    // "More tools" stay one keystroke away. A page that is already an action
+    // above (Import) is not listed a second time.
     ...NAV_GROUPS.flatMap((g) =>
-      g.items.map((i) => ({ id: i.href, label: tNav(i.label), hint: tNav(g.label), href: i.href, keywords: i.label })),
+      g.items
+        .filter((i) => !ACTIONS.some((a) => a.href === i.href))
+        .map((i) => ({ id: i.href, label: tNav(i.label), hint: tNav(g.label), href: i.href, keywords: i.label })),
     ),
   ];
   const q = query.trim().toLowerCase();

@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { buildFormData, defaultFormValues } from "@/components/trades/trade-form-values";
 import { signInAs } from "../../../test/db/auth";
 import { createAccount, createUser, ensureInstruments } from "../../../test/db/factories";
-import { closeRTrade, closeTrade, createTrade, duplicateTrade, updateTrade } from "./trades";
+import { closeRTrade, closeTrade, createTrade, duplicateTrade, setTradeNotes, updateTrade } from "./trades";
 
 /** A closed EURUSD long: +20 pips on 1 lot, 10-pip stop => +2R, $200 gross. */
 function closedEurusdLong() {
@@ -309,5 +309,81 @@ describe("closeTrade, clicked twice", () => {
     expect(results.map((r) => r.ok).sort()).toEqual([false, true]);
     const exits = await prisma.execution.count({ where: { tradeId: created.id, kind: "EXIT" } });
     expect(exits).toBe(1);
+  });
+});
+
+describe("setTradeNotes", () => {
+  async function tradeOf(userId: string) {
+    const account = await createAccount(userId);
+    signInAs(userId);
+    const created = await createTrade(account.id, closedEurusdLong());
+    if (!created.ok) throw new Error(JSON.stringify(created));
+    return { account, tradeId: created.id };
+  }
+
+  it("saves the note and touches nothing the trade's numbers come from", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const { account, tradeId } = await tradeOf(user.id);
+    const before = await prisma.trade.findUniqueOrThrow({ where: { id: tradeId }, include: { executions: true } });
+
+    const res = await setTradeNotes(account.id, tradeId, "Faded the London high.\nToo early.");
+    expect(res.ok).toBe(true);
+
+    const after = await prisma.trade.findUniqueOrThrow({ where: { id: tradeId }, include: { executions: true } });
+    expect(after.notes).toBe("Faded the London high.\nToo early.");
+    // The reason this is not updateTrade: a note must not be able to move P&L
+    // or rewrite the fills.
+    expect(after.netPnl?.toString()).toBe(before.netPnl?.toString());
+    expect(after.executions.map((e) => e.id)).toEqual(before.executions.map((e) => e.id));
+  });
+
+  it("clears the note when given only whitespace", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const { account, tradeId } = await tradeOf(user.id);
+    await setTradeNotes(account.id, tradeId, "something");
+
+    expect((await setTradeNotes(account.id, tradeId, "  \n ")).ok).toBe(true);
+    expect((await prisma.trade.findUniqueOrThrow({ where: { id: tradeId } })).notes).toBeNull();
+  });
+
+  it("refuses a note over the limit with a field error, and keeps the old one", async () => {
+    await ensureInstruments("EURUSD");
+    const user = await createUser();
+    const { account, tradeId } = await tradeOf(user.id);
+    await setTradeNotes(account.id, tradeId, "kept");
+
+    const res = await setTradeNotes(account.id, tradeId, "x".repeat(4001));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.fieldErrors?.notes?.length).toBe(1);
+    expect((await prisma.trade.findUniqueOrThrow({ where: { id: tradeId } })).notes).toBe("kept");
+  });
+
+  it("refuses another user's account", async () => {
+    await ensureInstruments("EURUSD");
+    const alice = await createUser();
+    const bob = await createUser();
+    const { account: bobsAccount, tradeId } = await tradeOf(bob.id);
+    signInAs(alice.id);
+
+    expect((await setTradeNotes(bobsAccount.id, tradeId, "mine now")).ok).toBe(false);
+    expect((await prisma.trade.findUniqueOrThrow({ where: { id: tradeId } })).notes).toBeNull();
+  });
+
+  it("does not reach a trade in another account through one's own account id", async () => {
+    // The account check passes (it is Alice's own); the trade id is Bob's.
+    // The write is scoped to the checked account, so it matches nothing.
+    await ensureInstruments("EURUSD");
+    const alice = await createUser();
+    const bob = await createUser();
+    const { tradeId: bobsTrade } = await tradeOf(bob.id);
+    const alicesAccount = await createAccount(alice.id);
+    signInAs(alice.id);
+
+    const res = await setTradeNotes(alicesAccount.id, bobsTrade, "mine now");
+    expect(res.ok).toBe(false);
+    expect((await prisma.trade.findUniqueOrThrow({ where: { id: bobsTrade } })).notes).toBeNull();
   });
 });

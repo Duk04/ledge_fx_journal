@@ -15,6 +15,8 @@ test("write a playbook, take a trade as it, check its rules, see it on a chart",
   await page.goto("/trades/new");
   await page.getByLabel("Symbol").click();
   await page.getByRole("option", { name: /^EURUSD/ }).click();
+  // The playbook picker is one of the optional fields under "Details".
+  await page.getByRole("button", { name: /^Details/ }).click();
   await page.getByLabel("Playbook").click();
   await page.getByRole("option", { name: "London breakout" }).click();
   await page.getByLabel("Risk amount").fill("100");

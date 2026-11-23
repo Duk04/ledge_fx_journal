@@ -25,6 +25,10 @@ export type SearchParams = Record<string, string | string[] | undefined>;
 
 export const PAGE_SIZES = [25, 50, 100];
 
+/** `TradeImport.id` is a uuid; anything else in `?import=` is dropped rather
+ * than handed to Postgres to reject. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const DIRECTIONS: readonly Direction[] = ["LONG", "SHORT"];
 const OUTCOMES: readonly TradeOutcomeFilter[] = ["WIN", "LOSS", "BREAKEVEN", "OPEN"];
 
@@ -54,6 +58,14 @@ export function parseTradeListQuery(sp: SearchParams, timezone: string, now: Dat
   const tagIds = csv(sp.tags);
   const followed = first(sp.followedPlan);
   const followedPlan = followed === "yes" ? true : followed === "no" ? false : undefined;
+  // Three filters that arrive by link rather than from the bar's own
+  // controls: the trades of one import (after importing), one calendar day
+  // (from the Overview's calendar), and "no screenshot yet".
+  const importParam = first(sp.import);
+  const importId = importParam && UUID.test(importParam) ? importParam : undefined;
+  const withoutScreenshot = first(sp.shots) === "none";
+  const dayParam = first(sp.day);
+  const day = isJournalDate(dayParam) ? dayWindow(dayParam, timezone) : undefined;
 
   const rangeParam = first(sp.range);
   const range = rangeParam === "custom" || isRangeKey(rangeParam) ? rangeParam : "all";
@@ -69,6 +81,9 @@ export function parseTradeListQuery(sp: SearchParams, timezone: string, now: Dat
     from: window.from,
     to: window.to,
     followedPlan,
+    importId,
+    withoutScreenshot: withoutScreenshot || undefined,
+    day,
   };
 
   const pageSizeParam = Number(first(sp.pageSize));
@@ -82,7 +97,10 @@ export function parseTradeListQuery(sp: SearchParams, timezone: string, now: Dat
       tagIds.length ||
       window.from ||
       window.to ||
-      followedPlan !== undefined,
+      followedPlan !== undefined ||
+      importId ||
+      withoutScreenshot ||
+      day,
     ),
     page: Math.max(1, Math.floor(Number(first(sp.page))) || 1),
     pageSize: PAGE_SIZES.includes(pageSizeParam) ? pageSizeParam : 50,
@@ -97,16 +115,23 @@ function presetWindow(range: string, timezone: string, now: Date): { from?: Date
   return { from: from ?? undefined };
 }
 
+/** The instant a "YYYY-MM-DD" day (plus `plusDays`) starts in `timezone`. */
+function dayStart(day: string, timezone: string, plusDays = 0): number {
+  const [y, m, d] = day.split("-").map(Number);
+  return TZDate.tz(timezone, y, m - 1, d + plusDays).getTime();
+}
+
 /** Whole days in the user's timezone: from the start of `from` to the last
  * instant of `to`. Either may be missing; a non-date is ignored. Plain Dates,
  * never TZDates (lib/range.ts, resolveRange, says why). */
 function customWindow(from: string | undefined, to: string | undefined, timezone: string): { from?: Date; to?: Date } {
-  const dayStart = (s: string, plusDays = 0) => {
-    const [y, m, d] = s.split("-").map(Number);
-    return TZDate.tz(timezone, y, m - 1, d + plusDays).getTime();
-  };
   return {
-    from: isJournalDate(from) ? new Date(dayStart(from)) : undefined,
-    to: isJournalDate(to) ? new Date(dayStart(to, 1) - 1) : undefined,
+    from: isJournalDate(from) ? new Date(dayStart(from, timezone)) : undefined,
+    to: isJournalDate(to) ? new Date(dayStart(to, timezone, 1) - 1) : undefined,
   };
+}
+
+/** One whole local day, first instant to last. */
+function dayWindow(day: string, timezone: string): { from: Date; to: Date } {
+  return { from: new Date(dayStart(day, timezone)), to: new Date(dayStart(day, timezone, 1) - 1) };
 }

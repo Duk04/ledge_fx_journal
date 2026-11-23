@@ -1,6 +1,7 @@
 import "server-only";
 import { equityCurve, tradingWeekday } from "@/lib/metrics";
 import { toDecOr, toNum } from "@/lib/decimal-bridge";
+import { toBalanceEvents } from "@/lib/queries/accounts";
 import { toTradeRow } from "@/lib/trade-service";
 import type { SimTrade } from "@/lib/simulate/what-if";
 import { fetchAccountData } from "./context";
@@ -24,10 +25,13 @@ export interface SimulationInputs {
 
 export async function simulationInputs(userId: string, accountId: string): Promise<SimulationInputs> {
   const { account, timezone, trades, balanceEvents } = await fetchAccountData(userId, accountId);
+  // Through toBalanceEvents(), which takes a withdrawal's sign from its kind.
+  // This mapped the rows by hand and so started a Monte Carlo run too high by
+  // twice any WITHDRAWAL stored as a positive magnitude.
   const curve = equityCurve(
     trades.map(toTradeRow),
     toDecOr(account.startingBalance, 0),
-    balanceEvents.map((e) => ({ at: e.occurredAt, amount: toDecOr(e.amount, 0), kind: e.kind })),
+    toBalanceEvents(balanceEvents),
   );
   const closed = trades.filter((t) => t.status === "CLOSED" && t.closedAt !== null && t.netPnl !== null);
   const tags = new Map<string, { id: string; name: string; kind: string }>();

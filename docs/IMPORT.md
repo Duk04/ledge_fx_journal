@@ -91,11 +91,22 @@ Import last week's statement, then this week's — overlap is expected:
 - deposits and withdrawals dedupe on their own ticket
   (`BalanceEvent.externalTicket`).
 
+## After an import
+
+An import that created trades goes straight to them: `/trades?import=<id>`
+(docs/TRADES.md, URL contract). The next thing to do with imported trades is
+put a screenshot on each, and that list is where its dialog walks them. Each
+row of "Recent imports" links to the same list. An import that only closed
+existing positions created no trades — they belong to the import that opened
+them — so it stays on the import page.
+
 ## Undo
 
 Each import is a `TradeImport` row; the trades and cash movements it created
 point to it. **Undo** deletes exactly those, then the row. A position the
-import only *closed* existed before it and is left alone.
+import only *closed* existed before it and is left alone. Deleting a trade
+deletes what was added to it since — its screenshots and note — and Undo is
+one click, with no confirmation; the "Recent imports" caption says so.
 
 ## Fills
 

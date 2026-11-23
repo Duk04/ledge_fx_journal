@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { getStorage } from "@/lib/storage";
-import { findOwnedAttachment } from "@/lib/actions/attachment-owner";
+import { findOwnedAttachment, revalidateAttachmentViews } from "@/lib/actions/attachment-owner";
 import { tr } from "@/i18n/server-t";
 
 /**
@@ -67,6 +66,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
   await prisma.attachment.delete({ where: { id: attachment.id } });
 
-  revalidatePath(attachment.path);
+  revalidateAttachmentViews(attachment.path);
   return NextResponse.json({ ok: true });
 }

@@ -11,6 +11,33 @@ test("Ctrl/⌘+K opens the command palette and Enter goes there", async ({ page 
   await expect(page).toHaveURL("/playbooks");
 });
 
+test("the rail shows the daily three and keeps the rest under More tools", async ({ page }) => {
+  await signIn(page);
+  const rail = page.getByRole("navigation", { name: "Main" });
+  await expect(rail.getByRole("link", { name: "Import", exact: true })).toBeVisible();
+  await expect(rail.getByRole("link", { name: "Analytics" })).toBeHidden();
+
+  const more = rail.getByRole("button", { name: "More tools" });
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await more.click();
+  await expect(rail.getByRole("link", { name: "Analytics" })).toBeVisible();
+
+  // Remembered across a reload.
+  await page.reload();
+  await expect(rail.getByRole("link", { name: "Analytics" })).toBeVisible();
+  await rail.getByRole("button", { name: "More tools" }).click();
+  await expect(rail.getByRole("link", { name: "Analytics" })).toBeHidden();
+
+  // A page inside the group opens it whatever was remembered.
+  await page.goto("/analytics");
+  await expect(rail.getByRole("link", { name: "Analytics" })).toHaveAttribute("aria-current", "page");
+
+  // Import is under /trades; only the more specific of the two is current.
+  await page.goto("/trades/import");
+  await expect(rail.getByRole("link", { name: "Import", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(rail.getByRole("link", { name: "Trades", exact: true })).not.toHaveAttribute("aria-current", "page");
+});
+
 test("? lists the keyboard shortcuts", async ({ page }) => {
   await signIn(page);
   await page.keyboard.press("Shift+?");

@@ -12,13 +12,98 @@ import type { JournalStats, JournalTradeCard } from "@/lib/queries/analytics";
 import { StatCard, toneOf } from "./stat-card";
 
 /**
- * The journal page's figures, in the order a trader reads them: did I make
- * money and how often, how big are wins against losses, which days and how
- * long, and the two trades that bracket the period. Every figure comes from
+ * The figure cards, in the order a trader reads them: did I make money and
+ * how often, how big are wins against losses, which days and how long, and
+ * the two trades that bracket the period. Every figure comes from
  * `journalStats` (closed trades by close date) — see that module's header
- * for why it shares the calendar's convention rather than the dashboard's.
+ * for why it shares the calendar's convention rather than the Analytics
+ * reports'.
+ *
+ * Two halves, because the two pages that show them place the balance chart
+ * differently: the journal runs all the cards and then the chart, the
+ * Overview puts the chart between the headline six and the rest.
  */
 export async function JournalStatsGrid({ stats, timezone }: { stats: JournalStats; timezone: string }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <JournalHeadlineCards stats={stats} />
+      <JournalDetailCards stats={stats} timezone={timezone} />
+    </div>
+  );
+}
+
+/** The six headline figures: net result, win rates, payoff, profit factor
+ * and how much of it one day carried. */
+export async function JournalHeadlineCards({ stats }: { stats: JournalStats }) {
+  const t = await getTranslations("journal.stats");
+  const money = (n: number | null) => formatMoney(n, stats.currency);
+  const none = t("noTrades");
+  const hasTrades = stats.tradeCount > 0;
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <StatCard
+        label={t("totalPnl")}
+        help={t("totalPnlHelp")}
+        value={hasTrades ? <Money value={stats.netPnl} currency={stats.currency} colour={false} /> : none}
+        tone={toneOf(stats.netPnl)}
+      />
+      <StatCard
+        label={t("winRate")}
+        help={t("winRateHelp")}
+        value={stats.winRate !== null ? formatPercent(stats.winRate, 2) : none}
+        detail={hasTrades ? t("winsLosses", { wins: stats.wins, losses: stats.losses }) : undefined}
+        aside={hasTrades ? <Gauge positive={stats.wins} negative={stats.losses} /> : null}
+      />
+      <StatCard
+        label={t("avgWinLoss")}
+        help={t("avgWinLossHelp")}
+        value={stats.payoffRatio !== null ? stats.payoffRatio.toFixed(2) : "—"}
+        aside={
+          stats.averageWin !== null || stats.averageLoss !== null ? (
+            <WinLossBar win={stats.averageWin ?? 0} loss={stats.averageLoss ?? 0} currency={stats.currency} />
+          ) : null
+        }
+      />
+      <StatCard
+        label={t("dayWin")}
+        help={t("dayWinHelp")}
+        value={stats.dayWin.rate !== null ? formatPercent(stats.dayWin.rate, 2) : none}
+        detail={
+          stats.dayWin.rate !== null
+            ? t("dayWinDetail", { green: stats.dayWin.greenDays, red: stats.dayWin.redDays })
+            : undefined
+        }
+      />
+      <StatCard
+        label={t("profitFactor")}
+        help={t("profitFactorHelp")}
+        value={stats.profitFactor !== null ? stats.profitFactor.toFixed(2) : "—"}
+        aside={
+          hasTrades ? (
+            <div className="flex items-center gap-2">
+              <span className="mono text-profit">{money(stats.grossProfit)}</span>
+              <Donut positive={stats.grossProfit} negative={stats.grossLoss} size={64} />
+              <span className="mono text-loss">-{money(stats.grossLoss)}</span>
+            </div>
+          ) : null
+        }
+      />
+      <StatCard
+        label={t("bestDayShare")}
+        help={t("bestDayShareHelp")}
+        value={stats.bestDay?.shareOfNet != null ? formatPercent(stats.bestDay.shareOfNet, 2) : "—"}
+        detail={
+          stats.bestDay ? t("bestDayOn", { amount: money(stats.bestDay.netPnl), date: stats.bestDay.date }) : undefined
+        }
+      />
+    </div>
+  );
+}
+
+/** Everything after the headline: weekdays, counts and durations, average
+ * win and loss, direction, and the best and worst trade. */
+export async function JournalDetailCards({ stats, timezone }: { stats: JournalStats; timezone: string }) {
   const t = await getTranslations("journal.stats");
   const tDay = await getTranslations("analytics.labels.weekday");
   const tEnum = await getTranslations("enums");
@@ -47,64 +132,6 @@ export async function JournalStatsGrid({ stats, timezone }: { stats: JournalStat
   return (
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <StatCard
-          label={t("totalPnl")}
-          help={t("totalPnlHelp")}
-          value={hasTrades ? <Money value={stats.netPnl} currency={stats.currency} colour={false} /> : none}
-          tone={toneOf(stats.netPnl)}
-        />
-        <StatCard
-          label={t("winRate")}
-          help={t("winRateHelp")}
-          value={stats.winRate !== null ? formatPercent(stats.winRate, 2) : none}
-          detail={hasTrades ? t("winsLosses", { wins: stats.wins, losses: stats.losses }) : undefined}
-          aside={hasTrades ? <Gauge positive={stats.wins} negative={stats.losses} /> : null}
-        />
-        <StatCard
-          label={t("avgWinLoss")}
-          help={t("avgWinLossHelp")}
-          value={stats.payoffRatio !== null ? stats.payoffRatio.toFixed(2) : "—"}
-          aside={
-            stats.averageWin !== null || stats.averageLoss !== null ? (
-              <WinLossBar win={stats.averageWin ?? 0} loss={stats.averageLoss ?? 0} currency={stats.currency} />
-            ) : null
-          }
-        />
-        <StatCard
-          label={t("dayWin")}
-          help={t("dayWinHelp")}
-          value={stats.dayWin.rate !== null ? formatPercent(stats.dayWin.rate, 2) : none}
-          detail={
-            stats.dayWin.rate !== null
-              ? t("dayWinDetail", { green: stats.dayWin.greenDays, red: stats.dayWin.redDays })
-              : undefined
-          }
-        />
-        <StatCard
-          label={t("profitFactor")}
-          help={t("profitFactorHelp")}
-          value={stats.profitFactor !== null ? stats.profitFactor.toFixed(2) : "—"}
-          aside={
-            hasTrades ? (
-              <div className="flex items-center gap-2">
-                <span className="mono text-profit">{money(stats.grossProfit)}</span>
-                <Donut positive={stats.grossProfit} negative={stats.grossLoss} size={64} />
-                <span className="mono text-loss">-{money(stats.grossLoss)}</span>
-              </div>
-            ) : null
-          }
-        />
-        <StatCard
-          label={t("bestDayShare")}
-          help={t("bestDayShareHelp")}
-          value={stats.bestDay?.shareOfNet != null ? formatPercent(stats.bestDay.shareOfNet, 2) : "—"}
-          detail={
-            stats.bestDay
-              ? t("bestDayOn", { amount: money(stats.bestDay.netPnl), date: stats.bestDay.date })
-              : undefined
-          }
-        />
-
         <StatCard
           label={t("mostActive")}
           help={t("mostActiveHelp")}
@@ -141,12 +168,27 @@ export async function JournalStatsGrid({ stats, timezone }: { stats: JournalStat
         />
 
         <StatCard label={t("tradeCount")} help={t("tradeCountHelp")} value={stats.tradeCount} />
-        <StatCard
-          label={t("averageR")}
-          help={t("averageRHelp")}
-          value={formatR(stats.averageR)}
-          tone={toneOf(stats.averageR)}
-        />
+        {/* Lots when any trade in the range has a size (imports do); Average
+            R otherwise, since a trade logged in R carries none. */}
+        {stats.totalLots ? (
+          <StatCard
+            label={t("totalLots")}
+            help={t("totalLotsHelp")}
+            value={formatLots(stats.totalLots.lots)}
+            detail={
+              stats.totalLots.sized < stats.tradeCount
+                ? t("totalLotsDetail", { sized: stats.totalLots.sized, total: stats.tradeCount })
+                : undefined
+            }
+          />
+        ) : (
+          <StatCard
+            label={t("averageR")}
+            help={t("averageRHelp")}
+            value={formatR(stats.averageR)}
+            tone={toneOf(stats.averageR)}
+          />
+        )}
         <StatCard label={t("avgDuration")} help={t("avgDurationHelp")} value={formatDuration(stats.durations.all)} />
       </div>
 
@@ -215,6 +257,11 @@ export async function JournalStatsGrid({ stats, timezone }: { stats: JournalStat
       </div>
     </div>
   );
+}
+
+/** Up to two decimals, without trailing zeros: 12, 0.5, 3.25. */
+function formatLots(lots: number): string {
+  return lots.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
 /** Average win against average loss as one bar, split in proportion. */

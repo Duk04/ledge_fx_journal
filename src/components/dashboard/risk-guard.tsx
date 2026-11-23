@@ -20,8 +20,8 @@ import { hasDefinedRisk } from "@/lib/trade-service";
  * into a new page is always safe on its own.
  *
  * Mounted on the Overview dashboard (src/app/(app)/(overview)/page.tsx), under the
- * SectionHead and above the StatRow, so a breach is the first thing seen on
- * the page it is most relevant to.
+ * SectionHead and above the figure cards, so a breach is the first thing seen
+ * on the page it is most relevant to.
  */
 export async function RiskGuard({ accountId }: { accountId: string }) {
   const user = await requireUser();

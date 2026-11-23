@@ -20,6 +20,9 @@ optional; an absent param means "no filter" / the stated default.
 | `range` | `7d`, `30d`, `90d`, `ytd`, `all`, `custom` | `all` | Relative ranges (`7d`/`30d`/`90d`/`ytd`) are resolved against **the current moment on every request** — a bookmarked "last 7 days" link always means the last 7 days from whenever it's opened, not a frozen window. Only `custom` carries fixed dates. |
 | `from`, `to` | `YYYY-MM-DD` | — | Only read when `range=custom`. `to` is treated as end-of-day. |
 | `followedPlan` | `yes`, `no` | — (any) | Tri-state discipline filter. |
+| `shots` | `none` | — (any) | Only trades with no screenshot attached. The bar's "No screenshot" button. |
+| `import` | a `TradeImport` id (uuid) | — | Only the trades that import **created** — where a finished import lands. A position a later import only closed stays with the import that opened it. No control sets it; the bar shows a chip to remove it. Anything that is not a uuid is dropped. |
+| `day` | `YYYY-MM-DD` | — | One calendar day in the user's timezone, **as the month calendar counts it**: the day a trade closed, or the day it opened while still open; never a cancelled order. Set by the Overview's calendar cells, removed with a chip. Not the same as `range=custom` on one day, which goes by open time and would put an overnight trade on the day before. |
 | `sort` | `openedAt`, `closedAt`, `netPnl`, `rMultiple`, `pips`, `symbol`, `volumeLots` | `openedAt` | Every value here is a real Prisma field name on `Trade`, so the query layer maps it straight into `orderBy` with no translation table to keep in sync. |
 | `dir` | `asc`, `desc` | `desc` | |
 | `page` | 1-based integer | `1` | Reset to `1` whenever any filter or sort changes — a stale page number after narrowing a filter would silently show "no rows" instead of the match. |
@@ -72,6 +75,14 @@ R_MULTIPLE`). The trader enters:
 - On close, an **Outcome**: Win (R = the planned R:R), Loss (−1R),
   Breakeven (0R) or Custom (a partial, or a gap through the stop). The
   buttons only fill the **Result** field; the R stored is whatever it holds.
+
+What the form shows without being asked: symbol, direction, opened at, risk
+and planned R:R, status (and, when closed, the outcome, result and close
+time), a note, and the screenshot drop zone. Playbook, tags, costs and the
+discipline fields are under a collapsed **Details** panel, which opens by
+itself when one of its fields has an error. The dates stay in sight on
+purpose: every duration figure on the Overview comes from them, and a trade
+logged after the fact with "now" left in both is silently wrong.
 
 `computeRTrade()` (`src/lib/metrics/trade.ts`) derives the stored columns:
 `rMultiple = resultR` as entered, `grossPnl = resultR × plannedRisk`,
@@ -142,7 +153,16 @@ Every trade can carry chart screenshots. Each one is tagged **Before**, **After*
   - If the trade never saves, nothing is sent.
   - If an upload fails, the trade is still saved. The toast says how many screenshots are missing, and they can be added on the trade page.
 - **On a saved trade**, the detail page and the edit page carry the full uploader (`AttachmentUploader`). It can add files or an https link, change the kind, edit the caption and delete.
+  - On the detail page it is the first panel, above the chart and the numbers, with the trade's note directly under it.
   - On the edit page the uploader sits beside the form, not inside it. Each change saves on its own and does not wait for the form's Save.
+- **From the trade list**, every row has a screenshot cell: a camera, and the count once there is one. It opens one dialog (`trade-shots.tsx`) holding that trade's uploader and note, with Previous / Next to walk the rows on the page. This is how a batch of imported trades gets its screenshots: import, land on `/trades?import=…`, open the first row, paste, Next.
+  - The list shows a count, not thumbnails. There are no resized copies: `GET /api/attachments/[id]` serves the original, up to 8MB, through an ownership check, and fifty of those per page is not a list.
+  - The dialog walks a snapshot of the rows taken when it opened, and keeps what each trade's uploader and note report, so stepping back shows what was just added. `trade-shots.tsx` says why both matter.
+- **One uploader per page.** Its paste listener is on the document, so two mounted at once would each upload the same pasted image. The list's dialog re-keys a single instance per trade for that reason.
+
+## The note
+
+A trade's note (`Trade.notes`, 4000 characters) is edited in three places: the form, the trade's own page, and the list's screenshot dialog. The last two use `TradeNotesField`, which saves on blur through `setTradeNotes()` — an action that writes the note and nothing else. `updateTrade` is not used for it: that needs the whole form, recomputes every derived column and rewrites a price trade's fills, and a sentence about a trade should not be able to move its P&L. The field also saves when it unmounts with unsaved text, because Escape on the dialog removes it without a blur.
 - **Where the bytes live.** Uploaded bytes are stored under `.uploads/` or S3 (`lib/storage.ts`), never in `public/`. They are served only by `GET /api/attachments/[id]`, which re-checks ownership on every request.
 - **Checks.** The browser checks the type and the 8MB limit first (`attachment-files.ts`). The server checks again by sniffing the bytes.
 

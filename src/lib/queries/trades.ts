@@ -37,6 +37,20 @@ export interface TradeFilters {
   maxR?: number;
   /** Tri-state: undefined = don't filter on it. */
   followedPlan?: boolean;
+  /** Only the trades one statement import created (`Trade.importId`). A
+   * position a LATER import merely closed still belongs to the import that
+   * opened it. */
+  importId?: string;
+  /** Only trades with no screenshot attached yet. */
+  withoutScreenshot?: boolean;
+  /**
+   * One calendar day, as the month calendar counts it (queries/journal.ts,
+   * `monthView`): a trade belongs to the day it CLOSED, or the day it opened
+   * while it is still open, and a cancelled order to no day. Not `from`/`to`,
+   * which are about when a trade was opened — a trade held overnight would be
+   * on the calendar's Tuesday and in the list's Monday.
+   */
+  day?: { from: Date; to: Date };
 }
 
 export const TRADE_SORT_FIELDS = [
@@ -95,6 +109,15 @@ function buildWhere(userId: string, accountId: string, filters: TradeFilters): P
   if (filters.minR !== undefined) and.push({ rMultiple: { gte: filters.minR } });
   if (filters.maxR !== undefined) and.push({ rMultiple: { lte: filters.maxR } });
   if (filters.outcomes?.length) and.push({ OR: filters.outcomes.map(outcomeClause) });
+  if (filters.importId) and.push({ importId: filters.importId });
+  if (filters.withoutScreenshot) and.push({ attachments: { none: {} } });
+  if (filters.day) {
+    const within = { gte: filters.day.from, lte: filters.day.to };
+    and.push({
+      status: { not: "CANCELLED" },
+      OR: [{ closedAt: within }, { closedAt: null, openedAt: within }],
+    });
+  }
 
   return { AND: and };
 }
@@ -138,8 +161,20 @@ export interface TradeListRow {
   followedPlan: boolean | null;
   emotion: number | null;
   tags: { id: string; name: string; color: string }[];
-  attachmentCount: number;
-  notesPreview: string | null;
+  /** Newest first, the order the uploader shows them in. The list draws only
+   * how many there are; the screenshot dialog opens with the rows themselves
+   * (components/trades/trade-shots.tsx). */
+  attachments: TradeListAttachment[];
+  notes: string | null;
+}
+
+export interface TradeListAttachment {
+  id: string;
+  kind: AttachmentKind;
+  storageKey: string | null;
+  externalUrl: string | null;
+  caption: string | null;
+  mimeType: string | null;
 }
 
 export interface ListTradesResult {
@@ -152,7 +187,10 @@ export interface ListTradesResult {
 const LIST_INCLUDE = {
   instrument: { select: { digits: true } },
   tradeTags: { include: { tag: { select: { id: true, name: true, color: true } } } },
-  _count: { select: { attachments: true } },
+  attachments: {
+    select: { id: true, kind: true, storageKey: true, externalUrl: true, caption: true, mimeType: true },
+    orderBy: { createdAt: "desc" },
+  },
 } satisfies Prisma.TradeInclude;
 
 type ListTradeRow = Prisma.TradeGetPayload<{ include: typeof LIST_INCLUDE }>;
@@ -182,8 +220,8 @@ function serializeListRow(trade: ListTradeRow): TradeListRow {
     followedPlan: trade.followedPlan,
     emotion: trade.emotion,
     tags: trade.tradeTags.map((tt) => tt.tag),
-    attachmentCount: trade._count.attachments,
-    notesPreview: trade.notes ? trade.notes.slice(0, 140) : null,
+    attachments: trade.attachments,
+    notes: trade.notes,
   };
 }
 

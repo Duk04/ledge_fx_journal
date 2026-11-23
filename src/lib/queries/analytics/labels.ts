@@ -1,3 +1,4 @@
+import type { DurationBucketKey } from "@/lib/metrics/duration";
 import type { Weekday } from "@/lib/metrics/session";
 
 /**
@@ -36,10 +37,12 @@ export const PLAN_LABELS: Record<string, string> = {
   unset: "Not recorded",
 };
 
-export const HOLDING_BUCKETS: { key: string; label: string; max: number }[] = [
-  { key: "lt15m", label: "<15m", max: 15 },
-  { key: "15m-1h", label: "15–60m", max: 60 },
-  { key: "1h-4h", label: "1–4h", max: 240 },
-  { key: "4h-1d", label: "4–24h", max: 1440 },
-  { key: "gt1d", label: ">1d", max: Infinity },
-];
+/** Labels for the holding-time buckets; the edges themselves are
+ * `DURATION_BUCKETS` in lib/metrics/duration.ts. */
+export const HOLDING_LABELS: Record<DurationBucketKey, string> = {
+  lt15m: "<15m",
+  "15m-1h": "15–60m",
+  "1h-4h": "1–4h",
+  "4h-1d": "4–24h",
+  gt1d: ">1d",
+};

@@ -19,13 +19,19 @@ import { formatInZone, formatPrice, formatRR } from "@/lib/metrics/formatters";
 import type { TradeListRow, TradeSortField } from "@/lib/queries/trades";
 import { SortLink } from "./sort-link";
 import { TradeRowMenu } from "./row-menu";
+import { ShotCell } from "./trade-shots";
 
 /**
  * The trade list's table: sortable headers, one row per trade, and the
- * phone layout that drops to when/what/which way/money/R. Split out of
- * `trades/(list)/page.tsx`, which keeps the query parsing and the page
+ * phone layout that drops to when/what/which way/money/R/screenshots. Split
+ * out of `trades/(list)/page.tsx`, which keeps the query parsing and the page
  * around it. A server component — `buildSortHref` is a server-side closure
  * over the page's search params and never crosses to the client.
+ *
+ * The screenshot cell is a client button that opens the page's one
+ * screenshot dialog, so this must render inside a `TradeShotsProvider`
+ * (trade-shots.tsx). It is the second-to-last column on purpose: it stays on
+ * a phone, next to the row menu, without moving Symbol from second place.
  */
 export async function TradeTable({
   rows,
@@ -126,6 +132,7 @@ export async function TradeTable({
           </Th>
           <Th aria-label={t("list.rToScale")} className="hidden md:table-cell" />
           <Th className="hidden md:table-cell">{t("common.tags")}</Th>
+          <Th aria-label={t("common.screenshots")} />
           <Th aria-label={t("common.actions")} />
         </tr>
       </thead>
@@ -223,12 +230,15 @@ export async function TradeTable({
                 </div>
               </Td>
               <Td>
+                <ShotCell tradeId={row.id} count={row.attachments.length} />
+              </Td>
+              <Td>
                 <TradeRowMenu accountId={accountId} tradeId={row.id} />
               </Td>
             </TrLink>
           );
         })}
-        {rows.length === 0 ? <TableEmpty colSpan={11}>{t("list.noRowsOnPage")}</TableEmpty> : null}
+        {rows.length === 0 ? <TableEmpty colSpan={12}>{t("list.noRowsOnPage")}</TableEmpty> : null}
       </tbody>
     </DataTable>
   );

@@ -370,6 +370,10 @@ export function parseRTradeForm(
 }
 
 /** Closing an R-mode trade: the result in R and when. */
+/** A trade's note saved on its own (`setTradeNotes`), under the same limit
+ * the full form applies. Blank is allowed: it clears the note. */
+export const tradeNotesSchema = z.object({ notes: z.string().max(4000, vmsg("notesTooLong")) });
+
 export const closeRTradeSchema = z.object({
   // Blank must not coerce to 0: that would silently record a breakeven.
   resultR: z.preprocess(

@@ -27,20 +27,14 @@ import {
   NumberInput,
   Field,
   FieldError,
-  FieldGroup,
   FieldHint,
   FieldLabel,
   FieldRow,
   Segmented,
   SegmentedItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Combobox,
   instrumentOptions,
-  TagChip,
+  Textarea,
   Kbd,
   useModKey,
 } from "@/components/ui";
@@ -62,9 +56,6 @@ import { PreviewStrip, buildPreview, buildRPreview, buildWarnings } from "./trad
 import { PendingScreenshots, type PendingScreenshot } from "./pending-screenshots";
 import { useTradeSubmit } from "./use-trade-submit";
 import { RESPONSIVE_HEIGHT, TradeFormAdvanced, TradeFormPricePlan, TradeFormRPlan } from "./trade-form-sections";
-
-/** Radix Select can't use "" as an item value; this stands for "no playbook". */
-const NO_PLAYBOOK = "__none__";
 
 export function TradeForm({
   mode,
@@ -355,73 +346,20 @@ export function TradeForm({
             ) : null}
           </fieldset>
 
-          {playbooks.length ? (
-            <Field>
-              <FieldLabel optional>{t("playbook")}</FieldLabel>
-              <Controller
-                control={form.control}
-                name="playbookId"
-                render={({ field }) => (
-                  <Select
-                    value={field.value || NO_PLAYBOOK}
-                    onValueChange={(v) => field.onChange(v === NO_PLAYBOOK ? "" : v)}
-                  >
-                    <SelectTrigger className={RESPONSIVE_HEIGHT}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_PLAYBOOK}>{t("noPlaybook")}</SelectItem>
-                      {playbooks.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <FieldHint>{t("playbookHint")}</FieldHint>
-              <FieldError>{errors.playbookId?.message}</FieldError>
-            </Field>
-          ) : null}
-
+          {/* The one free-text field, in sight rather than folded away: with
+              the screenshot below it, it is what makes the row a journal
+              entry instead of a number. */}
           <Field>
-            <FieldLabel optional>{t("tags")}</FieldLabel>
-            <Controller
-              control={form.control}
-              name="tagIds"
-              render={({ field }) => (
-                <FieldGroup className="flex flex-wrap gap-1.5">
-                  {tags.length === 0 ? <span className="text-xs text-ink-3">{t("noTags")}</span> : null}
-                  {tags.map((tag) => {
-                    const active = field.value.includes(tag.id);
-                    return (
-                      <button
-                        type="button"
-                        key={tag.id}
-                        aria-pressed={active}
-                        onClick={() =>
-                          field.onChange(active ? field.value.filter((id) => id !== tag.id) : [...field.value, tag.id])
-                        }
-                      >
-                        <TagChip
-                          name={tag.name}
-                          color={tag.color}
-                          className={cn(!active && "opacity-45", "transition-opacity")}
-                        />
-                      </button>
-                    );
-                  })}
-                </FieldGroup>
-              )}
-            />
+            <FieldLabel optional>{t("notes")}</FieldLabel>
+            <Textarea rows={3} placeholder={t("notesPlaceholder")} {...form.register("notes")} />
+            <FieldError>{errors.notes?.message}</FieldError>
           </Field>
         </PanelBody>
       </Panel>
 
       <PreviewStrip preview={preview} mode={rMode ? "R_MULTIPLE" : "PRICE"} />
 
-      {/* Above the collapsed "Advanced" panel, not after it: pasting the chart
+      {/* Above the collapsed "Details" panel, not after it: pasting the chart
           is the most common thing done here after the prices. Shown even
           where uploads are off (no S3 on a serverless host), with the reason —
           hiding it left people looking for a feature that seemed missing. */}
@@ -444,7 +382,7 @@ export function TradeForm({
         </Panel>
       ) : null}
 
-      <TradeFormAdvanced form={form} currency={currency} rMode={rMode} />
+      <TradeFormAdvanced form={form} currency={currency} rMode={rMode} tags={tags} playbooks={playbooks} />
 
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="default" onClick={() => router.back()}>

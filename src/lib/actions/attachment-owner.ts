@@ -1,4 +1,5 @@
 import "server-only";
+import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { AttachmentTarget } from "@/lib/attachment-target";
@@ -27,6 +28,17 @@ export function attachmentOwnedBy(userId: string): Prisma.AttachmentWhereInput {
 /** The page that shows an attachment — what to revalidate after a change. */
 function pathFor(row: { tradeId: string | null; journalEntry: { entryDate: Date } | null }): string {
   return row.journalEntry ? `/journal/${fromEntryDate(row.journalEntry.entryDate)}` : `/trades/${row.tradeId}`;
+}
+
+/**
+ * Revalidates what shows the attachment at `path` (an owner's page, as
+ * `pathFor` / `resolveAttachmentOwner` give it). For a trade that is two
+ * pages: its own, and the trade list, whose rows count their screenshots —
+ * only the first was revalidated while the list showed none of this.
+ */
+export function revalidateAttachmentViews(path: string): void {
+  revalidatePath(path);
+  if (path.startsWith("/trades/")) revalidatePath("/trades");
 }
 
 /** One attachment, if the user owns it; null otherwise — never a hint which. */

@@ -1,13 +1,14 @@
 import "server-only";
 import { TZDate } from "@date-fns/tz";
 import { summarize, groupBy, tradingWeekday } from "@/lib/metrics";
+import { groupByDuration } from "@/lib/metrics/duration";
 import type { Weekday } from "@/lib/metrics/session";
 import { toTradeRow } from "@/lib/trade-service";
 import { type DateWindow } from "@/lib/range";
 
 import { type AnalyticsCtx, type EnrichedRow, enrich, fetchAccountData, withinWindow } from "./context";
 import { type BreakdownRow, byNetPnlDesc, mapGroup, toBreakdownRow } from "./serialize";
-import { HOLDING_BUCKETS, PLAN_LABELS, SESSION_LABELS, WEEKDAY_LABELS, WEEKDAY_ORDER } from "./labels";
+import { HOLDING_LABELS, PLAN_LABELS, SESSION_LABELS, WEEKDAY_LABELS, WEEKDAY_ORDER } from "./labels";
 
 /** Grouped performance: by symbol, session, weekday, plan adherence, tag and
  * holding time. Each returns `BreakdownRow[]`, sorted by net P&L. */
@@ -68,15 +69,9 @@ export async function breakdowns(ctx: AnalyticsCtx): Promise<Breakdowns> {
 export async function holdingBuckets(ctx: AnalyticsCtx): Promise<BreakdownRow[]> {
   const { trades } = await fetchAccountData(ctx.userId, ctx.accountId);
   const window: DateWindow = { from: ctx.from, to: ctx.to };
-  const rows = trades.filter((t) => withinWindow(t.openedAt, window) && t.holdingMinutes !== null).map(toTradeRow);
+  const rows = trades.filter((t) => withinWindow(t.openedAt, window)).map(toTradeRow);
 
-  let floor = 0;
-  return HOLDING_BUCKETS.map((bucket) => {
-    const inBucket = rows.filter((r) => {
-      const m = r.holdingMinutes as number;
-      return m >= floor && m < bucket.max;
-    });
-    floor = bucket.max;
-    return toBreakdownRow(bucket.key, bucket.label, summarize(inBucket));
-  });
+  return groupByDuration(rows).map((bucket) =>
+    toBreakdownRow(bucket.key, HOLDING_LABELS[bucket.key], summarize(bucket.rows)),
+  );
 }

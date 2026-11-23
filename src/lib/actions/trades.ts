@@ -13,6 +13,7 @@ import {
   formEntryMode,
   parseRTradeForm,
   parseTradeForm,
+  tradeNotesSchema,
   type RTradeFormValues,
   type TradeFormValues,
 } from "@/lib/schemas/trade";
@@ -367,6 +368,39 @@ export async function updateTrade(accountId: string, tradeId: string, formData: 
       },
     });
   }
+
+  revalidateTradeViews(tradeId);
+  return ok({ id: tradeId });
+}
+
+// ---------------------------------------------------------------------------
+// setTradeNotes — the note on its own
+// ---------------------------------------------------------------------------
+
+/**
+ * Saves a trade's note and nothing else — from the trade's page, and from the
+ * list's screenshot dialog, where a trade is looked at rather than edited.
+ *
+ * `updateTrade` could not serve: it wants the whole form, recomputes every
+ * derived column and, for a price trade, rewrites its fills. A sentence about
+ * why the trade was taken should not be able to move its P&L.
+ */
+export async function setTradeNotes(accountId: string, tradeId: string, notes: string): Promise<TradeResult> {
+  const found = await accountOrFailure(accountId);
+  if ("failure" in found) return found.failure;
+
+  const parsed = tradeNotesSchema.safeParse({ notes });
+  if (!parsed.success) {
+    return failZod(parsed.error.flatten().fieldErrors as Record<string, string[]>);
+  }
+
+  // updateMany so the account is in the WHERE of the write itself: a trade id
+  // from another account matches nothing, and reads as "not found".
+  const { count } = await prisma.trade.updateMany({
+    where: { id: tradeId, accountId: found.account.id },
+    data: { notes: parsed.data.notes.trim() ? parsed.data.notes : null },
+  });
+  if (count === 0) return failT("tradeNotFound");
 
   revalidateTradeViews(tradeId);
   return ok({ id: tradeId });

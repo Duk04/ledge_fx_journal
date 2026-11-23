@@ -24,6 +24,11 @@
  *  - Weekday stats rank only weekdays that had a closed trade. "Least
  *    profitable day: Saturday, $0" for a weekday nobody trades would be true
  *    and useless.
+ *
+ *  - Total lots sums only trades that HAVE a size. A trade logged in R has
+ *    none (docs/TRADES.md, "R-mode trades") and is left out rather than
+ *    counted as zero — which is why the result carries how many trades it
+ *    covers, and is null, not 0, when no trade in the range was sized.
  */
 import type { Decimal } from "decimal.js";
 import { TZDate } from "@date-fns/tz";
@@ -39,6 +44,8 @@ export interface JournalRow extends TradeRow {
   /** Null on an R-mode trade. */
   entryPrice: Decimal | null;
   exitPrice: Decimal | null;
+  /** Null on an R-mode trade. */
+  volumeLots: Decimal | null;
 }
 
 function closedOnly<T extends TradeRow>(rows: T[]): (T & { closedAt: Date; netPnl: Decimal })[] {
@@ -78,6 +85,31 @@ export function bestDay(days: DailyPnl[], periodNet: Decimal): BestDay | null {
     netPnl: best.netPnl,
     shareOfNet: periodNet.gt(0) ? best.netPnl.div(periodNet) : null,
   };
+}
+
+export interface CumulativePoint {
+  /** "YYYY-MM-DD" in the timezone `days` was built in. */
+  date: string;
+  /** Net P&L of every day up to and including this one. */
+  cumulative: Decimal;
+}
+
+/**
+ * The running total of `days` (which `dailyPnl` returns in date order). A
+ * zero point is plotted on `openingDate` when that is before the first day
+ * with a trade, so the line starts at nothing on the day the range starts —
+ * the same thing `dailyBalance` does with the opening balance.
+ */
+export function cumulativePnl(days: DailyPnl[], openingDate: string | null): CumulativePoint[] {
+  let running = ZERO;
+  const points = days.map((d) => {
+    running = running.plus(d.netPnl);
+    return { date: d.date, cumulative: running };
+  });
+  if (openingDate && (points.length === 0 || openingDate < points[0].date)) {
+    points.unshift({ date: openingDate, cumulative: ZERO });
+  }
+  return points;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +200,20 @@ export function directionSplit(rows: JournalRow[]): DirectionSplit {
   const long = closed.filter((r) => r.direction === "LONG").length;
   const short = closed.length - long;
   return { long, short, longShare: closed.length ? long / closed.length : null };
+}
+
+export interface TotalLots {
+  lots: Decimal;
+  /** How many closed trades the total covers — the ones with a size. */
+  sized: number;
+}
+
+export function totalLots(rows: JournalRow[]): TotalLots | null {
+  const sizes = closedOnly(rows)
+    .map((r) => r.volumeLots)
+    .filter((v): v is Decimal => v !== null);
+  if (sizes.length === 0) return null;
+  return { lots: sizes.reduce((a, b) => a.plus(b), ZERO), sized: sizes.length };
 }
 
 /** The single best and worst closed trade by net P&L. Worst is null unless

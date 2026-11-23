@@ -6,8 +6,9 @@ test("register, reach the dashboard, sign out and back in", async ({ page }) => 
   const { email, password } = await register(page);
 
   // Registration signs the new user straight in. A new user gets a trading account at registration, so the dashboard
-  // renders rather than bouncing to /accounts.
-  await expect(page.getByText("Net P&L").first()).toBeVisible();
+  // renders rather than bouncing to /accounts — with nothing on it yet but the way to bring trades in.
+  await expect(page.getByText("Nothing logged on this account yet")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import a statement" })).toBeVisible();
 
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();

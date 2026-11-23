@@ -11,13 +11,17 @@ All reads live in `src/lib/queries/analytics/` — one module per view
 `journal-stats.ts`, `simulation.ts`), sharing one cached account load
 (`context.ts`) and one serialiser (`serialize.ts`), re-exported from
 `index.ts`. Every
-function takes `{ userId, accountId, from, to }` (`from`/`to` from
-`resolveRange(rangeParam, timezone)`) and returns plain, fully-serialised data
-— no Prisma `Decimal` ever leaves these modules.
+function takes `{ userId, accountId, from, to }` and returns plain,
+fully-serialised data — no Prisma `Decimal` ever leaves these modules. On
+Analytics `from` is `resolveRange(rangeParam, timezone)`, a rolling window; on
+the Overview it is `resolveRangeDays()`, the same keys cut at local midnight
+(see "The Overview" below for why).
 
 | Query | Overview page | Analytics page |
 |---|---|---|
-| `overview()` | Stat row, equity chart, drawdown chart, daily P&L chart, recent trades, open positions, today/week/month P&L, discipline panel | Distribution tab's payoff/expectancy stat row (`overview().summary`) |
+| `journalStats()` | The figure cards, the daily balance and cumulative P&L charts, the daily P&L bars, the two holding-time bar panels | — (also the `/journal` page's cards and balance chart) |
+| `overview()` | Challenge panel (`.prop`), open positions, recent trades | Equity tab: stat row, equity and drawdown charts, today/week/month P&L, discipline panel. Distribution tab's payoff/expectancy stat row (`overview().summary`) |
+| `monthView()` (`queries/journal.ts`) | The month calendar | — |
 | `breakdowns()` | — | Breakdowns tab (symbol/tag/session/direction/plan tables + the insight sentence); Timing tab's weekday table and hour-of-day chart (`.weekday`, `.hourOfDay`) |
 | `rHistogram()` | — | Distribution tab: the R histogram (`.buckets`) and the winners/losers tables (`.topWinners`/`.topLosers`) |
 | `heatmap()` | — | Timing tab's session heatmap |
@@ -27,6 +31,35 @@ function takes `{ userId, accountId, from, to }` (`from`/`to` from
 analytics.ts) is wrapped in React's `cache()`, so calling several of the
 functions above in one request — as the Analytics page does, in parallel —
 shares one DB round trip instead of five.
+
+## The Overview
+
+One page, top to bottom in the order a prop-firm dashboard lays it out: six
+headline cards, the daily balance, the weekday/duration/average cards and the
+best and worst trade, cumulative and daily P&L, trades and win rate by holding
+time, the month calendar, the last ten trades. A challenge panel and open
+positions sit above the cards only when the account has rules or a position
+open. A brand-new account gets one panel — import a statement, or log a trade
+— and none of the rest.
+
+- **Everything range-scoped is `journalStats()`**: closed trades by close
+  date, the calendar's own rule, so a card, a bar and a day cell agree
+  (docs/JOURNAL.md, "Stats").
+- **The range is whole local days.** `resolveRangeDays()` makes "7D" today
+  and the six days before it. The figures are per day — day win %, best day,
+  the bars, end-of-day balance — and a rolling "168 hours ago" window would
+  cut the first day in half and let those numbers drift by the hour.
+- **The calendar pages on its own** with `?month`, starting on the current
+  month; `?range` survives paging and `?month` survives a range change. A day
+  with trades links to `/trades?day=YYYY-MM-DD` (docs/TRADES.md).
+- **Holding-time buckets** are cut by `groupByDuration()`
+  (`src/lib/metrics/duration.ts`), shared with Analytics' Timing table — which
+  buckets trades OPENED in the range, while these bars bucket trades CLOSED
+  in it.
+
+The summary, equity curve, drawdown, streaks and discipline figures that used
+to be the Overview are Analytics' **Equity** tab. They still read
+`overview()` and still use the windows described next.
 
 ## Two different notions of "in range"
 
@@ -46,8 +79,9 @@ purpose:
   null) — that value is also where the equity chart draws its reference
   line, and it is passed down as `overview().equityStartBalance`.
 
-The journal page's figures (`journalStats()`) are a third case and use only
-the chronological window, by `closedAt` — see docs/JOURNAL.md, "Stats".
+The Overview's and the journal page's figures (`journalStats()`) are a third
+case and use only the chronological window, by `closedAt` — see
+docs/JOURNAL.md, "Stats".
 
 `recentTrades`, `openTrades`, and `todayPnl`/`weekPnl`/`monthPnl` ignore the
 range entirely — they answer "what's happening right now", so switching the

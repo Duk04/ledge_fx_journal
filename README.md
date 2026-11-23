@@ -18,10 +18,14 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   multiple, risk amount, holding time and market session are all derived by
   one shared formula layer (`src/lib/metrics`) and stored on the trade, never
   recomputed ad hoc or guessed by hand. See `docs/DATA-MODEL.md`.
-- **A real dashboard** — equity curve, drawdown, daily P&L, win rate,
-  profit factor, expectancy, discipline stats (plan-followed rate, trades
-  with no stop, average emotion), and a "what's happening right now" panel
-  that ignores the date-range picker on purpose.
+- **One page that says how you are doing** — the Overview: net P&L, trade and
+  day win rates, profit factor, the daily balance, best and worst days and
+  trades, how long winners and losers are held, a month calendar with weekly
+  totals, and the latest trades, laid out like a prop-firm dashboard. The
+  equity curve, drawdown and discipline stats (plan-followed rate, trades
+  with no stop, average emotion) are a tab in Analytics.
+- **Three things in the navigation** — Overview, Trades, Import. Every other
+  tool is under "More tools" in the rail, and in the ⌘K palette.
 - **Prop-firm challenges** — daily loss limit, static or trailing max
   drawdown, profit target and minimum trading days per account, tracked on
   the dashboard. See `docs/ANALYTICS.md`.
@@ -53,6 +57,8 @@ target, size, screenshots, tags, mood — and let the app do the arithmetic
   `src/lib/risk.ts`.
 - **Screenshots on every trade** — drag/drop, file picker, or paste a chart
   screenshot straight from the clipboard; before/after tagging and captions;
+  added from the trade list too, one dialog walking a batch of imported
+  trades with a line of notes each;
   stored locally on disk or in an S3-compatible bucket depending on
   configuration. See `docs/PWA.md`'s sibling concerns and `src/lib/storage.ts`.
 - **A daily journal** — a pre-market plan and an end-of-day review per
